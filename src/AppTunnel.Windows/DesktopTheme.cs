@@ -4,28 +4,52 @@ using System.Drawing.Drawing2D;
 using System.Drawing.Text;
 using System.Reflection;
 using System.Runtime.InteropServices;
+using Microsoft.Win32;
 
 namespace AppTunnel.Windows;
 
+internal enum ThemeMode { System, Light, Dark }
+
 internal static class DesktopTheme
 {
-    // The Midnight tokens are from Cartigma's feature/ranking theme palette.
-    public static readonly Color Background = Color.FromArgb(11, 16, 24);
-    public static readonly Color Surface = Color.FromArgb(17, 24, 39);
-    public static readonly Color Raised = Color.FromArgb(26, 36, 52);
-    public static readonly Color Field = Background;
-    public static readonly Color Border = Color.FromArgb(40, 53, 73);
-    public static readonly Color Hover = Color.FromArgb(35, 48, 67);
-    public static readonly Color Selection = Color.FromArgb(31, 44, 62);
-    public static readonly Color Text = Color.FromArgb(235, 239, 247);
-    public static readonly Color Muted = Color.FromArgb(165, 178, 197);
-    public static readonly Color Disabled = Color.FromArgb(124, 142, 166);
-    public static readonly Color Accent = Color.FromArgb(246, 202, 71);
-    public static readonly Color AccentInk = Color.FromArgb(40, 30, 10);
-    public static readonly Color Green = Color.FromArgb(152, 219, 182);
-    public static readonly Color GreenWash = Color.FromArgb(26, 50, 45);
-    public static readonly Color Amber = Color.FromArgb(246, 202, 71);
-    public static readonly Color AmberWash = Color.FromArgb(52, 43, 25);
+    public static bool IsDark { get; private set; }
+
+    public static bool ResolveDark(ThemeMode mode)
+    {
+        if (mode is ThemeMode.Light or ThemeMode.Dark) return mode == ThemeMode.Dark;
+        try
+        {
+            return Registry.GetValue(@"HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize",
+                "AppsUseLightTheme", 1) is 0;
+        }
+        catch (Exception error) when (error is UnauthorizedAccessException or System.Security.SecurityException)
+        {
+            return false;
+        }
+    }
+
+    public static void Apply(ThemeMode mode) => IsDark = ResolveDark(mode);
+
+    // The dark palette uses Cartigma's Midnight colors.
+    public static Color Background => Palette(0x0b1018, 0xf3f5f9);
+    public static Color Surface => Palette(0x111827, 0xffffff);
+    public static Color Raised => Palette(0x1a2434, 0xe9eef5);
+    public static Color Field => Palette(0x0b1018, 0xfbfcff);
+    public static Color Border => Palette(0x283549, 0xcbd4e1);
+    public static Color Hover => Palette(0x233043, 0xdde6f3);
+    public static Color Selection => Palette(0x1f2c3e, 0xe1ebf8);
+    public static Color Text => Palette(0xebeff7, 0x182436);
+    public static Color Muted => Palette(0xa5b2c5, 0x526179);
+    public static Color Disabled => Palette(0x7c8ea6, 0x657389);
+    public static Color Accent => Palette(0xf6ca47, 0x255ba9);
+    public static Color AccentInk => Palette(0x281e0a, 0xffffff);
+    public static Color AccentHover => Palette(0xfbdb75, 0x17498b);
+    public static Color Green => Palette(0x98dbb6, 0x1a6344);
+    public static Color GreenWash => Palette(0x1a322d, 0xd8eee4);
+    public static Color Amber => Palette(0xf6ca47, 0x805000);
+    public static Color AmberWash => Palette(0x342b19, 0xffedc5);
+
+    private static Color Palette(int dark, int light) => Color.FromArgb(unchecked((int)0xff000000) | (IsDark ? dark : light));
 
     private static readonly FontResources Fonts = new();
     private static readonly Dictionary<(float Size, FontStyle Style, bool Display, bool Cyrillic), Font> UiFonts = new();
@@ -212,7 +236,7 @@ internal sealed class ThemeButton : Button
         var primary = Kind == ButtonKind.Primary;
         var quiet = Kind is ButtonKind.Quiet or ButtonKind.Navigation;
         var fill = !Enabled ? quiet ? Color.Transparent : DesktopTheme.Raised :
-            primary ? hovering ? Color.FromArgb(251, 219, 117) : DesktopTheme.Accent :
+            primary ? hovering ? DesktopTheme.AccentHover : DesktopTheme.Accent :
             pressed || Selected ? DesktopTheme.Selection :
             hovering ? DesktopTheme.Hover : quiet ? Color.Transparent : DesktopTheme.Raised;
         var ink = !Enabled ? DesktopTheme.Disabled : primary ? DesktopTheme.AccentInk :
@@ -303,6 +327,7 @@ internal sealed class StatusPill : Label
         SetStyle(ControlStyles.UserPaint | ControlStyles.Opaque | ControlStyles.AllPaintingInWmPaint |
             ControlStyles.OptimizedDoubleBuffer, true);
         AutoSize = false;
+        Anchor = AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Top | AnchorStyles.Bottom;
         Margin = new Padding(0);
     }
 
@@ -312,8 +337,6 @@ internal sealed class StatusPill : Label
         AccessibleName = label;
         tint = foreground;
         fill = background;
-        var text = TextRenderer.MeasureText(label, Font, Size.Empty, TextFormatFlags.SingleLine | TextFormatFlags.NoPadding);
-        Size = new Size(text.Width + DeviceDpi * 31 / 96, DeviceDpi * 24 / 96);
         Invalidate();
     }
 
@@ -321,13 +344,19 @@ internal sealed class StatusPill : Label
     {
         using var background = new SolidBrush(Parent?.BackColor ?? BackColor);
         e.Graphics.FillRectangle(background, ClientRectangle);
-        DesktopTheme.PaintRounded(e.Graphics, ClientRectangle, DeviceDpi * 4 / 96, fill);
+        var padding = DeviceDpi * 10 / 96;
+        var measured = TextRenderer.MeasureText(e.Graphics, Text, Font, Size.Empty,
+            TextFormatFlags.SingleLine | TextFormatFlags.NoPadding);
+        var badge = new Rectangle(0, 0, Math.Min(Width, measured.Width + padding * 4), Height);
+        DesktopTheme.PaintRounded(e.Graphics, badge, DeviceDpi * 4 / 96, fill);
         using var brush = new SolidBrush(tint);
         var dot = DeviceDpi * 6 / 96;
         var left = DeviceDpi * 10 / 96;
         e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
         e.Graphics.FillEllipse(brush, left, (Height - dot) / 2, dot, dot);
         var inset = left + dot * 2;
-        DesktopTheme.PaintText(e.Graphics, Text, Font, new Rectangle(inset, 0, Width - inset - 5, Height), tint);
+        var textArea = new Rectangle(inset, 0, Math.Max(1, badge.Width - inset - padding), Height);
+        TextRenderer.DrawText(e.Graphics, Text, Font, textArea, tint,
+            TextFormatFlags.NoPadding | TextFormatFlags.VerticalCenter | TextFormatFlags.WordBreak);
     }
 }

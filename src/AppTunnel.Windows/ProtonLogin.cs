@@ -9,6 +9,15 @@ internal sealed class ProtonLogin(ProfileStore store)
     private string? pending;
     private DateTime launchTime;
     private DateTime catalogStamp;
+    public bool HasOpenWindow
+    {
+        get
+        {
+            try { return pending is not null || Requests().Any(IsOpen); }
+            catch (Exception error) when (error is IOException or UnauthorizedAccessException) { return true; }
+        }
+    }
+
     public ProtonAccountSnapshot? Catalog { get; private set; }
 
     public void Open(bool create)
@@ -34,7 +43,8 @@ internal sealed class ProtonLogin(ProfileStore store)
         try
         {
             if (create) Signal(directory, "create");
-            ExplorerLauncher.Open(executable, $"{id} {Language}");
+            var theme = DesktopTheme.IsDark ? "dark" : "light";
+            ExplorerLauncher.Open(executable, $"{id} {Language} {theme}");
             pending = directory;
             launchTime = DateTime.UtcNow;
         }

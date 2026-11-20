@@ -87,7 +87,7 @@ internal sealed partial class MainForm
             RowStyles = { new RowStyle(SizeType.Percent, 100) }
         };
 
-        var current = Column(25, 49, 32);
+        var current = Column(34, 44, 28);
         current.Margin = new Padding(0, 0, 15, 0);
         current.Controls.Add(pill, 0, 0);
         liveTitle.Font = Heading(26);
@@ -356,7 +356,7 @@ internal sealed partial class MainForm
     protected override void OnHandleCreated(EventArgs e)
     {
         base.OnHandleCreated(e);
-        var enabled = 1;
+        var enabled = IsDark ? 1 : 0;
         _ = DwmSetWindowAttribute(Handle, 20, ref enabled, sizeof(int));
     }
 

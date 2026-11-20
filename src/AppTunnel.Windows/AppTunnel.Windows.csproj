@@ -11,8 +11,10 @@
     <ApplicationDefaultFont>Segoe UI, 10pt</ApplicationDefaultFont>
   </PropertyGroup>
   <ItemGroup>
+    <AssemblyMetadata Include="TelemetryEndpoint" Value="$(AppTunnelTelemetryEndpoint)" />
     <ProjectReference Include="../AppTunnel.Core/AppTunnel.Core.csproj" />
     <EmbeddedResource Include="Assets/Flags/*.png" LogicalName="AppTunnel.Flags.%(Filename)%(Extension)" />
+    <EmbeddedResource Include="../../docs/telemetry-examples.txt" LogicalName="AppTunnel.TelemetryExamples" />
     <EmbeddedResource Include="Fonts/*.ttf" LogicalName="AppTunnel.Fonts.%(Filename)%(Extension)" />
     <PackageReference Include="System.ServiceProcess.ServiceController" Version="10.0.0" />
   </ItemGroup>

@@ -22,6 +22,9 @@ internal sealed class Preferences
     public bool DiagnosticLogs { get; set; }
     public string Language { get; set; } = "en";
     public ProtocolPreference Protocol { get; set; }
+    public ThemeMode Theme { get; set; }
+    public bool AutoUpdate { get; set; }
+    public DateTimeOffset? LastAutoUpdateCheck { get; set; }
 }
 
 [JsonSourceGenerationOptions(WriteIndented = true)]

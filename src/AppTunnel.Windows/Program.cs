@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Text.Json;
+using AppTunnel.Core;
 using static AppTunnel.Core.Localized;
 
 namespace AppTunnel.Windows;
@@ -17,6 +18,7 @@ internal static class Program
                 if (!WindowsStartup.IsInstalled) return 1;
                 WindowsStartup.SetEnabled(false);
                 new WireSockEngine().Stop();
+                WindowsTelemetry.RemoveForUninstall();
                 return 0;
             }
             catch (Exception error) when (error is IOException or UnauthorizedAccessException or
@@ -24,6 +26,15 @@ internal static class Program
             {
                 return 1;
             }
+        }
+
+        if (args is ["--telemetry-preview", var language])
+        {
+            SetLanguage(language);
+            DesktopTheme.Apply(ThemeMode.System);
+            using var preview = WindowsTelemetry.Create(readOnly: true);
+            TelemetryWindow.Show(null, preview, allowChanges: false);
+            return 0;
         }
 
         var trayOnly = args is ["--startup"];
@@ -40,17 +51,22 @@ internal static class Program
         }
         catch (AbandonedMutexException) { }
 
+        using var telemetry = WindowsTelemetry.Create();
         try
         {
             var store = new ProfileStore();
-            SetLanguage(store.Load().Language);
-            using var context = new AppTunnelApplicationContext(store, activation, setupExit, trayOnly);
+            var preferences = store.Load();
+            SetLanguage(preferences.Language);
+            DesktopTheme.Apply(preferences.Theme);
+            using var context = new AppTunnelApplicationContext(store, telemetry, activation, setupExit, trayOnly);
+            telemetry.RecordStart();
             Application.Run(context);
             return 0;
         }
         catch (Exception error) when (error is IOException or UnauthorizedAccessException or Win32Exception or
             FormatException or InvalidOperationException or JsonException)
         {
+            _ = telemetry.ReportErrorAsync(TelemetryStage.Startup, error);
             MessageBox.Show(error.Message, "AppTunnel", MessageBoxButtons.OK, MessageBoxIcon.Error);
             return 1;
         }

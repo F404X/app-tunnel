@@ -28,6 +28,7 @@ public static class CommonApps
         {
             new("Discord"), new("Discord PTB", "DiscordPTB"), new("Discord Canary", "DiscordCanary"),
             Serein, new("Discord Development", "DiscordDevelopment", "Discord Dev", "DiscordDev"),
+            new("Legcord", "ArmCord"), new("Vesktop", "VencordDesktop"),
             new("Telegram", "Telegram Desktop"), new("Signal", "Signal Desktop", "signal-desktop"),
             new("WhatsApp", "WhatsApp Desktop"), new("Element", "Element Desktop", "element-desktop"),
             new("Steam"), new("Spotify"), new("Viber"), new("Zoom", "Zoom Workplace", "Zoom Meetings")

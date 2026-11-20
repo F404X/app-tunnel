@@ -17,11 +17,16 @@ var sample = $"""
     """;
 var scenarios = new (string Name, Action Check)[]
 {
+    ("telemetry consent, exact previews, deduplication, persistence and failure isolation", TelemetryChecks.Run),
     ("common app aliases preserve all recognized Discord clients and group alternate builds", () =>
     {
         Require(DiscordClients.KnownNames.All(name => CommonApps.Find(name) is not null));
         Require(CommonApps.Find("DiscordPTB")?.Name == "Discord PTB");
         Require(CommonApps.Find("DiscordCanary")?.Name == "Discord Canary");
+        Require(CommonApps.Find("ArmCord")?.Name == "Legcord");
+        Require(CommonApps.Find("VencordDesktop")?.Name == "Vesktop");
+        Require(CommonApps.Find("Equicord") is null && CommonApps.Find("DiscordRocks") is null);
+        Require(CommonApps.Find("Lightcord") is null);
         Require(CommonApps.Find("serein-portable-x64")?.Name == "Serein");
         Require(CommonApps.Find("Telegram Desktop")?.Name == "Telegram");
         Require(CommonApps.Find("signal-desktop")?.Name == "Signal");

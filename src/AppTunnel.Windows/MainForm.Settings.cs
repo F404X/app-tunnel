@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Net.Http;
+using static AppTunnel.Windows.DesktopTheme;
 using static AppTunnel.Core.Localized;
 
 namespace AppTunnel.Windows;
@@ -7,32 +8,75 @@ namespace AppTunnel.Windows;
 internal sealed partial class MainForm
 {
     private readonly CheckBox startup = MakeCheck(T("Start with Windows", "Iniciar com o Windows", "Запускать вместе с Windows"));
+    private readonly CheckBox autoUpdate = MakeCheck(T("Update automatically", "Atualizar automaticamente", "Автоматически обновлять"));
     private readonly ThemeButton checkUpdates = MakeButton(T("Check for updates", "Verificar atualizações", "Проверить обновления"));
     private readonly Label updateStatus = MakeLabel("", muted: true);
     private bool updateBusy;
 
     public bool StartsWithWindows => startup.Checked;
     public event Action? StartupRequested;
+    public event Action<ThemeMode>? ThemeRequested;
+    public ThemeMode PreferredTheme => settings.Theme;
 
     private Control BuildSettingsPage()
     {
         var page = MakePage();
-        var content = Column(34, 30, 28, 20, 34, 40, 35, 0);
+        var content = Column(34, 29, 29, 28, 10, 34, 36, 10, 34, 40, 34, 12, 34, 29, 29, 29, 42, 34, 0);
         content.Controls.Add(SectionTitle(T("Startup", "Inicialização", "Автозапуск")), 0, 0);
         startup.AutoCheck = false;
         startup.Click += (_, _) => StartupRequested?.Invoke();
         content.Controls.Add(startup, 0, 1);
-        content.Controls.Add(MakeLabel(T("Opens AppTunnel in the tray when you sign in to Windows.",
-            "Abre o AppTunnel na bandeja quando você entra no Windows.", "Открывает AppTunnel в трее при входе в Windows."), muted: true), 0, 2);
-        content.Controls.Add(SectionTitle(T("Updates", "Atualizações", "Обновления")), 0, 4);
+        autoUpdate.Checked = settings.AutoUpdate;
+        autoUpdate.Enabled = WindowsStartup.IsInstalled;
+        autoUpdate.CheckedChanged += (_, _) =>
+        {
+            var previous = settings.AutoUpdate;
+            settings.AutoUpdate = autoUpdate.Checked;
+            try { Save(); }
+            catch (Exception error) when (Expected(error))
+            {
+                settings.AutoUpdate = previous;
+                Failure(error);
+            }
+        };
+        content.Controls.Add(autoUpdate, 0, 2);
+        content.Controls.Add(MakeLabel(autoUpdate.Enabled
+            ? T("Automatic updates check daily and install verified releases in the background.",
+                "A atualização automática verifica diariamente e instala versões verificadas em segundo plano.",
+                "Автообновление ежедневно проверяет и устанавливает проверенные версии в фоне.")
+            : T("Automatic installation is available in the installed edition.",
+                "A atualização automática está disponível na edição instalada.",
+                "Автоматическая установка доступна в установленной версии."), muted: true), 0, 3);
+
+        content.Controls.Add(SectionTitle(T("Appearance", "Aparência", "Оформление")), 0, 5);
+        var themes = new ComboBox
+        {
+            DropDownStyle = ComboBoxStyle.DropDownList, FlatStyle = FlatStyle.Flat, Font = Body(),
+            BackColor = Raised, ForeColor = DesktopTheme.Text, Width = 230, Margin = new Padding(0, 2, 0, 0),
+            AccessibleName = T("Color theme", "Tema de cores", "Цветовая тема")
+        };
+        themes.Items.AddRange([
+            T("Follow Windows", "Seguir o Windows", "Как в Windows"),
+            T("Light", "Claro", "Светлая"),
+            T("Dark", "Escuro", "Тёмная")]);
+        themes.SelectedIndex = Enum.IsDefined(settings.Theme) ? (int)settings.Theme : 0;
+        themes.SelectedIndexChanged += (_, _) => BeginInvoke(() => ThemeRequested?.Invoke((ThemeMode)themes.SelectedIndex));
+        content.Controls.Add(MakeBar(themes), 0, 6);
+
+        content.Controls.Add(SectionTitle(T("Updates", "Atualizações", "Обновления")), 0, 8);
         checkUpdates.Click += async (_, _) => await CheckForUpdates();
         var installed = MakeLabel($"AppTunnel {AppUpdater.CurrentVersion}", muted: true);
         installed.Dock = DockStyle.None;
         installed.AutoSize = true;
         installed.Margin = new Padding(10, 7, 0, 0);
-        content.Controls.Add(MakeBar(checkUpdates, installed), 0, 5);
-        content.Controls.Add(updateStatus, 0, 6);
-        page.Controls.Add(content);
+        content.Controls.Add(MakeBar(checkUpdates, installed), 0, 9);
+        content.Controls.Add(updateStatus, 0, 10);
+        AddPrivacyControls(content, 12);
+        var scroll = new Panel { Dock = DockStyle.Fill, AutoScroll = true, Margin = new Padding(0) };
+        content.Dock = DockStyle.Top;
+        content.Height = 551;
+        scroll.Controls.Add(content);
+        page.Controls.Add(scroll);
         return page;
     }
 
@@ -54,7 +98,32 @@ internal sealed partial class MainForm
         });
     }
 
-    private async Task CheckForUpdates()
+    public bool TrySaveTheme(ThemeMode theme)
+    {
+        if (!Enum.IsDefined(theme) || settings.Theme == theme) return false;
+        var original = settings.Theme;
+        settings.Theme = theme;
+        try { Save(); return true; }
+        catch (Exception error) when (Expected(error))
+        {
+            settings.Theme = original;
+            Failure(error);
+            return false;
+        }
+    }
+
+    public async Task CheckForAutomaticUpdate()
+    {
+        var now = DateTimeOffset.UtcNow;
+        if (!settings.AutoUpdate || !autoUpdate.Enabled || HasPendingOperation ||
+            (settings.LastAutoUpdateCheck is { } last && now - last < TimeSpan.FromHours(24))) return;
+        settings.LastAutoUpdateCheck = now;
+        try { Save(); }
+        catch (Exception error) when (Expected(error)) { return; }
+        await CheckForUpdates(automatic: true);
+    }
+
+    private async Task CheckForUpdates(bool automatic = false)
     {
         if (HasPendingOperation) return;
         updateBusy = true;
@@ -77,18 +146,24 @@ internal sealed partial class MainForm
                 T($"Downloading AppTunnel {version} · {percent}%", $"Baixando AppTunnel {version} · {percent}%", $"Скачивание AppTunnel {version} · {percent}%"));
             var installer = await AppUpdater.DownloadAsync(update, progress, timeout.Token);
             updateStatus.Text = T($"AppTunnel {version} downloaded and verified.", $"AppTunnel {version} foi baixado e verificado.", $"AppTunnel {version} скачан и проверен.");
-            var prompt = T($"Install AppTunnel {version} now? The setup will close the AppTunnel interface and Proton sign-in window.",
-                $"Instalar o AppTunnel {version} agora? O instalador fechará a interface do AppTunnel e a janela de login da Proton.", $"Установить AppTunnel {version}? Установщик закроет интерфейс AppTunnel и окно входа в Proton.");
-            if (MessageBox.Show(this, prompt, "AppTunnel", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
-                return;
-            using var setup = Process.Start(new ProcessStartInfo(installer) { WorkingDirectory = Path.GetDirectoryName(installer)! });
+            if (automatic && !settings.AutoUpdate) return;
+            if (!automatic)
+            {
+                var prompt = T($"Install AppTunnel {version} now? The setup will close the AppTunnel interface and Proton sign-in window.",
+                    $"Instalar o AppTunnel {version} agora? O instalador fechará a interface do AppTunnel e a janela de login da Proton.",
+                    $"Установить AppTunnel {version}? Установщик закроет интерфейс AppTunnel и окно входа в Proton.");
+                if (MessageBox.Show(this, prompt, "AppTunnel", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
+                    return;
+            }
+            var arguments = automatic ? "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /REOPENAPPTUNNEL=1" : "";
+            using var setup = Process.Start(new ProcessStartInfo(installer, arguments) { WorkingDirectory = Path.GetDirectoryName(installer)! });
             if (setup is null)
                 throw new InvalidOperationException(T("The AppTunnel installer did not open.", "O instalador do AppTunnel não abriu.", "Не удалось открыть установщик AppTunnel."));
         }
         catch (Exception error) when (Expected(error) || error is HttpRequestException or OperationCanceledException)
         {
             updateStatus.Text = T("Could not complete the update. Try again.", "Não foi possível concluir a atualização. Tente novamente.", "Не удалось завершить обновление. Попробуйте снова.");
-            Failure(error);
+            if (!automatic) Failure(error);
         }
         finally
         {

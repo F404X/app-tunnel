@@ -6,8 +6,8 @@ public static class DiscordClients
     {
         "Serein", "Discord", "DiscordPTB", "Discord PTB", "DiscordCanary", "Discord Canary",
         "DiscordDevelopment", "Discord Development", "DiscordDev", "Discord Dev", "Vesktop",
-        "Equibop", "Equicord", "ArmCord", "Legcord", "WebCord", "Lightcord", "Dorion",
-        "Dissent", "GoofCord", "Discordo", "DiscordRocks", "Ripcord", "VencordDesktop"
+        "Equibop", "ArmCord", "Legcord", "WebCord", "Dorion",
+        "Dissent", "GoofCord", "Discordo", "Ripcord", "VencordDesktop"
     });
 
     public static string? OfficialName(string executable) => executable.ToLowerInvariant() switch

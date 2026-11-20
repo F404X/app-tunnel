@@ -18,6 +18,7 @@ internal sealed partial class MainForm : Form
     private readonly Preferences settings;
     private readonly TunnelEngines engine;
     private readonly ProtonLogin proton;
+    private readonly Telemetry telemetry;
     private readonly ConcurrentQueue<string> queuedLogs = new();
     private readonly Queue<string> history = new();
     private readonly System.Windows.Forms.Timer monitor = new() { Interval = 450 };
@@ -67,10 +68,11 @@ internal sealed partial class MainForm : Form
     private ThemeButton[] navigationButtons = [];
     private readonly Dictionary<Guid, long?> latencies = new();
 
-    public MainForm(ProfileStore store, ProtonLogin proton)
+    public MainForm(ProfileStore store, ProtonLogin proton, Telemetry telemetry)
     {
         this.store = store;
         this.proton = proton;
+        this.telemetry = telemetry;
         settings = store.Load();
         engine = new TunnelEngines(AddLog, new WireSockEngine());
         activeSession = engine.GetActive();
@@ -500,6 +502,8 @@ internal sealed partial class MainForm : Form
         operation = !starting ? T("Disconnecting…", "Desconectando…", "Отключение…") :
             activeSession is not null ? T("Applying changes…", "Aplicando ajustes…", "Применение настроек…") : T("Connecting…", "Conectando…", "Подключение…");
         busy = true;
+        var attemptStarted = Stopwatch.GetTimestamp();
+        VpnProtocol? attemptProtocol = null;
         UpdateState();
         try
         {
@@ -507,6 +511,7 @@ internal sealed partial class MainForm : Form
             {
                 await Task.Run(engine.Stop);
                 activeSession = null;
+                telemetry.RecordEvent(TelemetryEvent.Disconnected);
                 healthDetails.Text = "";
                 AddLog(T("VPN disconnected. Apps return to their normal connection.", "VPN desligada. Os programas voltam à conexão normal.", "VPN отключён. Приложения используют обычное соединение."));
                 footer.Text = T("VPN disconnected. Reopen the call or client to establish new connections.", "VPN desligada. Reabra a chamada ou o cliente para renovar as conexões.", "VPN отключён. Перезапустите приложение или заново подключитесь к звонку.");
@@ -531,8 +536,12 @@ internal sealed partial class MainForm : Form
             var primary = new VpnRoute<StoredProfile>(route, route.Endpoint, route.Protocol);
             var plan = VpnProtocols.Plan(preference, primary,
                 profiles.Select(profile => new VpnRoute<StoredProfile>(profile, profile.Endpoint, profile.Protocol)));
+            attemptProtocol = plan[0].Protocol;
             activeSession = await Task.Run(() => engine.Connect(plan, profile => store.Read(profile.Id), routed,
                 requested.Select(target => target.Match).ToArray(), options, verbose, preferredPath, preference, AddLog));
+            telemetry.RecordConnection(activeSession.Protocol, Stopwatch.GetElapsedTime(attemptStarted), success: true);
+            telemetry.RecordEvent(TelemetryEvent.Connected);
+            attemptProtocol = null;
             recoveryUsed = false;
             ReadActiveDiagnostics(activeSession);
             AddLog(T("The WireSock VPN service is running.", "O serviço VPN do WireSock está em execução.", "Служба WireSock VPN запущена."));
@@ -543,6 +552,9 @@ internal sealed partial class MainForm : Form
         }
         catch (Exception e) when (Expected(e))
         {
+            if (attemptProtocol is { } protocol) telemetry.RecordConnection(protocol, Stopwatch.GetElapsedTime(attemptStarted), success: false);
+            if (!starting || attemptProtocol is not null)
+                _ = telemetry.ReportErrorAsync(starting ? TelemetryStage.Connect : TelemetryStage.Disconnect, e);
             Attempt(() => activeSession = engine.GetActive());
             Failure(e);
         }
@@ -820,7 +832,11 @@ internal sealed partial class MainForm : Form
             if (activeSession?.ConfigPath != session?.ConfigPath)
             {
                 if (activeSession is not null && session is null)
+                {
+                    telemetry.RecordEvent(TelemetryEvent.ServiceStopped);
+                    _ = telemetry.ReportErrorAsync(TelemetryStage.Service, new InvalidOperationException());
                     footer.Text = T("The Windows service stopped.", "O serviço do Windows parou.", "Служба Windows остановилась.");
+                }
                 activeSession = session;
                 UpdateState();
             }

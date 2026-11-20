@@ -179,9 +179,17 @@ O Proton Stealth está disponível nos clientes oficiais da Proton. Os arquivos 
 
 Com **Iniciar com o Windows** ativado, o AppTunnel abre na bandeja quando você entra na sua conta do Windows. Para ligar a VPN após reiniciar o PC, abra o AppTunnel e clique em **Conectar**.
 
+## Aparência e privacidade
+
+Em **Configurações → Aparência**, o tema padrão acompanha a preferência de cores do Windows. Também há opções de tema **Claro** e **Escuro**.
+
+O instalador e **Configurações → Privacidade e feedback** oferecem **Enviar estatísticas anônimas**, **Relatórios automáticos de erros** e **Incluir diagnósticos detalhados**. Cada opção começa desmarcada. Use **Visualizar dados enviados** para conferir os campos, as prévias e o histórico local. O envio de cada relatório de diagnóstico exige autorização própria. [Política de privacidade](docs/PRIVACY.md) · [Infraestrutura e testes](telemetry/README.md)
+
 ## Atualizar o AppTunnel
 
 Abra **Configurações (Settings) → Verificar atualizações (Check for updates)**. Se houver uma versão mais recente com instalador no GitHub, o AppTunnel baixa e verifica o arquivo, incluindo versões de prévia. Confirme quando aparecer a opção de instalar e siga o assistente. A atualização preserva perfis, preferências e o serviço da VPN em execução.
+
+Na edição instalada, **Atualizar automaticamente**, logo abaixo de **Iniciar com o Windows**, verifica uma vez por dia e instala a atualização verificada em segundo plano. O app volta para a bandeja com as preferências existentes.
 
 Se estiver na versão 0.4.0 ou anterior, baixe o instalador pela página de [Releases](https://github.com/F404X/app-tunnel/releases).
 
@@ -206,6 +214,7 @@ Para compilar no Windows, instale o **SDK .NET 10** e execute na raiz do reposit
 .\Compilar.ps1
 dotnet run --project tests/AppTunnel.Checks -c Release
 node tests/proton-portal.test.cjs
+node --test tests/telemetry.test.mjs
 ```
 
 Use `./Compilar.ps1 -SelfContained` para incluir o .NET no pacote. O arquivo `installer/AppTunnel.iss` gera o instalador com o Inno Setup 6.3 ou superior. O workflow **Build and publish Windows release** valida o instalador e testa instalação, atualização e remoção no Windows após mudanças no código da branch `main`. Para publicar, marque **Publish GitHub release** na execução manual ou envie à `main` um commit com a mensagem exata `Release AppTunnel vX.Y.Z` e a versão correspondente em `Directory.Build.props`. Publicações por commit saem como prévia. O build distribui somente os recursos de idioma usados pela interface.

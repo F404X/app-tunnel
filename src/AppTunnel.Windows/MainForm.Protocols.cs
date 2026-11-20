@@ -40,6 +40,15 @@ internal sealed partial class MainForm
         lastHealth = state;
         healthDetails.Text = TunnelDiagnostics.Describe(state);
         if (state != TunnelHealth.Unknown) AddLog(healthDetails.Text);
+        var ev = state switch
+        {
+            TunnelHealth.HandshakeReceived => TelemetryEvent.HandshakeResponse,
+            TunnelHealth.HandshakeTimedOut => TelemetryEvent.HandshakeTimeout,
+            TunnelHealth.EndpointResolutionFailed => TelemetryEvent.EndpointFailure,
+            TunnelHealth.RoutingFailed => TelemetryEvent.RoutingFailure,
+            _ => (TelemetryEvent?)null
+        };
+        if (ev is { } item) telemetry.RecordEvent(item);
         return state;
     }
 
@@ -69,6 +78,7 @@ internal sealed partial class MainForm
         }
         catch (Exception error) when (Expected(error))
         {
+            _ = telemetry.ReportErrorAsync(TelemetryStage.Recovery, error);
             AddLog(error.Message);
             footer.Text = T("Automatic recovery did not find a working alternative. See Diagnostics.",
                 "A recuperação automática não encontrou uma alternativa. Consulte Diagnóstico.",

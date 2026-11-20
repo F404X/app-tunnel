@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using AppTunnel.Core;
 using static AppTunnel.Core.Localized;
 
 namespace AppTunnel.Windows;
@@ -9,13 +10,18 @@ internal sealed class AppTunnelApplicationContext : ApplicationContext
     private readonly NotifyIcon tray;
     private readonly System.Windows.Forms.Timer activationTimer = new() { Interval = 230 };
     private readonly ProtonLogin proton;
+    private readonly Telemetry telemetry;
+    private long nextThemePoll;
+    private long nextMaintenance;
+    private bool updating;
     private MainForm window;
     private bool exiting;
     private bool preparingSetup;
 
-    public AppTunnelApplicationContext(ProfileStore store, EventWaitHandle activation, EventWaitHandle setupExit, bool trayOnly)
+    public AppTunnelApplicationContext(ProfileStore store, Telemetry telemetry, EventWaitHandle activation, EventWaitHandle setupExit, bool trayOnly)
     {
         this.store = store;
+        this.telemetry = telemetry;
         proton = new ProtonLogin(store);
         tray = new NotifyIcon
         {
@@ -40,14 +46,34 @@ internal sealed class AppTunnelApplicationContext : ApplicationContext
             }
 
             if (!preparingSetup && activation.WaitOne(0)) ShowWindow();
+            if (preparingSetup || window.HasPendingOperation || Application.OpenForms.Cast<Form>().Any(form => form.Modal)) return;
+            var now = Environment.TickCount64;
+            if (now >= nextThemePoll)
+            {
+                nextThemePoll = now + 2000;
+                if (DesktopTheme.ResolveDark(window.PreferredTheme) != DesktopTheme.IsDark)
+                {
+                    window.SaveInterface();
+                    DesktopTheme.Apply(window.PreferredTheme);
+                    RecreateWindow();
+                }
+            }
+            if (now < nextMaintenance || updating) return;
+            nextMaintenance = now + 60_000;
+            _ = telemetry.SendStatisticsAsync();
+            if (proton.HasOpenWindow) return;
+            updating = true;
+            try { await window.CheckForAutomaticUpdate(); }
+            finally { updating = false; }
         };
         activationTimer.Start();
     }
 
     private MainForm CreateWindow()
     {
-        var form = new MainForm(store, proton);
+        var form = new MainForm(store, proton, telemetry);
         form.LanguageRequested += ChangeLanguage;
+        form.ThemeRequested += ChangeTheme;
         form.StartupRequested += () => SetStartup(!form.StartsWithWindows);
         form.RefreshStartup();
         form.FormClosing += OnWindowClosing;
@@ -102,11 +128,24 @@ internal sealed class AppTunnelApplicationContext : ApplicationContext
     private void ChangeLanguage(string language)
     {
         if (window.HasPendingOperation || !window.TrySaveLanguage(language)) return;
+        SetLanguage(language);
+        RecreateWindow();
+    }
+
+    private void ChangeTheme(ThemeMode mode)
+    {
+        if (window.HasPendingOperation || !window.TrySaveTheme(mode)) return;
+        DesktopTheme.Apply(mode);
+        RecreateWindow();
+    }
+
+    private void RecreateWindow()
+    {
         var previous = window;
         var state = previous.WindowState;
         var bounds = previous.WindowState == FormWindowState.Normal ? previous.Bounds : previous.RestoreBounds;
         var page = previous.CurrentPage;
-        SetLanguage(language);
+        var visible = previous.Visible;
         window = CreateWindow();
         window.StartPosition = FormStartPosition.Manual;
         if (!bounds.IsEmpty) window.Bounds = bounds;
@@ -114,7 +153,7 @@ internal sealed class AppTunnelApplicationContext : ApplicationContext
         window.ShowPage(page);
         BuildTrayMenu();
         previous.Dispose();
-        ShowWindow(restoreTray: false);
+        if (visible) ShowWindow(restoreTray: false);
     }
 
     private void OnWindowClosing(object? sender, FormClosingEventArgs args)

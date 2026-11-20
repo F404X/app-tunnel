@@ -14,7 +14,7 @@ internal static class Program
     [STAThread]
     private static void Main(string[] args)
     {
-        if (args.Length != 2 || !Guid.TryParseExact(args[0], "N", out var request)) return;
+        if (args.Length is < 2 or > 3 || !Guid.TryParseExact(args[0], "N", out var request)) return;
         SetLanguage(args[1]);
         var root = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AppTunnel", "Proton");
         var inbox = Path.Combine(root, "request-" + request.ToString("N"));
@@ -31,7 +31,7 @@ internal static class Program
             }
 
             ApplicationConfiguration.Initialize();
-            using var window = new AccountWindow(root, inbox);
+            using var window = new AccountWindow(root, inbox, dark: args.Length == 2 || args[2] == "dark");
             Application.Run(window);
         }
         catch (Exception error) when (error is IOException or UnauthorizedAccessException or COMException or InvalidOperationException)
@@ -62,7 +62,7 @@ internal sealed class AccountWindow : Form
     private bool ready;
     private string? lastCatalog;
 
-    public AccountWindow(string root, string inbox)
+    public AccountWindow(string root, string inbox, bool dark)
     {
         this.root = root;
         this.inbox = inbox;
@@ -71,8 +71,8 @@ internal sealed class AccountWindow : Form
         StartPosition = FormStartPosition.CenterScreen;
         ClientSize = new Size(1040, 760);
         MinimumSize = new Size(680, 500);
-        BackColor = Color.FromArgb(17, 24, 39);
-        ForeColor = Color.FromArgb(235, 239, 247);
+        BackColor = dark ? Color.FromArgb(17, 24, 39) : Color.FromArgb(243, 245, 249);
+        ForeColor = dark ? Color.FromArgb(235, 239, 247) : Color.FromArgb(24, 36, 54);
         var layout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 2 };
         layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 48));
         layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));

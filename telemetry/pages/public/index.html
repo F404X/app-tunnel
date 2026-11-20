@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>AppTunnel | Telemetria</title>
+  <link rel="stylesheet" href="styles.css">
+  <script type="module" src="dashboard.js"></script>
+</head>
+<body>
+  <main>
+    <header><h1>AppTunnel <span>Telemetria</span></h1><p>Estatísticas agregadas em UTC</p></header>
+    <form id="filters">
+      <label>Período<select name="days"><option value="7">7 dias</option><option selected value="14">14 dias</option><option value="30">30 dias</option></select></label>
+      <label>Sistema<select name="os"><option value="">Todos</option><option>windows-10</option><option>windows-11</option><option value="other">Outros</option></select></label>
+      <label>Versão<select name="version"><option value="">Todas</option></select></label>
+      <label>Protocolo<select name="protocol"><option value="">Todos</option><option>wireguard</option><option>wireguard-padding</option><option>amneziawg</option></select></label>
+      <button>Aplicar filtros</button>
+    </form>
+    <p id="status" role="status"></p>
+    <div id="totals" class="totals"></div>
+    <div class="grid">
+      <section><h2>Conexões por dia</h2><canvas id="chart" height="225" aria-label="Tentativas de conexão por dia" role="img"></canvas><details><summary>Ver valores por dia</summary><div id="days"></div></details></section>
+      <section><h2>Protocolos</h2><div id="protocols"></div><h2>Versões</h2><div id="versions"></div></section>
+      <section><h2>Erros recorrentes</h2><div id="errors"></div></section>
+      <section><h2>Desempenho e diagnósticos</h2><div id="performance"></div><div id="events"></div></section>
+    </div>
+    <section class="maintenance"><h2>Retenção</h2><p>As contagens expiram após 30 dias. A exclusão remove todas as contagens do servidor.</p><button id="purge" class="danger">Excluir dados do servidor</button></section>
+    <dialog id="confirmation">
+      <form method="dialog">
+        <h2>Excluir dados do servidor?</h2><p>Isso remove permanentemente todas as contagens agregadas.</p>
+        <button value="cancel" autofocus>Cancelar</button><button class="danger" value="purge">Excluir todos</button>
+      </form>
+    </dialog>
+  </main>
+</body>
+</html>
