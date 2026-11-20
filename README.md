@@ -67,6 +67,79 @@ Guarde os arquivos `.conf` em um local privado. Eles contêm a chave privada do 
 
 O painel superior mostra o **servidor em uso** e seu endereço. Para trocar, selecione outra linha em **Rotas** e clique em **Trocar servidor (Switch server)**. Se mudar os aplicativos ou os filtros durante a conexão, clique em **Aplicar ajustes (Apply settings)**.
 
+## Como o AppTunnel funciona por dentro
+
+O AppTunnel transforma um **perfil WireGuard da Proton**, uma lista de **executáveis ou pastas** e filtros de **destino IP** em uma configuração de sessão. A interface em C# prepara o arquivo e controla o serviço do Windows. O WireSock aplica as regras aos pacotes TCP e UDP e faz a comunicação WireGuard com o servidor da Proton. [Código que gera a configuração](src/AppTunnel.Core/WireGuardProfile.cs) · [Documentação do WireSock](https://wiresock.net/documentation/wiresock-secure-connect/advanced-parameters)
+
+### Como o WireSock decide para onde vai cada pacote
+
+```mermaid
+flowchart TD
+    Packet["Pacote TCP ou UDP"] --> App{"Executável em AllowedApps?"}
+    App -->|Sim| Route{"Destino em AllowedIPs?"}
+    Route -->|Sim| Exclusion{"Destino em DisallowedIPs?"}
+    App -->|Não| Direct["Conexão direta"]
+    Route -->|Não| Direct
+    Exclusion -->|Sim| Direct
+    Exclusion -->|Não| Proton["Túnel WireGuard até a Proton"]
+```
+
+| Regra | Como o AppTunnel a monta |
+| --- | --- |
+| `#@ws:AllowedApps` | Usa os caminhos completos dos executáveis e pastas marcados. Uma pasta inclui os executáveis dentro dela, inclusive em subpastas. |
+| `AllowedIPs` | Parte das redes autorizadas pelo perfil. Cada IP ou faixa em **Pela VPN** precisa estar dentro de uma dessas redes. O IPv6 entra quando está habilitado e o perfil traz tanto endereço IPv6 quanto rota IPv6. |
+| `#@ws:DisallowedIPs` | Inclui os IPs ou faixas em **Pela conexão direta**. Com a opção de rede local ativada, inclui também faixas predefinidas, como `192.168.0.0/16`. Essas exclusões se aplicam mesmo a executáveis marcados. |
+
+Por exemplo, com o **Serein** marcado, o **navegador** desmarcado e a **rede local** configurada para sair direto, as mesmas regras produzem estes três resultados.
+
+| Aplicativo | Destino de exemplo | Caminho |
+| --- | --- | --- |
+| Serein | IP público de um servidor de voz, dentro de `AllowedIPs` | Proton VPN |
+| Navegador | O mesmo IP público | Conexão direta |
+| Serein | `192.168.1.10`, dentro de uma faixa excluída | Conexão direta |
+
+Estas são as linhas de roteamento da seção `[Peer]` nesse exemplo, com uma das faixas da rede local.
+
+```ini
+AllowedIPs = 0.0.0.0/0
+#@ws:AllowedApps = C:\Users\Ana\AppData\Local\Programs\Serein\serein.exe
+#@ws:DisallowedIPs = 192.168.0.0/16
+```
+
+No modo transparente, o AppTunnel omite o campo `DNS` do perfil ao gerar a sessão. A resolução de nomes segue a configuração do Windows ou do próprio aplicativo. As regras de destino trabalham com IPs e redes CIDR. [Filtros na configuração](src/AppTunnel.Core/WireGuardProfile.cs) · [Parâmetros do WireSock](https://wiresock.net/documentation/wiresock-secure-connect/advanced-parameters)
+
+### Da conta Proton ao arquivo de sessão
+
+A janela de conta roda em `AppTunnel.Proton.exe`, um processo sem elevação que abre a página oficial em WebView2. Após o login, ela identifica perfis expostos pela página e importa as configurações completas disponíveis. Quando a chave privada de um perfil antigo está indisponível, use o `.conf` original ou crie um perfil novo. O mesmo validador atende ao login e à importação manual, aceitando uma seção `[Interface]` e um único `[Peer]`, com chaves, endereços, destinos e endpoint válidos. [Janela da Proton](src/AppTunnel.Proton/Program.cs) · [Validador WireGuard](src/AppTunnel.Core/WireGuardProfile.cs)
+
+![O perfil WireGuard salvo é cifrado com DPAPI em LocalAppData. Ao conectar, o AppTunnel gera session.conf em ProgramData com acesso restrito ao proprietário, ao SYSTEM e aos administradores.](docs/images/wireguard-session.png)
+
+O **DPAPI** também cifra os perfis transferidos localmente entre a janela da Proton e a interface. A cópia usada pelo WireSock recebe uma **ACL**, a lista de permissões de acesso do Windows. O registro `HKLM\SOFTWARE\AppTunnel` guarda os metadados da sessão, incluindo o SID do proprietário e os caminhos do WireSock e do arquivo de configuração. Ao reabrir, o AppTunnel confere esses dados com o serviço do Windows para recuperar a rota ativa. [Armazenamento do perfil](src/AppTunnel.Windows/ProfileStore.cs) · [Controle do serviço](src/AppTunnel.Windows/WireSockEngine.cs) · [DPAPI no Windows](https://learn.microsoft.com/en-us/windows/win32/api/dpapi/nf-dpapi-cryptprotectdata)
+
+### O que ocorre ao conectar e trocar de rota
+
+```mermaid
+sequenceDiagram
+    participant UI as AppTunnel
+    participant Core as AppTunnel.Core
+    participant CLI as WireSock CLI
+    participant SCM as Serviços do Windows
+    UI->>Core: Validar perfil, aplicativos e destinos
+    Core-->>UI: Gerar configuração da sessão
+    UI->>CLI: Registrar serviço com início manual
+    UI->>SCM: Solicitar início do serviço e consultar status
+    alt Serviço iniciado
+        SCM-->>UI: Running
+    else Falha ao iniciar
+        SCM-->>UI: Erro ou tempo limite
+        UI->>CLI: Tentar restaurar a sessão anterior
+    end
+```
+
+- **Aplicar ajustes** e **Trocar servidor** substituem a configuração e reiniciam o serviço. Se a nova sessão falhar, o AppTunnel tenta restaurar a anterior. O indicador **Serviço VPN do WireSock em execução** vem do estado `Running` do serviço. Para validar o caminho de ponta a ponta, gere tráfego em um aplicativo marcado. [Controle do serviço](src/AppTunnel.Windows/WireSockEngine.cs)
+- **Discord, PTB e Canary** recebem a opção de reiniciar quando estão abertos e pertencem à rota aplicada. O reinício recria as conexões já abertas. O Serein fica fora desse fluxo. [Regras de reinício](src/AppTunnel.Windows/DiscordRestart.cs) · [Aplicação da rota](src/AppTunnel.Windows/MainForm.cs)
+- **Sair da interface** fecha o processo da bandeja. O serviço do WireSock continua ativo como processo independente. **Iniciar com o Windows** registra uma tarefa por usuário que abre a interface na bandeja ao fazer login. [Bandeja](src/AppTunnel.Windows/AppTunnelApplicationContext.cs) · [Inicialização do Windows](src/AppTunnel.Windows/WindowsStartup.cs)
+
 ## Bandeja e desconexão
 
 | O que você quer fazer | Onde clicar |
