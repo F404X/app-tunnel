@@ -3,9 +3,9 @@
         return { ready: false, profiles: [] };
     }
 
-    const form = document.getElementById('certificate-device-name');
+    const field = document.getElementById('certificate-device-name');
     const entries = [...document.querySelectorAll('details[data-certificate-id]')].slice(0, 512);
-    if (!form && entries.length === 0) {
+    if (!field && entries.length === 0) {
         const link = [...document.querySelectorAll('a[href]')]
             .find(anchor => anchor.origin === location.origin && anchor.pathname !== location.pathname &&
                 /^\/(?:u\/\d+\/)?(?:downloads|my-vpn\/download-apps)\/?$/.test(anchor.pathname));
@@ -33,11 +33,18 @@
         if (profile && !profiles.some(entry => entry.configuration === profile.configuration)) profiles.push(profile);
     }
     // The official catalog places its read-only paging control immediately before the creation form.
-    const paging = form?.closest('form')?.previousElementSibling;
+    const form = field?.form;
+    const paging = form?.previousElementSibling;
     const more = paging?.matches('[aria-busy="true"]') && paging.querySelector(':scope > button[type=button][title]');
-    if (more && entries.length < 512 && !more.disabled && more.dataset.appTunnelCount !== String(entries.length)) {
+    const loadingMore = !!more && entries.length < 512;
+    if (loadingMore && !more.disabled && more.dataset.appTunnelCount !== String(entries.length)) {
         more.dataset.appTunnelCount = String(entries.length);
         more.click();
     }
-    return { ready: true, profiles };
+    const windows = document.getElementById('wg-platform-Windows');
+    const canChooseServer = !!form && windows?.form === form && !windows.disabled &&
+        !field.disabled && form.querySelectorAll(':scope > h3').length >= 4;
+    const buttons = form?.querySelectorAll('button[type=submit]');
+    const canCreate = canChooseServer && buttons?.length === 1 && !buttons[0].matches(':disabled,[aria-disabled="true"],[aria-busy="true"]');
+    return { ready: true, profiles, canCreate, canChooseServer, loadingMore };
 })()

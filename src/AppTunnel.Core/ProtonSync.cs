@@ -15,7 +15,8 @@ public sealed record ProtonAccountSnapshot(bool Ready, ProtonAccountProfile[] Pr
 
 public sealed record ProtonPageProfile(string Name, string? Server, string? Configuration);
 
-public sealed record ProtonPageScan(bool Ready, ProtonPageProfile[] Profiles, string? DownloadsUrl = null);
+public sealed record ProtonPageScan(bool Ready, ProtonPageProfile[] Profiles, string? DownloadsUrl = null,
+    bool CanCreate = false, bool CanChooseServer = false, bool LoadingMore = false);
 
 [JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase)]
 [JsonSerializable(typeof(ProtonConfiguration))]

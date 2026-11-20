@@ -5,8 +5,8 @@ O AppTunnel conecta o Serein e outros clientes Discord à Proton VPN por meio de
 ## Instalar e conectar
 
 1. Baixe o **AppTunnel-Setup-x64.exe** em [Releases](https://github.com/F404X/app-tunnel/releases). Execute o instalador e aceite as opções do WireSock CLI e do Microsoft Edge WebView2 se elas aparecerem. Veja o [guia completo](README.md) para usar o ZIP portátil.
-2. Abra **AppTunnel.exe** e confirme a elevação. Em **Rotas → Conta Proton**, entre na página oficial. **Perfis da conta** lista os perfis encontrados. O AppTunnel salva automaticamente os compatíveis com chave privada disponível na janela.
-3. Clique em **Novo WireGuard** para abrir o formulário oficial, informar um nome, escolher um servidor e criar o perfil. O AppTunnel salva o perfil assim que a Proton o exibe. [Guia da Proton](https://protonvpn.com/support/wireguard-configurations)
+2. Abra **AppTunnel.exe** e confirme a elevação. Em **Rotas → Perfis da conta**, entre na Proton e consulte os perfis encontrados. O AppTunnel salva automaticamente os perfis compatíveis com chave privada disponível na janela.
+3. Para criar um perfil, clique em **Novo WireGuard…**, dê um nome e clique em **Criar com servidor recomendado**. Para escolher a localização, use **Escolher outro servidor…** e clique em **Criar** ao lado do servidor na lista. Mantenha a janela aberta até que o perfil apareça em **Rotas**. [Guia da Proton](https://protonvpn.com/support/wireguard-configurations)
 4. Em **Programas**, use **Explorar aplicativos comuns** para selecionar Serein, Discord e outros clientes detectados. Marque os programas que devem usar a VPN e clique em **Conectar**. Se Discord, PTB ou Canary estiver aberto e incluído na rota, confirme se deseja reiniciá-lo.
 5. Em **Rotas → Protocolo VPN**, use **Automático** para tentar alternativas entre os perfis importados. Veja os [requisitos e limites](README.md#redes-com-filtragem-e-dpi). Para mudar de rota, selecione outro perfil e clique em **Trocar servidor**. O cartão e a coluna **Sessão** identificam o servidor em uso.
 
@@ -22,3 +22,5 @@ Para usar um perfil antigo cuja chave já não aparece na Proton, importe o **.c
 - **Desconectar VPN** encerra e remove o serviço criado para a sessão. Depois de reiniciar o Windows, conecte novamente.
 
 Os perfis são protegidos pela conta do Windows. Durante a conexão, o serviço lê a configuração da sessão de uma pasta com acesso restrito em ProgramData. O AppTunnel remove essa cópia ao desconectar. Mantenha seus arquivos `.conf` privados.
+
+Leia os [Termos de uso](docs/terms/pt.txt) ou abra **Configurações → Termos de uso** no AppTunnel. O código do projeto está sob a [licença MIT](LICENSE).

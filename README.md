@@ -38,17 +38,18 @@ O aplicativo abre em inglês. Para mudar, clique em **Language → Português** 
 
 ## 3. Escolha o servidor da Proton
 
-Um **perfil WireGuard** guarda o endereço do servidor e a chave necessária para conectar. Você pode criar um perfil na página da Proton ou importar um arquivo que já tenha guardado.
+Um **perfil WireGuard** guarda o endereço do servidor e a chave necessária para conectar. Você pode reaproveitar um perfil da sua conta Proton, criar um pelo assistente ou importar um arquivo que já tenha guardado.
 
 ### Criar um perfil pelo AppTunnel
 
-1. No menu lateral, abra **Rotas (Routes) → Conta Proton (Proton account)**.
-2. Faça login na página oficial que abre na janela da Proton e conclua a verificação em duas etapas se a sua conta pedir.
-3. Volte ao painel do AppTunnel e clique em **Novo WireGuard (New WireGuard)**. O botão leva ao formulário de criação na Proton.
-4. Dê um nome fácil de reconhecer, como `AppTunnel casa`. Confira a opção **Windows**, escolha um servidor disponível no seu plano e clique em **Criar (Create)** na página da Proton.
-5. Aguarde o servidor aparecer na tabela **Rotas** do AppTunnel. O perfil é salvo automaticamente quando a página exibe a configuração completa. Clique na linha da rota para selecioná-la.
+1. Abra **Rotas (Routes) → Perfis da conta (Account profiles)**. Se aparecer a janela de login da Proton, entre na sua conta e conclua a verificação solicitada. Volte ao AppTunnel e abra **Perfis da conta** novamente para ver o que já existe.
+2. Se precisar de um perfil novo, clique em **Novo WireGuard… (New WireGuard…)**. Dê um nome fácil de reconhecer, como `AppTunnel casa`.
+3. Clique em **Criar com servidor recomendado** para usar o servidor sugerido pela Proton. Para escolher a localização, clique em **Escolher outro servidor…** e depois em **Criar** ao lado do servidor na lista da Proton.
+4. Aguarde com a janela aberta até o perfil aparecer em **Rotas**. A configuração é importada automaticamente quando a Proton a exibe completa. Clique na rota para selecioná-la.
 
-Em **Perfis da conta (Account profiles)**, o AppTunnel lista os perfis que encontrou depois do login. Os perfis com uma chave utilizável são importados automaticamente. Se aparecer **Requer o .conf original**, importe o arquivo que você salvou quando criou aquele perfil ou crie um novo. A Proton usa uma chave privada gerada na criação do perfil. [Guia oficial da Proton](https://protonvpn.com/support/wireguard-configurations) · [Implementação da página de configuração](https://github.com/ProtonMail/WebClients/blob/main/packages/components/containers/vpn/WireGuardConfigurationSection/WireGuardConfigurationSection.tsx#L387-L404)
+Cada confirmação de criação adiciona um perfil persistente à sua conta Proton. Login, sincronização, conexão e troca de rota usam os perfis disponíveis. Se a criação ficar sem confirmação, confira **Perfis da conta** antes de tentar outra vez. Para revogar um perfil remoto, abra a conta na Proton.
+
+Os perfis com uma chave utilizável são importados automaticamente. Se aparecer **Requer o .conf original**, importe o arquivo salvo na criação ou crie um novo perfil. A Proton usa uma chave privada gerada na criação do perfil. [Guia oficial da Proton](https://protonvpn.com/support/wireguard-configurations) · [Implementação da página de configuração](https://github.com/ProtonMail/WebClients/blob/main/packages/components/containers/vpn/WireGuardConfigurationSection/WireGuardConfigurationSection.tsx#L387-L404)
 
 ### Usar um arquivo `.conf` que você já tem
 
@@ -110,7 +111,7 @@ No modo transparente padrão, o AppTunnel omite o campo `DNS` do perfil e deixa 
 
 ### Da conta Proton ao arquivo de sessão
 
-A janela de conta roda em `AppTunnel.Proton.exe`, um processo sem elevação que abre a página oficial em WebView2. Após o login, ela identifica perfis expostos pela página e importa as configurações completas disponíveis. Quando a chave privada de um perfil antigo está indisponível, use o `.conf` original ou crie um perfil novo. O mesmo validador atende ao login e à importação manual, aceitando uma seção `[Interface]` e um único `[Peer]`, com chaves, endereços, destinos e endpoint válidos. Para AmneziaWG, o validador também confere os parâmetros de obfuscação da versão compatível. [Janela da Proton](src/AppTunnel.Proton/Program.cs) · [Validador WireGuard](src/AppTunnel.Core/WireGuardProfile.cs)
+A janela de conta roda em `AppTunnel.Proton.exe`, um processo sem elevação que abre a página oficial em WebView2. Após o login, ela lista os perfis que a página exibe e importa as configurações completas. Ao confirmar a criação no assistente, o AppTunnel prepara e envia o formulário oficial com a sessão autenticada, e a página da Proton gera a chave e registra o perfil. O mesmo validador atende à sincronização e à importação manual, aceitando uma seção `[Interface]` e um único `[Peer]`, com chaves, endereços, destinos e endpoint válidos. Para AmneziaWG, o validador também confere os parâmetros de obfuscação da versão compatível. [Janela da Proton](src/AppTunnel.Proton/Program.cs) · [Assistente de criação](src/AppTunnel.Proton/AccountWindow.Creation.cs) · [Validador WireGuard](src/AppTunnel.Core/WireGuardProfile.cs)
 
 ![O perfil WireGuard salvo é cifrado com DPAPI em LocalAppData. Ao conectar, o AppTunnel gera session.conf em ProgramData com acesso restrito ao proprietário, ao SYSTEM e aos administradores.](docs/images/wireguard-session.png)
 
@@ -199,6 +200,7 @@ Se estiver na versão 0.4.0 ou anterior, baixe o instalador pela página de [Rel
 | --- | --- |
 | O executável pede o .NET | Baixe o instalador atual em Releases. Se preferir continuar com um ZIP antigo, instale o [.NET Desktop Runtime 10 x64](https://dotnet.microsoft.com/en-us/download/dotnet/10.0). |
 | A janela Proton fica indisponível | Instale ou atualize o **WebView2 Runtime**. Você também pode baixar o perfil pela página oficial da Proton e usar **Importar .conf**. |
+| O assistente não confirma a criação | Confira **Rotas → Perfis da conta** antes de repetir. Se o formulário integrado estiver indisponível, use a página da Proton e importe o `.conf`. |
 | O WireSock aparece como ausente | Instale o pacote **WireSock Secure Connect CLI** pela página oficial ou pelo comando acima. Em **Diagnóstico (Diagnostics)**, use **Detectar novamente (Detect again)**. Se ainda precisar indicar o caminho manualmente, use **Localizar WireSock… (Locate WireSock…)** e procure `wiresock-client.exe`, normalmente em `C:\Program Files\WireSock Secure Connect\sdk\`. |
 | A importação diz que `PrivateKey` está vazia ou inválida | Use o `.conf` original que contém a chave privada ou gere um novo perfil na Proton. |
 | O servidor aparece em uso e a chamada continua falhando | Confira se marcou o executável certo em **Programas**, aplique as alterações, feche o cliente de chat por completo e reabra. Se necessário, teste outro servidor e confira os registros em **Diagnóstico**. |
@@ -225,4 +227,6 @@ Use `./Compilar.ps1 -SelfContained` para incluir o .NET no pacote. O arquivo `in
 | `src/AppTunnel.Core` | Validação de perfis, planejamento das tentativas, classificação de diagnósticos e integração Proton. |
 | `src/AppTunnel.Proton` | Janela de conta Proton e importação dos perfis disponíveis. |
 
-O código usa a [licença MIT](LICENSE). As licenças das dependências e fontes incluídas acompanham seus arquivos em [Licenses](Licenses) e [Fonts](src/AppTunnel.Windows/Fonts). A paleta da interface é a [Meia-noite do Cartigma beta](https://github.com/F404X/cartigma/blob/feature/ranking/themes.css).
+O código usa a [licença MIT](LICENSE). Os termos de uso podem ser consultados no instalador, em **Configurações → Termos de uso** e neste repositório. [Português](docs/terms/pt.txt) · [English](docs/terms/en.txt) · [Русский](docs/terms/ru.txt)
+
+As licenças das dependências e fontes incluídas acompanham seus arquivos em [Licenses](Licenses) e [Fonts](src/AppTunnel.Windows/Fonts). A paleta da interface é a [Meia-noite do Cartigma beta](https://github.com/F404X/cartigma/blob/feature/ranking/themes.css).

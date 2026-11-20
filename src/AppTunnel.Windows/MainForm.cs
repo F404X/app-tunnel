@@ -759,8 +759,8 @@ internal sealed partial class MainForm : Form
         {
             proton.Open(create);
             footer.Text = create
-                ? T("Choose a server in Proton. New profiles are saved automatically.",
-                    "Escolha um servidor na Proton. Os novos perfis são salvos automaticamente.", "Выберите сервер в Proton. Новые профили сохраняются автоматически.")
+                ? T("Follow the guide in the Proton window to create a profile.",
+                    "Siga o assistente na janela da Proton para criar um perfil.", "Откройте мастер в окне Proton, чтобы создать профиль.")
                 : T("Your Proton account profiles will appear here after you sign in.",
                     "Os perfis da sua conta Proton aparecerão aqui após o login.", "Профили учётной записи Proton появятся здесь после входа.");
         });
@@ -769,8 +769,8 @@ internal sealed partial class MainForm : Form
     private void RenderProtonAccount()
     {
         var label = proton.Catalog is { Ready: true } catalog
-            ? T($"Proton account · {catalog.Profiles.Length} profiles synced",
-                $"Conta Proton · {catalog.Profiles.Length} perfis sincronizados", $"Учётная запись Proton · профилей синхронизировано: {catalog.Profiles.Length}")
+            ? T($"Proton account · {catalog.Profiles.Length} profiles found",
+                $"Conta Proton · {catalog.Profiles.Length} perfis encontrados", $"Учётная запись Proton · найдено профилей: {catalog.Profiles.Length}")
             : T("Sign in to sync your Proton WireGuard profiles.",
                 "Entre para sincronizar os perfis WireGuard da Proton.", "Войдите, чтобы синхронизировать профили WireGuard из Proton.");
         if (protonAccount.Text != label) protonAccount.Text = label;
@@ -786,13 +786,16 @@ internal sealed partial class MainForm : Form
 
         using var window = new Form
         {
-            Text = T("Proton WireGuard profiles", "Perfis WireGuard da Proton", "Профили WireGuard в Proton"),
+            Text = T("Proton account profiles", "Perfis da conta Proton", "Профили учётной записи Proton"),
             ClientSize = new Size(760, 432), MinimumSize = new Size(560, 320),
             StartPosition = FormStartPosition.CenterParent, BackColor = Background,
             ForeColor = DesktopTheme.Text, Font = Body(), Padding = new Padding(16)
         };
-        using var layout = Column(44, 0, 48);
-        layout.Controls.Add(SectionTitle(T("Proton WireGuard profiles", "Perfis WireGuard da Proton", "Профили WireGuard в Proton")), 0, 0);
+        using var layout = Column(34, 36, 0, 48);
+        layout.Controls.Add(SectionTitle(window.Text), 0, 0);
+        layout.Controls.Add(MakeLabel(T("Use a profile already saved in Routes, or create one when you need a new server.",
+            "Use um perfil já salvo em Rotas ou crie um se precisar de outro servidor.",
+            "Используйте профиль из раздела «Маршруты» или создайте новый для другого сервера."), muted: true), 0, 1);
         using var list = MakeGrid();
         AddColumn(list, T("Account profile", "Perfil da conta", "Профиль учётной записи"), 175, fill: true, font: Body(bold: true));
         AddColumn(list, T("Server", "Servidor", "Сервер"), 145, font: Mono);
@@ -814,10 +817,11 @@ internal sealed partial class MainForm : Form
         empty.Visible = list.Rows.Count == 0;
         using var frame = GridFrame(list, empty, T("Your Proton account has no WireGuard profiles.",
             "Sua conta Proton ainda não tem perfis WireGuard.", "В учётной записи Proton пока нет профилей WireGuard."));
-        layout.Controls.Add(frame, 0, 1);
-        var create = ActionButton(T("New WireGuard", "Novo WireGuard", "Новый профиль WireGuard"), () => { window.Close(); OpenProton(create: true); }, ButtonKind.Primary);
+        layout.Controls.Add(frame, 0, 2);
+        var create = ActionButton(T("New WireGuard…", "Novo WireGuard…", "Новый профиль WireGuard…"), () => { window.Close(); OpenProton(create: true); }, ButtonKind.Primary);
         var import = ActionButton(T("Import .conf", "Importar .conf", "Импорт .conf"), () => { window.Close(); ImportProfiles(); });
-        layout.Controls.Add(MakeBar(create, import), 0, 2);
+        var accountLink = ActionButton(T("Open in Proton", "Abrir na Proton", "Открыть в Proton"), () => { window.Close(); OpenProton(); });
+        layout.Controls.Add(MakeBar(create, import, accountLink), 0, 3);
         window.Controls.Add(layout);
         window.ShowDialog(this);
     }

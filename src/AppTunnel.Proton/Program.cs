@@ -45,10 +45,9 @@ internal static class Program
     }
 }
 
-internal sealed class AccountWindow : Form
+internal sealed partial class AccountWindow : Form
 {
     private static readonly string ScanScript = LoadScript("read-wireguard.js");
-    private static readonly string CreateScript = LoadScript("open-create.js");
     private readonly string root;
     private readonly string inbox;
     private readonly Label status;
@@ -69,12 +68,15 @@ internal sealed class AccountWindow : Form
         Text = "AppTunnel · Proton VPN";
         Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath);
         StartPosition = FormStartPosition.CenterScreen;
+        AutoScaleDimensions = new SizeF(96, 96);
+        AutoScaleMode = AutoScaleMode.Dpi;
         ClientSize = new Size(1040, 760);
         MinimumSize = new Size(680, 500);
         BackColor = dark ? Color.FromArgb(17, 24, 39) : Color.FromArgb(243, 245, 249);
         ForeColor = dark ? Color.FromArgb(235, 239, 247) : Color.FromArgb(24, 36, 54);
-        var layout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 2 };
+        var layout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 3 };
         layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 48));
+        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
         status = new Label
         {
@@ -82,7 +84,8 @@ internal sealed class AccountWindow : Form
             TextAlign = ContentAlignment.MiddleLeft, AutoEllipsis = true, Text = SignInHint()
         };
         layout.Controls.Add(status, 0, 0);
-        layout.Controls.Add(browser, 0, 1);
+        layout.Controls.Add(BuildCreationPanel(dark), 0, 1);
+        layout.Controls.Add(browser, 0, 2);
         Controls.Add(layout);
         Shown += async (_, _) => await StartWebView();
         timer.Tick += async (_, _) => await SyncPage();
@@ -109,7 +112,14 @@ internal sealed class AccountWindow : Form
             web.Settings.IsGeneralAutofillEnabled = false;
             web.NavigationStarting += (_, args) =>
             {
-                if (!ProtonPortal.IsOfficialUrl(args.Uri)) args.Cancel = true;
+                if (!ProtonPortal.IsOfficialUrl(args.Uri))
+                {
+                    args.Cancel = true;
+                    return;
+                }
+                creationForm = default;
+                accountProfiles = [];
+                RefreshCreationButtons();
                 if (IsSignInPage(args.Uri))
                 {
                     ready = false;
@@ -154,6 +164,8 @@ internal sealed class AccountWindow : Form
                 if (WindowState == FormWindowState.Minimized) WindowState = FormWindowState.Normal;
                 Activate();
             }
+            if (TakeSignal("create")) ShowCreationPanel();
+            CheckCreationTimeout();
             if (!ProtonPortal.IsAccountPage(web.Source)) return;
             if (IsSignInPage(web.Source))
             {
@@ -164,8 +176,10 @@ internal sealed class AccountWindow : Form
             if (IsDisposed || Disposing) return;
             var scan = JsonSerializer.Deserialize(response, ProtonJson.Default.ProtonPageScan);
             if (scan is null) return;
+            creationForm = (scan.Ready, scan.CanCreate, scan.CanChooseServer, scan.LoadingMore);
             if (!scan.Ready)
             {
+                RefreshCreationButtons();
                 if (!redirected && scan.DownloadsUrl is { } url && ProtonPortal.IsAccountPage(url))
                 {
                     redirected = true;
@@ -185,15 +199,11 @@ internal sealed class AccountWindow : Form
                 account.Add(new ProtonAccountProfile(name, entry.Server is null ? null : ProtonSync.SafeName(entry.Server),
                     state, fingerprint));
             }
-            Publish(new(true, account.ToArray()));
-
-            var create = Path.Combine(inbox, "create");
-            if (File.Exists(create) && await web.ExecuteScriptAsync(CreateScript) == "true")
-            {
-                File.Delete(create);
-                status.Text = T("Name the profile, choose a server and click Create. AppTunnel saves it automatically.",
-                    "Dê um nome ao perfil, escolha o servidor e clique em Criar. O AppTunnel salva o perfil automaticamente.", "Введите имя профиля, выберите сервер и нажмите «Создать». AppTunnel сохранит профиль автоматически.");
-            }
+            var profiles = account.ToArray();
+            accountProfiles = profiles;
+            Publish(new(true, profiles));
+            FinishCreation();
+            RefreshCreationButtons();
         }
         catch (Exception error) when (error is COMException or IOException or UnauthorizedAccessException or JsonException or
             InvalidOperationException or System.ComponentModel.Win32Exception)

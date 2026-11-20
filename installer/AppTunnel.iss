@@ -32,10 +32,10 @@ CloseApplications=yes
 RestartApplications=no
 
 [Languages]
-Name: "english"; MessagesFile: "compiler:Default.isl"
-Name: "brazilianportuguese"; MessagesFile: "compiler:Languages\BrazilianPortuguese.isl"
+Name: "english"; MessagesFile: "compiler:Default.isl"; InfoBeforeFile: "..\docs\terms\en.txt"
+Name: "brazilianportuguese"; MessagesFile: "compiler:Languages\BrazilianPortuguese.isl"; InfoBeforeFile: "..\docs\terms\pt.txt"
 
-Name: "russian"; MessagesFile: "compiler:Languages\Russian.isl"
+Name: "russian"; MessagesFile: "compiler:Languages\Russian.isl"; InfoBeforeFile: "..\docs\terms\ru.txt"
 
 [CustomMessages]
 english.InstallWireSock=Install WireSock Secure Connect CLI (required for the VPN)

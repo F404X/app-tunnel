@@ -1,0 +1,23 @@
+Termos de uso do AppTunnel
+
+1. Projeto e licença
+
+O AppTunnel é um projeto independente mantido por F404X. O código é disponibilizado sob a licença MIT. Estes termos acompanham a distribuição oficial do AppTunnel e preservam as permissões da licença MIT.
+
+2. Uso do aplicativo
+
+Você é responsável pelo uso do AppTunnel, pelas rotas e pelos aplicativos que selecionar e por cumprir as leis que se aplicam a você. Use a VPN em contas e redes que você tem autorização para usar. O uso da Proton VPN, do WireSock e de outros serviços ou programas integrados continua sujeito aos termos de cada fornecedor. Consulte as regras sobre VPNs e sobre os serviços que você utiliza.
+
+3. Garantias e responsabilidade
+
+O AppTunnel é fornecido no estado em que se encontra, sem garantias expressas ou implícitas, na medida permitida pela lei aplicável. O funcionamento depende também da rede, do Windows e de serviços externos. A disponibilidade da conexão, a compatibilidade com aplicativos e o acesso a serviços específicos podem variar.
+
+Na medida permitida pela lei aplicável, F404X não se responsabiliza por consequências jurídicas decorrentes do seu uso do AppTunnel nem por danos ou perdas que resultem do uso, do mau uso, de falhas ou da impossibilidade de usar o software. Isso inclui, dentro dos mesmos limites, interrupções de conexão, perdas de dados e restrições impostas por terceiros. Permanecem preservados os direitos e as responsabilidades que a lei não permite excluir ou limitar, incluindo as proteções obrigatórias do consumidor quando aplicáveis.
+
+4. Perfis e privacidade
+
+Proteja sua conta Proton e mantenha os arquivos .conf e suas chaves privadas fora de mensagens, capturas de tela e relatos públicos. A seção Privacidade e feedback do AppTunnel descreve as opções voluntárias de envio de relatórios.
+
+Projeto, licença e documentação
+
+https://github.com/F404X/app-tunnel

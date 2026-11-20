@@ -21,7 +21,7 @@ internal sealed partial class MainForm
     private Control BuildSettingsPage()
     {
         var page = MakePage();
-        var content = Column(34, 29, 29, 28, 10, 34, 36, 10, 34, 40, 34, 12, 34, 29, 29, 29, 42, 34, 0);
+        var content = Column(34, 29, 29, 28, 10, 34, 36, 10, 34, 40, 34, 12, 34, 29, 29, 29, 42, 34, 10, 42, 0);
         content.Controls.Add(SectionTitle(T("Startup", "Inicialização", "Автозапуск")), 0, 0);
         startup.AutoCheck = false;
         startup.Click += (_, _) => StartupRequested?.Invoke();
@@ -72,9 +72,10 @@ internal sealed partial class MainForm
         content.Controls.Add(MakeBar(checkUpdates, installed), 0, 9);
         content.Controls.Add(updateStatus, 0, 10);
         AddPrivacyControls(content, 12);
+        content.Controls.Add(MakeBar(ActionButton(TermsWindow.Caption, () => TermsWindow.Show(this))), 0, 19);
         var scroll = new Panel { Dock = DockStyle.Fill, AutoScroll = true, Margin = new Padding(0) };
         content.Dock = DockStyle.Top;
-        content.Height = 551;
+        content.Height = 603;
         scroll.Controls.Add(content);
         page.Controls.Add(scroll);
         return page;

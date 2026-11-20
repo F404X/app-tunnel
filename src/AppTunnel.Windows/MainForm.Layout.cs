@@ -148,15 +148,15 @@ internal sealed partial class MainForm
         var content = Column(34, 42, 36, 42, 37, 0, 13, 145);
         content.Controls.Add(SectionTitle(T("VPN routes", "Rotas VPN", "Маршруты VPN")), 0, 0);
         content.Controls.Add(MakeBar(
-            ActionButton(T("Proton account", "Conta Proton", "Учётная запись Proton"), () => OpenProton(), ButtonKind.Primary),
-            ActionButton(T("New WireGuard", "Novo WireGuard", "Новый профиль WireGuard"), () => OpenProton(create: true)),
+            ActionButton(T("Account profiles", "Perfis da conta", "Профили учётной записи"), ShowProtonProfiles, ButtonKind.Primary),
+            ActionButton(T("New WireGuard…", "Novo WireGuard…", "Новый профиль WireGuard…"), () => OpenProton(create: true)),
             ActionButton(T("Import .conf", "Importar .conf", "Импорт .conf"), ImportProfiles)), 0, 1);
 
         var accountRow = Pair(65);
         accountRow.Controls.Add(protonAccount, 0, 0);
-        var copy = MakeBar(ActionButton(T("Account profiles", "Perfis da conta", "Профили учётной записи"), ShowProtonProfiles, ButtonKind.Quiet));
-        copy.FlowDirection = FlowDirection.RightToLeft;
-        accountRow.Controls.Add(copy, 1, 0);
+        var accountLink = MakeBar(ActionButton(T("Open Proton account", "Abrir conta Proton", "Открыть учётную запись Proton"), () => OpenProton(), ButtonKind.Quiet));
+        accountLink.FlowDirection = FlowDirection.RightToLeft;
+        accountRow.Controls.Add(accountLink, 1, 0);
         content.Controls.Add(accountRow, 0, 2);
         content.Controls.Add(MakeBar(ping, fastest, rename, remove), 0, 3);
         content.Controls.Add(BuildProtocolControl(), 0, 4);
