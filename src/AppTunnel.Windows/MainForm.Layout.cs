@@ -58,26 +58,15 @@ internal sealed partial class MainForm
         sidebar.Controls.Add(brand, 0, 0);
 
         navigationButtons = [
-            NavigationButton(T("Apps", "Programas"), 0),
-            NavigationButton(T("Routes", "Rotas"), 1),
-            NavigationButton(T("Diagnostics", "Diagnóstico"), 2),
-            NavigationButton(T("Settings", "Configurações"), 3)
+            NavigationButton(T("Apps", "Programas", "Приложения"), 0),
+            NavigationButton(T("Routes", "Rotas", "Маршруты"), 1),
+            NavigationButton(T("Diagnostics", "Diagnóstico", "Диагностика"), 2),
+            NavigationButton(T("Settings", "Configurações", "Настройки"), 3)
         ];
         for (var i = 0; i < navigationButtons.Length; i++)
             sidebar.Controls.Add(navigationButtons[i], 0, i + 1);
 
-        var language = MakeButton(T("Language · EN", "Idioma · PT"), ButtonKind.Secondary);
-        language.Dock = DockStyle.Fill;
-        language.Margin = new Padding(0, 2, 0, 3);
-        var menu = new ContextMenuStrip { Font = Body() };
-        var english = menu.Items.Add("English", null, (_, _) => BeginInvoke(() => LanguageRequested?.Invoke("en")));
-        var portuguese = menu.Items.Add("Português", null, (_, _) => BeginInvoke(() => LanguageRequested?.Invoke("pt")));
-        ((ToolStripMenuItem)english).Checked = !Portuguese;
-        ((ToolStripMenuItem)portuguese).Checked = Portuguese;
-        language.ContextMenuStrip = menu;
-        language.Disposed += (_, _) => menu.Dispose();
-        language.Click += (_, _) => menu.Show(language, new Point(0, -menu.GetPreferredSize(Size.Empty).Height));
-        sidebar.Controls.Add(language, 0, 6);
+        sidebar.Controls.Add(BuildLanguageSelector(), 0, 6);
         return sidebar;
     }
 
@@ -102,10 +91,10 @@ internal sealed partial class MainForm
         current.Margin = new Padding(0, 0, 15, 0);
         current.Controls.Add(pill, 0, 0);
         liveTitle.Font = Heading(26);
-        liveTitle.AccessibleName = T("Server in use", "Servidor em uso");
+        liveTitle.AccessibleName = T("Server in use", "Servidor em uso", "Текущий сервер");
         current.Controls.Add(liveTitle, 0, 1);
         liveDetails.Font = Mono;
-        liveDetails.AccessibleName = T("Active server endpoint", "Endpoint do servidor em uso");
+        liveDetails.AccessibleName = T("Active server endpoint", "Endpoint do servidor em uso", "Адрес текущего сервера");
         current.Controls.Add(liveDetails, 0, 2);
         columns.Controls.Add(current, 0, 0);
         columns.Controls.Add(new Panel { Dock = DockStyle.Fill, BackColor = Border, Margin = new Padding(0, 4, 0, 4) }, 1, 0);
@@ -119,7 +108,7 @@ internal sealed partial class MainForm
         next.Controls.Add(routeTitle, 0, 1);
         next.Controls.Add(routeDetails, 0, 2);
         var actions = MakeBar(start, apply, stop);
-        actions.AccessibleName = T("Connection controls", "Controles da conexão");
+        actions.AccessibleName = T("Connection controls", "Controles da conexão", "Управление подключением");
         next.Controls.Add(actions, 0, 3);
         columns.Controls.Add(next, 2, 0);
         card.Controls.Add(columns);
@@ -130,24 +119,25 @@ internal sealed partial class MainForm
     {
         var page = MakePage();
         var content = Column(32, 24, 43, 0, 42);
-        content.Controls.Add(SectionTitle(T("Apps on the VPN", "Programas na VPN")), 0, 0);
+        content.Controls.Add(SectionTitle(T("Apps on the VPN", "Programas na VPN", "Приложения через VPN")), 0, 0);
         content.Controls.Add(appCount, 0, 1);
         content.Controls.Add(MakeBar(
-            ActionButton(T("Add .exe", "Adicionar .exe"), AddExecutable),
-            ActionButton(T("Add folder", "Adicionar pasta"), AddFolder),
-            ActionButton(T("Running apps…", "Em execução…"), AddRunning),
-            ActionButton(T("Detect Discord", "Detectar Discord"), AddKnown)), 0, 2);
+            ActionButton(T("Add .exe", "Adicionar .exe", "Добавить .exe"), AddExecutable),
+            ActionButton(T("Add folder", "Adicionar pasta", "Добавить папку"), AddFolder),
+            ActionButton(T("Running apps…", "Em execução…", "Запущенные…"), AddRunning),
+            ActionButton(T("Explore Common Apps", "Explorar aplicativos comuns", "Часто используемые приложения"),
+                async () => await ExploreCommonApps())), 0, 2);
 
-        apps.AccessibleName = T("Apps on the VPN", "Programas na VPN");
+        apps.AccessibleName = T("Apps on the VPN", "Programas na VPN", "Приложения через VPN");
         AddCheckColumn(apps);
-        AddColumn(apps, T("App", "Programa"), 200, font: Body(bold: true));
-        AddColumn(apps, T("Rule", "Regra"), 91);
-        AddColumn(apps, T("Executable or folder path", "Caminho do executável ou pasta"), 220, fill: true, font: Mono);
-        content.Controls.Add(GridFrame(apps, emptyApps, T("No apps added. Use Detect Discord or add an executable.", "Nenhum programa adicionado. Use Detectar Discord ou adicione um executável.")), 0, 3);
+        AddColumn(apps, T("App", "Programa", "Приложение"), 200, font: Body(bold: true));
+        AddColumn(apps, T("Rule", "Regra", "Правило"), 91);
+        AddColumn(apps, T("Executable or folder path", "Caminho do executável ou pasta", "Путь к исполняемому файлу или папке"), 220, fill: true, font: Mono);
+        content.Controls.Add(GridFrame(apps, emptyApps, T("No apps added. Explore common apps or add an executable.", "Nenhum programa adicionado. Explore os aplicativos comuns ou adicione um executável.", "Добавьте приложение из каталога или выберите исполняемый файл.")), 0, 3);
         content.Controls.Add(MakeBar(
-            ActionButton(T("Select all", "Marcar todos"), () => SetChecks(true), ButtonKind.Quiet),
-            ActionButton(T("Clear all", "Desmarcar todos"), () => SetChecks(false), ButtonKind.Quiet),
-            ActionButton(T("Remove selected", "Remover selecionados"), RemoveApps, ButtonKind.Quiet)), 0, 4);
+            ActionButton(T("Select all", "Marcar todos", "Выбрать всё"), () => SetChecks(true), ButtonKind.Quiet),
+            ActionButton(T("Clear all", "Desmarcar todos", "Снять всё"), () => SetChecks(false), ButtonKind.Quiet),
+            ActionButton(T("Remove selected", "Remover selecionados", "Удалить выбранное"), RemoveApps, ButtonKind.Quiet)), 0, 4);
         page.Controls.Add(content);
         return page;
     }
@@ -155,39 +145,41 @@ internal sealed partial class MainForm
     private Control BuildRoutesPage()
     {
         var page = MakePage();
-        var content = Column(34, 42, 36, 42, 0, 13, 113);
-        content.Controls.Add(SectionTitle(T("WireGuard routes", "Rotas WireGuard")), 0, 0);
+        var content = Column(34, 42, 36, 42, 37, 0, 13, 145);
+        content.Controls.Add(SectionTitle(T("VPN routes", "Rotas VPN", "Маршруты VPN")), 0, 0);
         content.Controls.Add(MakeBar(
-            ActionButton(T("Proton account", "Conta Proton"), () => OpenProton(), ButtonKind.Primary),
-            ActionButton(T("New WireGuard", "Novo WireGuard"), () => OpenProton(create: true)),
-            ActionButton(T("Import .conf", "Importar .conf"), ImportProfiles)), 0, 1);
+            ActionButton(T("Proton account", "Conta Proton", "Учётная запись Proton"), () => OpenProton(), ButtonKind.Primary),
+            ActionButton(T("New WireGuard", "Novo WireGuard", "Новый профиль WireGuard"), () => OpenProton(create: true)),
+            ActionButton(T("Import .conf", "Importar .conf", "Импорт .conf"), ImportProfiles)), 0, 1);
 
         var accountRow = Pair(65);
         accountRow.Controls.Add(protonAccount, 0, 0);
-        var copy = MakeBar(ActionButton(T("Account profiles", "Perfis da conta"), ShowProtonProfiles, ButtonKind.Quiet));
+        var copy = MakeBar(ActionButton(T("Account profiles", "Perfis da conta", "Профили учётной записи"), ShowProtonProfiles, ButtonKind.Quiet));
         copy.FlowDirection = FlowDirection.RightToLeft;
         accountRow.Controls.Add(copy, 1, 0);
         content.Controls.Add(accountRow, 0, 2);
         content.Controls.Add(MakeBar(ping, fastest, rename, remove), 0, 3);
+        content.Controls.Add(BuildProtocolControl(), 0, 4);
 
-        routes.AccessibleName = T("Server profiles", "Perfis de servidor");
+        routes.AccessibleName = T("Server profiles", "Perfis de servidor", "Профили серверов");
         routes.MultiSelect = false;
-        AddColumn(routes, T("Profile", "Perfil"), 126, fill: true, font: Body(bold: true));
+        AddColumn(routes, T("Profile", "Perfil", "Профиль"), 126, fill: true, font: Body(bold: true));
         AddColumn(routes, "Endpoint", 190, font: Mono);
         AddColumn(routes, "IPv6", 83);
-        AddColumn(routes, T("Latency", "Latência"), 90);
-        AddColumn(routes, T("Session", "Sessão"), 101);
+        AddColumn(routes, T("Latency", "Latência", "Задержка"), 90);
+        AddColumn(routes, T("Protocol", "Protocolo", "Протокол"), 112);
+        AddColumn(routes, T("Session", "Sessão", "Сеанс"), 101);
         content.Controls.Add(GridFrame(routes, emptyRoutes, T("Add a Proton WireGuard route or import an existing profile.",
-            "Crie uma rota WireGuard na Proton ou importe um perfil existente.")), 0, 4);
-        content.Controls.Add(BuildDestinationFilters(), 0, 6);
+            "Crie uma rota WireGuard na Proton ou importe um perfil existente.", "Создайте профиль WireGuard в Proton или импортируйте имеющийся.")), 0, 5);
+        content.Controls.Add(BuildDestinationFilters(), 0, 7);
         page.Controls.Add(content);
         return page;
     }
 
     private Control BuildDestinationFilters()
     {
-        var filter = Column(27, 29, 0);
-        var title = SectionTitle(T("Destination filters", "Filtros de destino"));
+        var filter = Column(27, 29, 29, 0);
+        var title = SectionTitle(T("Destination filters", "Filtros de destino", "Фильтры адресов назначения"));
         title.Font = Body(11, bold: true);
         filter.Controls.Add(title, 0, 0);
 
@@ -195,13 +187,17 @@ internal sealed partial class MainForm
         options.Controls.Add(lan, 0, 0);
         options.Controls.Add(ipv6, 1, 0);
         filter.Controls.Add(options, 0, 1);
+        var privacy = Pair(50);
+        privacy.Controls.Add(tunnelDns, 0, 0);
+        privacy.Controls.Add(guardIpv6, 1, 0);
+        filter.Controls.Add(privacy, 0, 2);
         var fields = Pair(50);
-        fields.Controls.Add(LabeledInput(T("Via VPN", "Pela VPN"), include, new Padding(0, 0, 7, 0)), 0, 0);
-        fields.Controls.Add(LabeledInput(T("Via direct connection", "Pela conexão direta"), exclude, new Padding(7, 0, 0, 0)), 1, 0);
-        filter.Controls.Add(fields, 0, 2);
-        include.AccessibleDescription = T("Optional. Enter IP addresses or CIDR ranges separated by commas.", "Opcional. Use endereços IP ou redes CIDR separados por vírgulas.");
+        fields.Controls.Add(LabeledInput(T("Via VPN", "Pela VPN", "Через VPN"), include, new Padding(0, 0, 7, 0)), 0, 0);
+        fields.Controls.Add(LabeledInput(T("Via direct connection", "Pela conexão direta", "Через прямое подключение"), exclude, new Padding(7, 0, 0, 0)), 1, 0);
+        filter.Controls.Add(fields, 0, 3);
+        include.AccessibleDescription = T("Optional. Enter IP addresses or CIDR ranges separated by commas.", "Opcional. Use endereços IP ou redes CIDR separados por vírgulas.", "Необязательно. Укажите IP-адреса или сети CIDR через запятую.");
         exclude.AccessibleDescription = include.AccessibleDescription;
-        ipv6.AccessibleDescription = T("Available if the selected profile supports IPv6.", "Disponível quando o perfil selecionado inclui IPv6.");
+        ipv6.AccessibleDescription = T("Available if the selected profile supports IPv6.", "Disponível quando o perfil selecionado inclui IPv6.", "Доступно, если выбранный профиль поддерживает IPv6.");
         return filter;
     }
 
@@ -220,29 +216,30 @@ internal sealed partial class MainForm
     private Control BuildDiagnosticsPage()
     {
         var page = MakePage();
-        var content = Column(32, 51, 41, 29, 0, 42);
-        content.Controls.Add(SectionTitle(T("WireSock and logs", "WireSock e registros")), 0, 0);
+        var content = Column(32, 51, 41, 29, 30, 0, 42);
+        content.Controls.Add(SectionTitle(T("WireSock and logs", "WireSock e registros", "WireSock и журналы")), 0, 0);
         content.Controls.Add(engineInfo, 0, 1);
         content.Controls.Add(MakeBar(
-            ActionButton(T("Locate WireSock…", "Localizar WireSock…"), ChooseEngine),
-            ActionButton(T("Detect again", "Detectar novamente"), () => Attempt(UpdateEngineInfo)),
-            ActionButton(T("Copy command", "Copiar comando"), () => Copy(InstallCommand)),
-            ActionButton(T("Copy Proton guide", "Copiar guia do Proton"), () => Copy(ProtonUrl))), 0, 2);
+            ActionButton(T("Locate WireSock…", "Localizar WireSock…", "Найти WireSock…"), ChooseEngine),
+            ActionButton(T("Detect again", "Detectar novamente", "Повторить поиск"), () => Attempt(UpdateEngineInfo)),
+            ActionButton(T("Copy command", "Copiar comando", "Копировать команду"), () => Copy(InstallCommand)),
+            ActionButton(T("Copy Proton guide", "Copiar guia do Proton", "Копировать ссылку Proton"), () => Copy(ProtonUrl))), 0, 2);
         content.Controls.Add(diagnostics, 0, 3);
+        content.Controls.Add(healthDetails, 0, 4);
         log.ReadOnly = true;
         log.WordWrap = false;
         log.ScrollBars = ScrollBars.Both;
         log.Font = Mono;
-        log.AccessibleName = T("WireSock logs", "Registros do WireSock");
+        log.AccessibleName = T("WireSock logs", "Registros do WireSock", "Журналы WireSock");
         var shell = new ThemeCard(Field)
         {
             Dock = DockStyle.Fill, Padding = new Padding(12, 9, 10, 9), Margin = new Padding(0)
         };
         shell.Controls.Add(log);
-        content.Controls.Add(shell, 0, 4);
+        content.Controls.Add(shell, 0, 5);
         content.Controls.Add(MakeBar(
-            ActionButton(T("Copy logs", "Copiar registros"), () => Copy(log.Text), ButtonKind.Quiet),
-            ActionButton(T("Clear logs", "Limpar registros"), ClearLog, ButtonKind.Quiet)), 0, 5);
+            ActionButton(T("Copy logs", "Copiar registros", "Копировать журналы"), () => Copy(log.Text), ButtonKind.Quiet),
+            ActionButton(T("Clear logs", "Limpar registros", "Очистить журналы"), ClearLog, ButtonKind.Quiet)), 0, 6);
         page.Controls.Add(content);
         return page;
     }

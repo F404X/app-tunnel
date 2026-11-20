@@ -12,6 +12,7 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../AppTunnel.Core/AppTunnel.Core.csproj" />
+    <EmbeddedResource Include="Assets/Flags/*.png" LogicalName="AppTunnel.Flags.%(Filename)%(Extension)" />
     <EmbeddedResource Include="Fonts/*.ttf" LogicalName="AppTunnel.Fonts.%(Filename)%(Extension)" />
     <PackageReference Include="System.ServiceProcess.ServiceController" Version="10.0.0" />
   </ItemGroup>

@@ -17,6 +17,79 @@ var sample = $"""
     """;
 var scenarios = new (string Name, Action Check)[]
 {
+    ("common app aliases preserve all recognized Discord clients and group alternate builds", () =>
+    {
+        Require(DiscordClients.KnownNames.All(name => CommonApps.Find(name) is not null));
+        Require(CommonApps.Find("DiscordPTB")?.Name == "Discord PTB");
+        Require(CommonApps.Find("DiscordCanary")?.Name == "Discord Canary");
+        Require(CommonApps.Find("serein-portable-x64")?.Name == "Serein");
+        Require(CommonApps.Find("Telegram Desktop")?.Name == "Telegram");
+        Require(CommonApps.Find("signal-desktop")?.Name == "Signal");
+        Require(CommonApps.Find("Discord log viewer") is null);
+    }),
+    ("automatic protocol planning uses real profile variants, distinct endpoints and bounded retries", () =>
+    {
+        var selected = new VpnRoute<int>(1, "one:51820", VpnProtocol.WireGuard);
+        VpnRoute<int>[] alternatives =
+        [
+            new(2, "one:51820", VpnProtocol.WireGuard),
+            new(3, "two:443", VpnProtocol.WireGuard),
+            new(4, "three:443", VpnProtocol.AmneziaWG),
+            new(5, "four:51820", VpnProtocol.WireGuard)
+        ];
+        var plan = VpnProtocols.Plan(ProtocolPreference.Automatic, selected, alternatives);
+        Require(plan.Select(route => route.Profile).SequenceEqual([1, 1, 4, 3]));
+        Require(plan.Select(route => route.Protocol).SequenceEqual(
+            [VpnProtocol.WireGuard, VpnProtocol.WireGuardPadding, VpnProtocol.AmneziaWG, VpnProtocol.WireGuard]));
+        Require(VpnProtocols.Plan(ProtocolPreference.WireGuardPadding, selected, alternatives).Single() ==
+            selected with { Protocol = VpnProtocol.WireGuardPadding });
+    }),
+    ("WireGuard padding preserves app rules and AmneziaWG requires a compatible profile", () =>
+    {
+        string[] apps = [@"C:\Apps\Serein.exe"];
+        var profile = WireGuardProfile.Parse(sample);
+        var padded = profile.BuildSessionConfig(apps, new(), VpnProtocol.WireGuardPadding).Text;
+        Require(padded.Contains("Jc = 4") && padded.Contains("Jmin = 50") && padded.Contains("Jmax = 1000"));
+        Require(padded.Contains(@"#@ws:AllowedApps = C:\Apps\Serein.exe"));
+        Require(!profile.BuildClientConfig(apps, new()).Contains("Jc"));
+        Throws<FormatException>(() => profile.BuildSessionConfig(apps, new(), VpnProtocol.AmneziaWG));
+
+        var amnezia = sample.Replace("[Peer]", "Jc = 3\nS1 = 20\nS2 = 25\nH1 = 7\nH2 = 8\nH3 = 9\nH4 = 10\n\n[Peer]");
+        var imported = WireGuardProfile.Parse(amnezia);
+        Require(imported.Protocol == VpnProtocol.AmneziaWG);
+        Require(imported.BuildClientConfig(apps, new()).Contains("H4 = 10"));
+        Throws<FormatException>(() => imported.BuildSessionConfig(apps, new(), VpnProtocol.WireGuard));
+        Throws<FormatException>(() => WireGuardProfile.Parse(amnezia.Replace("H4 = 10", "H4 = 7")));
+        Throws<FormatException>(() => WireGuardProfile.Parse(amnezia.Replace("H4 = 10", "H4 = 7-10")));
+        Throws<FormatException>(() => WireGuardProfile.Parse(amnezia.Replace("Jc = 3", "Jc = 999")));
+    }),
+    ("privacy settings preserve split routes and require real VPN DNS and executable scopes", () =>
+    {
+        var profile = WireGuardProfile.Parse(sample);
+        string[] apps = [@"C:\Apps\Serein.exe"];
+        var secured = profile.BuildSessionConfig(apps, new(UseIpv6: false, TunnelDns: true, BlockPublicIpv6: true), VpnProtocol.WireGuard);
+        Require(secured.BlockPublicIpv6 && secured.Text.Contains("DNS = 10.2.0.1"));
+        Require(!secured.Text.Contains("AllowedIPs = 0.0.0.0/0, ::/0"));
+        Require(!profile.BuildClientConfig(apps, new()).Contains("DNS ="));
+        Throws<FormatException>(() => profile.BuildClientConfig(apps, new(TunnelDns: true, Exclude: "10.2.0.1")));
+        Throws<FormatException>(() => profile.BuildClientConfig(apps, new(TunnelDns: true, Include: "192.0.2.0/24")));
+        Throws<FormatException>(() => profile.BuildClientConfig([@"C:\Apps\"], new(UseIpv6: false, BlockPublicIpv6: true)));
+        Require(!profile.BuildSessionConfig(apps, new(BlockPublicIpv6: true), VpnProtocol.WireGuard).BlockPublicIpv6);
+    }),
+    ("WireSock diagnostics require wire events and distinguish routing from handshake and DNS", () =>
+    {
+        Require(TunnelDiagnostics.Observe(TunnelHealth.Unknown, "service running") == TunnelHealth.Unknown);
+        const string sent = "[TUN]: force_handshake: Handshake initiation sent to WireGuard server";
+        const string received = "[TUN]: Handshake response received from 192.0.2.10 : 51820";
+        Require(TunnelDiagnostics.Observe(TunnelHealth.Unknown, sent) == TunnelHealth.HandshakeSent);
+        Require(TunnelDiagnostics.Observe(TunnelHealth.HandshakeSent, received) == TunnelHealth.HandshakeReceived);
+        Require(TunnelDiagnostics.Observe(TunnelHealth.Unknown, "Received handshake_response") == TunnelHealth.Unknown);
+        Require(TunnelDiagnostics.Observe(TunnelHealth.HandshakeTimedOut, sent) == TunnelHealth.HandshakeTimedOut);
+        Require(TunnelDiagnostics.Observe(TunnelHealth.Unknown, "[TUN]: Failed to figure out the route to the VPN server") ==
+            TunnelHealth.RoutingFailed);
+        Require(TunnelDiagnostics.Observe(TunnelHealth.Unknown, "No WireGuard server endpoint provided or failed to resolve.") ==
+            TunnelHealth.EndpointResolutionFailed);
+    }),
     ("Discord detection includes Serein while restart matching respects app rules", () =>
     {
         Require(DiscordClients.IsKnown("Serein") && DiscordClients.IsKnown("Serein-portable-x64"));
@@ -120,7 +193,7 @@ var scenarios = new (string Name, Action Check)[]
         Require(!ProtonPortal.IsOfficialUrl("https://account.protonvpn.com@elsewhere.example/downloads"));
         Require(!ProtonPortal.IsOfficialUrl("https://account.protonvpn.com:444/downloads"));
     }),
-    ("English and Portuguese profile diagnostics", () =>
+    ("English, Portuguese and Russian profile diagnostics", () =>
     {
         try
         {
@@ -128,6 +201,10 @@ var scenarios = new (string Name, Action Check)[]
             Require(Throws<FormatException>(() => WireGuardProfile.Parse("")).Message.StartsWith("PrivateKey is missing"));
             Localized.SetLanguage("pt");
             Require(Throws<FormatException>(() => WireGuardProfile.Parse("")).Message.StartsWith("O campo PrivateKey"));
+            Localized.SetLanguage("ru");
+            Require(Localized.Language == "ru");
+            Require(Throws<FormatException>(() => WireGuardProfile.Parse("")).Message.StartsWith("Поле PrivateKey"));
+            Require(VpnProtocols.Name(ProtocolPreference.Automatic) == "Автоматически");
         }
         finally { Localized.SetLanguage("en"); }
     }),

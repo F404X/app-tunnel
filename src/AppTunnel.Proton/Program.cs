@@ -89,13 +89,13 @@ internal sealed class AccountWindow : Form
     }
 
     private static string SignInHint() => T("account.protonvpn.com   /   Sign in to sync your WireGuard profiles.",
-        "account.protonvpn.com   /   Entre para sincronizar seus perfis WireGuard.");
+        "account.protonvpn.com   /   Entre para sincronizar seus perfis WireGuard.", "account.protonvpn.com   /   Войдите, чтобы синхронизировать профили WireGuard.");
 
     private async Task StartWebView()
     {
         try
         {
-            var options = new CoreWebView2EnvironmentOptions { Language = Portuguese ? "pt-BR" : "en-US" };
+            var options = new CoreWebView2EnvironmentOptions { Language = System.Globalization.CultureInfo.CurrentUICulture.Name };
             var environment = await CoreWebView2Environment.CreateAsync(null, Path.Combine(root, "WebView"), options);
             if (IsDisposed || Disposing) return;
             await browser.EnsureCoreWebView2Async(environment);
@@ -131,7 +131,7 @@ internal sealed class AccountWindow : Form
             if (IsDisposed || Disposing) return;
             File.WriteAllText(Path.Combine(inbox, "failed"), "");
             MessageBox.Show(this, T("Install Microsoft Edge WebView2 Runtime to open the Proton account window.",
-                "Instale o Microsoft Edge WebView2 Runtime para abrir a janela da conta Proton."),
+                "Instale o Microsoft Edge WebView2 Runtime para abrir a janela da conta Proton.", "Установите Microsoft Edge WebView2 Runtime, чтобы открыть окно входа в Proton."),
                 Text, MessageBoxButtons.OK, MessageBoxIcon.Warning);
             Close();
         }
@@ -192,7 +192,7 @@ internal sealed class AccountWindow : Form
             {
                 File.Delete(create);
                 status.Text = T("Name the profile, choose a server and click Create. AppTunnel saves it automatically.",
-                    "Dê um nome ao perfil, escolha o servidor e clique em Criar. O AppTunnel salva o perfil automaticamente.");
+                    "Dê um nome ao perfil, escolha o servidor e clique em Criar. O AppTunnel salva o perfil automaticamente.", "Введите имя профиля, выберите сервер и нажмите «Создать». AppTunnel сохранит профиль автоматически.");
             }
         }
         catch (Exception error) when (error is COMException or IOException or UnauthorizedAccessException or JsonException or
@@ -200,7 +200,7 @@ internal sealed class AccountWindow : Form
         {
             if (!IsDisposed && !Disposing)
                 status.Text = T("Sync paused. Keep the Proton WireGuard page open to retry.",
-                    "Sincronização pausada. Mantenha a página WireGuard da Proton aberta para tentar novamente.");
+                    "Sincronização pausada. Mantenha a página WireGuard da Proton aberta para tentar novamente.", "Синхронизация приостановлена. Оставьте страницу WireGuard в Proton открытой для повторной попытки.");
         }
         finally { syncing = false; }
     }
@@ -223,7 +223,7 @@ internal sealed class AccountWindow : Form
         {
             var usable = snapshot.Profiles.Count(profile => profile.State == ProtonProfileState.Available);
             status.Text = T($"Proton account synced   /   {snapshot.Profiles.Length} profiles   /   {usable} available in this session",
-                $"Conta Proton sincronizada   /   {snapshot.Profiles.Length} perfis   /   {usable} disponíveis nesta sessão");
+                $"Conta Proton sincronizada   /   {snapshot.Profiles.Length} perfis   /   {usable} disponíveis nesta sessão", $"Учётная запись Proton синхронизирована   /   профилей: {snapshot.Profiles.Length}   /   доступно в этом сеансе: {usable}");
         }
     }
 
@@ -263,19 +263,19 @@ internal sealed class AccountWindow : Form
                 if (state == ProtonProfileState.Available && fingerprint is not null)
                 {
                     Queue(ProtonSync.GetDeviceName(profile) ?? ProtonSync.SafeName(filename), profile, fingerprint);
-                    status.Text = T("WireGuard profile saved for AppTunnel.", "Perfil WireGuard salvo no AppTunnel.");
+                    status.Text = T("WireGuard profile saved for AppTunnel.", "Perfil WireGuard salvo no AppTunnel.", "Профиль WireGuard сохранён в AppTunnel.");
                 }
                 else
                 {
                     status.Text = state == ProtonProfileState.KeyRequired
                         ? T("This profile needs its original .conf or a newly created profile.",
-                            "Para usar este perfil, importe o .conf original ou crie um novo perfil.")
-                        : T("This profile is not supported by AppTunnel.", "Este perfil não é compatível com o AppTunnel.");
+                            "Para usar este perfil, importe o .conf original ou crie um novo perfil.", "Для этого профиля нужен исходный файл .conf. Можно также создать новый профиль.")
+                        : T("This profile is not supported by AppTunnel.", "Este perfil não é compatível com o AppTunnel.", "AppTunnel не поддерживает этот профиль.");
                 }
             }
             catch (Exception error) when (error is IOException or UnauthorizedAccessException or System.ComponentModel.Win32Exception)
             {
-                status.Text = T("Profile export failed. Try downloading it again.", "Falha ao exportar o perfil. Tente novamente.");
+                status.Text = T("Profile export failed. Try downloading it again.", "Falha ao exportar o perfil. Tente novamente.", "Не удалось экспортировать профиль. Попробуйте скачать его снова.");
             }
             finally { File.Delete(partial); }
         };

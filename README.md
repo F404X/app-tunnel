@@ -34,7 +34,7 @@ O AppTunnel requer o WireSock CLI 3.8.2.1 ou superior. Se o Windows não reconhe
 
 ## 2. Escolha o idioma
 
-O aplicativo abre em inglês. Para mudar, clique em **Language · EN → Português** no menu lateral. O restante do guia usa os nomes em português e traz os principais nomes em inglês entre parênteses.
+O aplicativo abre em inglês. Para mudar, clique em **Language → Português** no menu lateral. O seletor com bandeiras também oferece **English** e **Русский**. O restante do guia usa os nomes em português e inclui os termos principais em inglês.
 
 ## 3. Escolha o servidor da Proton
 
@@ -60,7 +60,7 @@ Guarde os arquivos `.conf` em um local privado. Eles contêm a chave privada do 
 
 ## 4. Selecione os aplicativos e conecte
 
-1. Abra **Programas (Apps) → Detectar Discord (Detect Discord)** para localizar Discord, PTB, Canary, Serein e outros clientes alternativos conhecidos.
+1. Abra **Programas (Apps) → Explorar aplicativos comuns (Explore Common Apps)**. Marque os aplicativos detectados e clique em **Aplicar seleção**. O catálogo lista Discord, PTB, Canary, Serein, Telegram, Signal e outros clientes. Os cartões escurecidos ficam indisponíveis. Para programas portáteis, abra o executável e tente novamente ou use **Adicionar .exe**.
 2. Confira as caixas da coluna **VPN**. Marque os programas que devem usar o túnel. Se o programa estiver fora da pasta padrão, use **Adicionar .exe (Add .exe)** ou **Em execução… (Running apps…)**. Ao usar **Adicionar pasta**, escolha a pasta do próprio aplicativo, pois a regra abrange os executáveis nela.
 3. Volte a **Rotas** e clique no servidor desejado. No painel superior, clique em **Conectar (Connect)**.
 4. Aguarde **Serviço VPN do WireSock em execução (WireSock VPN service is running)**. Se um Discord oficial, PTB ou Canary estiver aberto e incluído na rota, o AppTunnel pergunta se você quer reiniciá-lo. Escolha **Sim** para recriar a conexão de voz e vídeo ou **Não** para reiniciar o Discord depois. Com o Serein, você pode seguir direto para o teste da chamada ou da transmissão.
@@ -106,11 +106,11 @@ AllowedIPs = 0.0.0.0/0
 #@ws:DisallowedIPs = 192.168.0.0/16
 ```
 
-No modo transparente, o AppTunnel omite o campo `DNS` do perfil ao gerar a sessão. A resolução de nomes segue a configuração do Windows ou do próprio aplicativo. As regras de destino trabalham com IPs e redes CIDR. [Filtros na configuração](src/AppTunnel.Core/WireGuardProfile.cs) · [Parâmetros do WireSock](https://wiresock.net/documentation/wiresock-secure-connect/advanced-parameters)
+No modo transparente padrão, o AppTunnel omite o campo `DNS` do perfil e deixa a resolução a cargo do Windows ou do próprio aplicativo. A opção **Usar DNS do perfil** ativa o redirecionamento de DNS do WireSock. As regras de destino usam IPs e redes CIDR. [Filtros na configuração](src/AppTunnel.Core/WireGuardProfile.cs) · [Parâmetros do WireSock](https://wiresock.net/documentation/wiresock-secure-connect/advanced-parameters)
 
 ### Da conta Proton ao arquivo de sessão
 
-A janela de conta roda em `AppTunnel.Proton.exe`, um processo sem elevação que abre a página oficial em WebView2. Após o login, ela identifica perfis expostos pela página e importa as configurações completas disponíveis. Quando a chave privada de um perfil antigo está indisponível, use o `.conf` original ou crie um perfil novo. O mesmo validador atende ao login e à importação manual, aceitando uma seção `[Interface]` e um único `[Peer]`, com chaves, endereços, destinos e endpoint válidos. [Janela da Proton](src/AppTunnel.Proton/Program.cs) · [Validador WireGuard](src/AppTunnel.Core/WireGuardProfile.cs)
+A janela de conta roda em `AppTunnel.Proton.exe`, um processo sem elevação que abre a página oficial em WebView2. Após o login, ela identifica perfis expostos pela página e importa as configurações completas disponíveis. Quando a chave privada de um perfil antigo está indisponível, use o `.conf` original ou crie um perfil novo. O mesmo validador atende ao login e à importação manual, aceitando uma seção `[Interface]` e um único `[Peer]`, com chaves, endereços, destinos e endpoint válidos. Para AmneziaWG, o validador também confere os parâmetros de obfuscação da versão compatível. [Janela da Proton](src/AppTunnel.Proton/Program.cs) · [Validador WireGuard](src/AppTunnel.Core/WireGuardProfile.cs)
 
 ![O perfil WireGuard salvo é cifrado com DPAPI em LocalAppData. Ao conectar, o AppTunnel gera session.conf em ProgramData com acesso restrito ao proprietário, ao SYSTEM e aos administradores.](docs/images/wireguard-session.png)
 
@@ -139,6 +139,32 @@ sequenceDiagram
 - **Aplicar ajustes** e **Trocar servidor** substituem a configuração e reiniciam o serviço. Se a nova sessão falhar, o AppTunnel tenta restaurar a anterior. O indicador **Serviço VPN do WireSock em execução** vem do estado `Running` do serviço. Para validar o caminho de ponta a ponta, gere tráfego em um aplicativo marcado. [Controle do serviço](src/AppTunnel.Windows/WireSockEngine.cs)
 - **Discord, PTB e Canary** recebem a opção de reiniciar quando estão abertos e pertencem à rota aplicada. O reinício recria as conexões já abertas. O Serein fica fora desse fluxo. [Regras de reinício](src/AppTunnel.Windows/DiscordRestart.cs) · [Aplicação da rota](src/AppTunnel.Windows/MainForm.cs)
 - **Sair da interface** fecha o processo da bandeja. O serviço do WireSock continua ativo como processo independente. **Iniciar com o Windows** registra uma tarefa por usuário que abre a interface na bandeja ao fazer login. [Bandeja](src/AppTunnel.Windows/AppTunnelApplicationContext.cs) · [Inicialização do Windows](src/AppTunnel.Windows/WindowsStartup.cs)
+
+## Redes com filtragem e DPI
+
+Selecione uma opção em **Rotas → Protocolo VPN**. Depois de mudar a opção, clique em **Conectar** ou **Aplicar ajustes**.
+
+| Opção | Motor e requisitos |
+| --- | --- |
+| **Do perfil** | Usa o protocolo do arquivo selecionado. Para perfis `.conf` da Proton, é WireGuard. |
+| **WireGuard** | Usa UDP com o WireSock e um perfil WireGuard compatível. |
+| **WireGuard com preenchimento** | Usa o preenchimento pré-handshake do WireSock, compatível com servidores WireGuard comuns. Pode ser selecionado com um `.conf` da Proton. |
+| **AmneziaWG** | Importe um `.conf` de um servidor AmneziaWG compatível. O AppTunnel aceita a configuração com `S1`, `S2` e `H1` a `H4` como valores inteiros. Os parâmetros devem corresponder aos do servidor. |
+| **Automático** | Começa pelo perfil selecionado e tenta até quatro combinações de protocolo e endpoint. Usa apenas os perfis importados e, quando compatível, tenta WireGuard com preenchimento no mesmo endpoint. |
+
+No modo **Automático**, importe mais de um perfil para permitir a troca de servidor. Com a interface aberta ou recolhida na bandeja, uma falha posterior identificada nos registros pode iniciar uma rodada de recuperação com as alternativas disponíveis. O split tunneling, os filtros e as opções de privacidade continuam sendo aplicados em cada tentativa. A troca pode interromper chamadas ou transmissões.
+
+**Diagnóstico** separa resposta de handshake, ausência de resposta após o envio, erro de endpoint e erro de rota ou adaptador. O AppTunnel usa eventos recentes do WireSock. Quando os registros não expõem esses eventos, o painel mostra **status do handshake indisponível**. Uma ausência de resposta também pode indicar servidor indisponível ou chaves incompatíveis.
+
+O Proton Stealth está disponível nos clientes oficiais da Proton. Os arquivos manuais fornecidos pela Proton usam WireGuard. O AppTunnel usa esses arquivos no WireSock. WireGuard com preenchimento e AmneziaWG também dependem de UDP, e a eficácia varia conforme a rede. [Protocolos da Proton](https://protonvpn.com/support/how-to-change-vpn-protocols) · [Configuração manual da Proton](https://protonvpn.com/support/wireguard-manual-windows) · [Parâmetros do WireSock](https://wiresock.net/documentation/wiresock-secure-connect/advanced-parameters)
+
+### DNS e IPv6 com split tunneling
+
+- **Usar DNS do perfil (resolvedor compartilhado)** envia as consultas do resolvedor compartilhado do Windows ao DNS do perfil pelo WireSock. A opção exige DNS dentro dos destinos da VPN e pode afetar nomes locais e consultas de outros aplicativos que usam o resolvedor do Windows. Aplicativos com DNS próprio, como DoH, seguem suas próprias configurações e as regras de tráfego.
+- **Bloquear IPv6 público sem rota IPv6** aplica regras de saída no Firewall do Windows para os executáveis marcados quando a sessão fica sem rota IPv6 no túnel. Bloqueia `2000::/3` e exige regras de executáveis individuais em vez de pastas. A desconexão remove as regras criadas pela sessão. Use **Incluir IPv6 quando disponível** para usar as rotas autorizadas por perfis dual-stack.
+- Os destinos excluídos seguem pela conexão direta. A troca de servidor substitui o serviço e pode abrir um intervalo entre sessões. Essas opções reduzem os caminhos de vazamento descritos acima e têm escopo diferente de um kill switch.
+
+[DNS e rede local no WireSock](https://wiresock.net/documentation/guide/local-resources-unavailable.html) · [Configuração de rotas](src/AppTunnel.Core/WireGuardProfile.cs) · [Regras IPv6](src/AppTunnel.Windows/Ipv6Firewall.cs)
 
 ## Bandeja e desconexão
 
@@ -182,12 +208,12 @@ dotnet run --project tests/AppTunnel.Checks -c Release
 node tests/proton-portal.test.cjs
 ```
 
-Use `./Compilar.ps1 -SelfContained` para incluir o .NET no pacote. O arquivo `installer/AppTunnel.iss` gera o instalador com o Inno Setup 6.3 ou superior. O workflow **Build and publish Windows release** compila, testa e publica o instalador e o ZIP no GitHub.
+Use `./Compilar.ps1 -SelfContained` para incluir o .NET no pacote. O arquivo `installer/AppTunnel.iss` gera o instalador com o Inno Setup 6.3 ou superior. O workflow **Build and publish Windows release** compila o instalador e testa instalação, atualização e remoção no Windows. Deixe **Publish GitHub release** desmarcado para validar o pacote sem publicar uma versão. O build distribui somente os recursos de idioma usados pela interface.
 
 | Projeto | Responsabilidade |
 | --- | --- |
-| `src/AppTunnel.Windows` | Interface, seleção de aplicativos, bandeja e controle do serviço WireSock. |
-| `src/AppTunnel.Core` | Validação de perfis WireGuard, opções de rota e dados da integração Proton. |
+| `src/AppTunnel.Windows` | Interface, catálogo de aplicativos, bandeja e contrato `ITunnelEngine`. O adaptador WireSock é o motor distribuído nesta implementação. |
+| `src/AppTunnel.Core` | Validação de perfis, planejamento das tentativas, classificação de diagnósticos e integração Proton. |
 | `src/AppTunnel.Proton` | Janela de conta Proton e importação dos perfis disponíveis. |
 
 O código usa a [licença MIT](LICENSE). As licenças das dependências e fontes incluídas acompanham seus arquivos em [Licenses](Licenses) e [Fonts](src/AppTunnel.Windows/Fonts). A paleta da interface é a [Meia-noite do Cartigma beta](https://github.com/F404X/cartigma/blob/feature/ranking/themes.css).

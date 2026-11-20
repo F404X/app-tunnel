@@ -7,7 +7,7 @@ using AppTunnel.Core;
 
 namespace AppTunnel.Windows;
 
-internal sealed record StoredProfile(Guid Id, string Name, string Endpoint, bool HasIpv6, string? Fingerprint = null)
+internal sealed record StoredProfile(Guid Id, string Name, string Endpoint, bool HasIpv6, string? Fingerprint = null, VpnProtocol Protocol = VpnProtocol.WireGuard)
 {
     public override string ToString() => Name;
 }
@@ -21,6 +21,7 @@ internal sealed class Preferences
     public string EnginePath { get; set; } = "";
     public bool DiagnosticLogs { get; set; }
     public string Language { get; set; } = "en";
+    public ProtocolPreference Protocol { get; set; }
 }
 
 [JsonSourceGenerationOptions(WriteIndented = true)]
@@ -48,7 +49,7 @@ internal sealed class ProfileStore
     {
         if (!File.Exists(SettingsFile)) return new Preferences();
         return JsonSerializer.Deserialize(File.ReadAllBytes(SettingsFile), PreferencesJson.Default.Preferences)
-            ?? throw new FormatException(T("AppTunnel settings are empty.", "As configurações do AppTunnel estão vazias."));
+            ?? throw new FormatException(T("AppTunnel settings are empty.", "As configurações do AppTunnel estão vazias.", "Файл настроек AppTunnel пуст."));
     }
 
     public void Save(Preferences preferences) =>
@@ -57,7 +58,7 @@ internal sealed class ProfileStore
     public StoredProfile Import(string source, string? name = null)
     {
         using var input = File.OpenRead(source);
-        if (input.Length > 65536) throw new FormatException(T("The WireGuard profile exceeds 64 KiB.", "O perfil WireGuard excede 64 KiB."));
+        if (input.Length > 65536) throw new FormatException(T("The WireGuard profile exceeds 64 KiB.", "O perfil WireGuard excede 64 KiB.", "Размер профиля WireGuard превышает 64 КиБ."));
         using var reader = new StreamReader(input, Utf8, detectEncodingFromByteOrderMarks: true);
         return ImportText(reader.ReadToEnd(), name ?? Path.GetFileNameWithoutExtension(source));
     }
@@ -98,7 +99,7 @@ internal sealed class ProfileStore
         {
             CryptographicOperations.ZeroMemory(plain);
         }
-        return new StoredProfile(id, name, profile.Endpoint, profile.HasIpv6, fingerprint ?? profile.Fingerprint());
+        return new StoredProfile(id, name, profile.Endpoint, profile.HasIpv6, fingerprint ?? profile.Fingerprint(), profile.Protocol);
     }
 
     public WireGuardProfile Read(Guid id)

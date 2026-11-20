@@ -35,6 +35,8 @@ RestartApplications=no
 Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "brazilianportuguese"; MessagesFile: "compiler:Languages\BrazilianPortuguese.isl"
 
+Name: "russian"; MessagesFile: "compiler:Languages\Russian.isl"
+
 [CustomMessages]
 english.InstallWireSock=Install WireSock Secure Connect CLI (required for the VPN)
 brazilianportuguese.InstallWireSock=Instalar o WireSock Secure Connect CLI (necessário para a VPN)
@@ -49,8 +51,39 @@ brazilianportuguese.ProtectedDirectory=O AppTunnel deve ser instalado na pasta A
 english.CleanupFailed=Could not disconnect the AppTunnel service or remove startup. Open AppTunnel and disconnect the VPN, then try uninstalling again.
 brazilianportuguese.CleanupFailed=Não foi possível desconectar o serviço do AppTunnel ou remover a inicialização. Abra o AppTunnel, desconecte a VPN e tente desinstalar novamente.
 
+russian.InstallWireSock=Установить WireSock Secure Connect CLI (для работы VPN)
+russian.InstallWebView=Установить Microsoft Edge WebView2 Runtime (для входа в Proton)
+russian.OpenAppTunnel=Открыть AppTunnel
+russian.CloseAppTunnel=Закройте окно входа в Proton, затем нажмите правой кнопкой на значок AppTunnel в трее и выберите «Закрыть интерфейс». Запустите установщик снова.
+russian.ProtectedDirectory=AppTunnel необходимо установить в папку AppTunnel в Program Files.
+russian.CleanupFailed=Не удалось отключить службу AppTunnel или удалить автозапуск. Откройте AppTunnel, отключите VPN и повторите удаление.
+
 [Files]
 Source: "{#PackageDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+
+[InstallDelete]
+Type: files; Name: "{app}\cs\*.resources.dll"
+Type: dirifempty; Name: "{app}\cs"
+Type: files; Name: "{app}\de\*.resources.dll"
+Type: dirifempty; Name: "{app}\de"
+Type: files; Name: "{app}\es\*.resources.dll"
+Type: dirifempty; Name: "{app}\es"
+Type: files; Name: "{app}\fr\*.resources.dll"
+Type: dirifempty; Name: "{app}\fr"
+Type: files; Name: "{app}\it\*.resources.dll"
+Type: dirifempty; Name: "{app}\it"
+Type: files; Name: "{app}\ja\*.resources.dll"
+Type: dirifempty; Name: "{app}\ja"
+Type: files; Name: "{app}\ko\*.resources.dll"
+Type: dirifempty; Name: "{app}\ko"
+Type: files; Name: "{app}\pl\*.resources.dll"
+Type: dirifempty; Name: "{app}\pl"
+Type: files; Name: "{app}\tr\*.resources.dll"
+Type: dirifempty; Name: "{app}\tr"
+Type: files; Name: "{app}\zh-Hans\*.resources.dll"
+Type: dirifempty; Name: "{app}\zh-Hans"
+Type: files; Name: "{app}\zh-Hant\*.resources.dll"
+Type: dirifempty; Name: "{app}\zh-Hant"
 
 [Icons]
 Name: "{autoprograms}\AppTunnel"; Filename: "{app}\AppTunnel.exe"; WorkingDir: "{app}"

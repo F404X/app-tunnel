@@ -46,7 +46,7 @@ public sealed partial class WireGuardProfile
     public static WireGuardProfile Parse(string contents)
     {
         if (contents.Length > MaxContentSize)
-            throw new FormatException(T("The WireGuard profile exceeds 64 KiB.", "O perfil WireGuard excede 64 KiB."));
+            throw new FormatException(T("The WireGuard profile exceeds 64 KiB.", "O perfil WireGuard excede 64 KiB.", "Размер профиля WireGuard превышает 64 КиБ."));
 
         var profile = new WireGuardProfile();
         Dictionary<string, string>? section = null;
@@ -63,7 +63,7 @@ public sealed partial class WireGuardProfile
             {
                 hasInterface = true;
                 section = profile.local;
-                validKeys = InterfaceKeys;
+                validKeys = [.. InterfaceKeys, .. PaddingFields, .. AmneziaFields];
                 continue;
             }
             if (line.Equals("[Peer]", StringComparison.OrdinalIgnoreCase) && hasInterface && !hasPeer)
@@ -76,13 +76,13 @@ public sealed partial class WireGuardProfile
 
             var separator = line.IndexOf('=');
             if (section is null || separator <= 0)
-                throw new FormatException(T("Use a WireGuard profile with one [Interface] and one [Peer] section.", "Use um perfil WireGuard com uma seção [Interface] e um único [Peer]."));
+                throw new FormatException(T("Use a WireGuard profile with one [Interface] and one [Peer] section.", "Use um perfil WireGuard com uma seção [Interface] e um único [Peer].", "В профиле WireGuard должно быть по одному разделу [Interface] и [Peer]."));
 
             var name = line[..separator].Trim();
             if (!validKeys.Contains(name, StringComparer.OrdinalIgnoreCase))
-                throw new FormatException(T("The file contains an unsupported WireGuard setting.", "O arquivo contém uma opção fora do formato WireGuard suportado."));
+                throw new FormatException(T("The file contains an unsupported WireGuard setting.", "O arquivo contém uma opção fora do formato WireGuard suportado.", "Файл содержит неподдерживаемый параметр WireGuard."));
             if (!section.TryAdd(name, line[(separator + 1)..].Trim()))
-                throw new FormatException(T("The file contains a duplicate WireGuard setting.", "O arquivo repete uma opção do WireGuard."));
+                throw new FormatException(T("The file contains a duplicate WireGuard setting.", "O arquivo repete uma opção do WireGuard.", "В файле повторяется параметр WireGuard."));
         }
 
         NormalizeKey(profile.local, "PrivateKey");
@@ -91,14 +91,14 @@ public sealed partial class WireGuardProfile
 
         var addresses = SplitList(Required(profile.local, "Address"));
         if (addresses.Length == 0 || addresses.Any(x => !IsInterfaceAddress(x)))
-            throw new FormatException(T("Address must contain IPv4 or IPv6 addresses with a prefix.", "Address deve conter endereços IPv4 ou IPv6 com prefixo."));
+            throw new FormatException(T("Address must contain IPv4 or IPv6 addresses with a prefix.", "Address deve conter endereços IPv4 ou IPv6 com prefixo.", "В Address укажите адреса IPv4 или IPv6 с длиной префикса."));
         profile.local["Address"] = string.Join(", ", addresses);
 
         if (profile.local.TryGetValue("DNS", out var dns))
         {
             var servers = SplitList(dns);
             if (servers.Length == 0 || servers.Any(x => !TryIp(x, out _)))
-                throw new FormatException(T("DNS must contain IP addresses.", "DNS deve conter endereços IP."));
+                throw new FormatException(T("DNS must contain IP addresses.", "DNS deve conter endereços IP.", "В DNS укажите IP-адреса."));
             profile.local["DNS"] = string.Join(", ", servers);
         }
 
@@ -106,14 +106,18 @@ public sealed partial class WireGuardProfile
         CheckEndpoint(Required(profile.peer, "Endpoint"));
         CheckNumber(profile.local, "MTU", 576, 65535);
         CheckNumber(profile.peer, "PersistentKeepalive", 0, 65535);
+        profile.ValidateProtocol();
         return profile;
     }
 
-    public string BuildClientConfig(IEnumerable<string> applications, RouteOptions options)
+    public string BuildClientConfig(IEnumerable<string> applications, RouteOptions options) =>
+        BuildSessionConfig(applications, options, Protocol).Text;
+
+    public VpnSessionConfig BuildSessionConfig(IEnumerable<string> applications, RouteOptions options, VpnProtocol protocol)
     {
         var apps = applications.Select(ApplicationTarget.Validate).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
         if (apps.Length == 0)
-            throw new InvalidOperationException(T("Select at least one app to use the VPN.", "Selecione pelo menos um programa para usar a VPN."));
+            throw new InvalidOperationException(T("Select at least one app to use the VPN.", "Selecione pelo menos um programa para usar a VPN.", "Выберите хотя бы одно приложение для VPN."));
 
         var imported = AllowedNetworks.Select(IPNetwork.Parse).ToArray();
         var routes = string.IsNullOrWhiteSpace(options.Include)
@@ -121,32 +125,41 @@ public sealed partial class WireGuardProfile
             : ParseNetworks(options.Include, true).Select(IPNetwork.Parse).ToArray();
         if (routes.Any(route => !imported.Any(allowed =>
             route.PrefixLength >= allowed.PrefixLength && allowed.Contains(route.BaseAddress))))
-            throw new FormatException(T("VPN destinations must be within AllowedIPs in the imported profile.", "Os destinos da VPN precisam estar contidos em AllowedIPs do perfil importado."));
+            throw new FormatException(T("VPN destinations must be within AllowedIPs in the imported profile.", "Os destinos da VPN precisam estar contidos em AllowedIPs do perfil importado.", "Адреса для VPN должны входить в AllowedIPs импортированного профиля."));
 
         var allowsV6 = options.UseIpv6 && HasIpv6;
         routes = routes.Where(x => allowsV6 || x.BaseAddress.AddressFamily == AddressFamily.InterNetwork).ToArray();
         if (routes.Length == 0)
-            throw new FormatException(T("The profile and IP settings leave no VPN destinations.", "O perfil e as opções de IP não deixaram nenhum destino para a VPN."));
+            throw new FormatException(T("The profile and IP settings leave no VPN destinations.", "O perfil e as opções de IP não deixaram nenhum destino para a VPN.", "После применения настроек IP не осталось адресов для VPN."));
 
-        var excluded = ParseNetworks(options.Exclude, true).Select(IPNetwork.Parse).ToList();
+        var explicitExclusions = ParseNetworks(options.Exclude, true).Select(IPNetwork.Parse).ToArray();
+        var excluded = explicitExclusions.ToList();
         if (options.DirectLan)
             excluded.AddRange(LanNetworks.Select(IPNetwork.Parse));
         if (routes.All(route => excluded.Any(block =>
             route.PrefixLength >= block.PrefixLength && block.Contains(route.BaseAddress))))
-            throw new FormatException(T("The exclusions cover all VPN destinations.", "As exclusões abrangem todos os destinos da VPN."));
+            throw new FormatException(T("The exclusions cover all VPN destinations.", "As exclusões abrangem todos os destinos da VPN.", "Исключения охватывают все адреса для VPN."));
 
         var lines = new List<string> { "[Interface]" };
         foreach (var key in InterfaceKeys)
         {
-            if (!local.TryGetValue(key, out var value)) continue;
-            if (key == "DNS")
-            {
-                // Preserve the Windows DNS configuration in transparent mode.
-                continue;
-            }
+            if (key == "DNS" || !local.TryGetValue(key, out var value)) continue;
             lines.Add($"{key} = {value}");
         }
 
+        if (options.TunnelDns)
+        {
+            var dns = local.TryGetValue("DNS", out var addresses) ? SplitList(addresses).Select(IPAddress.Parse).ToArray() : [];
+            var tunnelDns = dns.Where(ip => allowsV6 || ip.AddressFamily == AddressFamily.InterNetwork).ToArray();
+            if (tunnelDns.Length == 0 || tunnelDns.Any(ip => !routes.Any(network => network.Contains(ip)) ||
+                explicitExclusions.Any(network => network.Contains(ip))))
+                throw new FormatException(T("The profile must provide DNS addresses within the VPN destinations and outside explicit exclusions.",
+                    "O perfil precisa fornecer DNS dentro dos destinos da VPN e fora das exclusões explícitas.",
+                    "DNS-адреса профиля должны входить в маршруты VPN и не попадать в явные исключения."));
+            lines.Add($"DNS = {string.Join(", ", tunnelDns.AsEnumerable())}");
+        }
+
+        WriteProtocol(lines, protocol);
         lines.Add("");
         lines.Add("[Peer]");
         foreach (var key in PeerKeys)
@@ -159,7 +172,12 @@ public sealed partial class WireGuardProfile
         lines.Add($"#@ws:AllowedApps = {string.Join(", ", apps)}");
         if (excluded.Count > 0)
             lines.Add($"#@ws:DisallowedIPs = {string.Join(", ", excluded.Distinct())}");
-        return string.Join("\r\n", lines) + "\r\n";
+        var tunneledIpv6 = routes.Any(network => network.BaseAddress.AddressFamily == AddressFamily.InterNetworkV6);
+        if (options.BlockPublicIpv6 && !tunneledIpv6 && apps.Any(path => path.EndsWith('\\')))
+            throw new FormatException(T("IPv6 blocking requires individual .exe rules. Replace folder rules or turn off IPv6 blocking.",
+                "O bloqueio de IPv6 exige regras por .exe. Substitua as regras de pasta ou desative o bloqueio de IPv6.",
+                "Для блокировки IPv6 требуются правила для отдельных файлов .exe. Замените правила папок или отключите блокировку."));
+        return new VpnSessionConfig(string.Join("\r\n", lines) + "\r\n", options.BlockPublicIpv6 && !tunneledIpv6);
     }
 
     private static readonly string[] LanNetworks =
@@ -170,7 +188,7 @@ public sealed partial class WireGuardProfile
     private static string[] SplitList(string value) => value.Split([',', '\r', '\n'], StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
     private static string Required(Dictionary<string, string> values, string key) =>
         values.TryGetValue(key, out var value) && value.Length > 0
-            ? value : throw new FormatException(T($"The profile must specify {key}.", $"O perfil precisa informar {key}."));
+            ? value : throw new FormatException(T($"The profile must specify {key}.", $"O perfil precisa informar {key}.", $"В профиле необходимо указать {key}."));
 
     private static bool TryIp(string value, out IPAddress ip)
     {
@@ -213,7 +231,7 @@ public sealed partial class WireGuardProfile
     {
         var list = SplitList(value);
         if (list.Length > 256 || (!allowBareIp && list.Length == 0))
-            throw new FormatException(T("Specify between 1 and 256 networks in the profile.", "Informe entre 1 e 256 redes no perfil."));
+            throw new FormatException(T("Specify between 1 and 256 networks in the profile.", "Informe entre 1 e 256 redes no perfil.", "Укажите в профиле от 1 до 256 сетей."));
 
         for (var i = 0; i < list.Length; i++)
         {
@@ -232,15 +250,15 @@ public sealed partial class WireGuardProfile
         return list.Distinct().ToArray();
 
         static FormatException InvalidNetwork() =>
-            new(T("Enter an IP address or a valid CIDR range such as 203.0.113.0/24. Use the base address for a network.", "Use um endereço IP ou uma rede CIDR válida, como 203.0.113.0/24. Para uma rede, informe o endereço base."));
+            new(T("Enter an IP address or a valid CIDR range such as 203.0.113.0/24. Use the base address for a network.", "Use um endereço IP ou uma rede CIDR válida, como 203.0.113.0/24. Para uma rede, informe o endereço base.", "Введите IP-адрес или диапазон CIDR, например 203.0.113.0/24. Для сети укажите её базовый адрес."));
     }
 
     private static void NormalizeKey(Dictionary<string, string> values, string name)
     {
         const int keyBytes = 32;
-        var downloadHint = T("Download the original .conf from Downloads → WireGuard Configuration in your Proton account.", "Baixe o .conf original em Downloads → Configuração WireGuard da sua conta Proton.");
+        var downloadHint = T("Download the original .conf from Downloads → WireGuard Configuration in your Proton account.", "Baixe o .conf original em Downloads → Configuração WireGuard da sua conta Proton.", "Скачайте исходный файл .conf в личном кабинете Proton в разделе «Загрузки → Конфигурация WireGuard».");
         if (!values.TryGetValue(name, out var raw) || string.IsNullOrWhiteSpace(raw))
-            throw new FormatException(T($"{name} is missing or empty. {downloadHint}", $"O campo {name} está ausente ou vazio. {downloadHint}"));
+            throw new FormatException(T($"{name} is missing or empty. {downloadHint}", $"O campo {name} está ausente ou vazio. {downloadHint}", $"Поле {name} отсутствует или пусто. {downloadHint}"));
 
         var value = raw.AsSpan().Trim();
         if (value.Length >= 2 && (value[0] is '"' or '\'') && value[0] == value[^1])
@@ -272,14 +290,14 @@ public sealed partial class WireGuardProfile
         }
 
         FormatException InvalidKey() =>
-            new(T($"{name} must contain a 32-byte Base64 WireGuard key. {downloadHint}", $"O campo {name} precisa conter uma chave WireGuard de 32 bytes em Base64. {downloadHint}"));
+            new(T($"{name} must contain a 32-byte Base64 WireGuard key. {downloadHint}", $"O campo {name} precisa conter uma chave WireGuard de 32 bytes em Base64. {downloadHint}", $"В поле {name} должен быть 32-байтовый ключ WireGuard в Base64. {downloadHint}"));
     }
 
     private static void CheckNumber(Dictionary<string, string> values, string name, int min, int max)
     {
         if (values.TryGetValue(name, out var text) && (!int.TryParse(text, NumberStyles.None, CultureInfo.InvariantCulture, out var number) ||
             number < min || number > max))
-            throw new FormatException(T($"{name} is outside the allowed range.", $"O valor de {name} está fora do intervalo permitido."));
+            throw new FormatException(T($"{name} is outside the allowed range.", $"O valor de {name} está fora do intervalo permitido.", $"Значение {name} выходит за допустимые пределы."));
     }
 
     private static void CheckEndpoint(string endpoint)
@@ -287,17 +305,19 @@ public sealed partial class WireGuardProfile
         var separator = endpoint.LastIndexOf(':');
         if (separator <= 0 || !ushort.TryParse(endpoint[(separator + 1)..], NumberStyles.None, CultureInfo.InvariantCulture, out var port) ||
             port == 0)
-            throw new FormatException(T("Endpoint must contain a host or IP address and a port.", "Endpoint precisa conter um host ou IP e uma porta."));
+            throw new FormatException(T("Endpoint must contain a host or IP address and a port.", "Endpoint precisa conter um host ou IP e uma porta.", "В Endpoint укажите имя узла или IP-адрес и порт."));
         var host = endpoint[..separator];
         var valid = host.StartsWith('[') && host.EndsWith(']')
             ? TryIp(host[1..^1], out var ip) && ip.AddressFamily == AddressFamily.InterNetworkV6
             : host.Length <= 253 && !host.Contains(':') &&
               (TryIp(host, out _) || (DnsNamePattern().IsMatch(host) && host.Any(char.IsAsciiLetter)));
-        if (!valid) throw new FormatException(T("The host in Endpoint is invalid.", "O host em Endpoint é inválido."));
+        if (!valid) throw new FormatException(T("The host in Endpoint is invalid.", "O host em Endpoint é inválido.", "В Endpoint указано недопустимое имя узла."));
     }
 
     [GeneratedRegex(@"^(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)*[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.?$")]
     private static partial Regex DnsNamePattern();
 }
 
-public sealed record RouteOptions(bool DirectLan = true, bool UseIpv6 = true, string Include = "", string Exclude = "");
+public sealed record RouteOptions(bool DirectLan = true, bool UseIpv6 = true, string Include = "", string Exclude = "",
+    bool TunnelDns = false, bool BlockPublicIpv6 = false);
+public sealed record VpnSessionConfig(string Text, bool BlockPublicIpv6);

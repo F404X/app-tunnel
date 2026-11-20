@@ -26,7 +26,7 @@ internal sealed class ProtonLogin(ProfileStore store)
         var executable = Path.Combine(AppContext.BaseDirectory, "AppTunnel.Proton.exe");
         if (!File.Exists(executable))
             throw new FileNotFoundException(T("Extract the complete ZIP to open the Proton sign-in window.",
-                "Extraia o ZIP completo para abrir a janela de login da Proton."));
+                "Extraia o ZIP completo para abrir a janela de login da Proton.", "Распакуйте весь ZIP-архив, чтобы открыть окно входа в Proton."));
 
         var id = Guid.NewGuid().ToString("N");
         var directory = Path.Combine(store.ProtonRoot, "request-" + id);
@@ -34,7 +34,7 @@ internal sealed class ProtonLogin(ProfileStore store)
         try
         {
             if (create) Signal(directory, "create");
-            ExplorerLauncher.Open(executable, $"{id} {(Portuguese ? "pt" : "en")}");
+            ExplorerLauncher.Open(executable, $"{id} {Language}");
             pending = directory;
             launchTime = DateTime.UtcNow;
         }
@@ -81,7 +81,7 @@ internal sealed class ProtonLogin(ProfileStore store)
             if (pending == directory) pending = null;
             if (failure)
                 notice = T("The Proton window could not open. Check the WebView2 Runtime and try again.",
-                    "A janela Proton não abriu. Verifique o WebView2 Runtime e tente novamente.");
+                    "A janela Proton não abriu. Verifique o WebView2 Runtime e tente novamente.", "Не удалось открыть окно Proton. Проверьте WebView2 Runtime и попробуйте снова.");
         }
 
         if (pending is not null && Directory.Exists(pending) && DateTime.UtcNow - launchTime > TimeSpan.FromSeconds(25) &&
@@ -90,7 +90,7 @@ internal sealed class ProtonLogin(ProfileStore store)
             Directory.Delete(pending, recursive: true);
             pending = null;
             notice = T("The Proton window did not start. Try again or import a profile from the Proton website.",
-                "A janela Proton não abriu. Tente novamente ou importe um perfil baixado do site da Proton.");
+                "A janela Proton não abriu. Tente novamente ou importe um perfil baixado do site da Proton.", "Окно Proton не открылось. Попробуйте снова или импортируйте профиль с сайта Proton.");
         }
         return notice;
     }

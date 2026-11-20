@@ -42,7 +42,7 @@ internal static class WindowsStartup
     {
         if (!IsInstalled)
             throw new InvalidOperationException(T("Run the AppTunnel installer to enable Start with Windows.",
-                "Use o instalador do AppTunnel para ativar Iniciar com o Windows."));
+                "Use o instalador do AppTunnel para ativar Iniciar com o Windows.", "Установите AppTunnel, чтобы включить автозапуск с Windows."));
 
         WithScheduler((scheduler, folder, sid) =>
         {
@@ -78,7 +78,7 @@ internal static class WindowsStartup
         try
         {
             using var identity = WindowsIdentity.GetCurrent();
-            var sid = identity.User?.Value ?? throw new InvalidOperationException(T("Windows user unavailable.", "Usuário do Windows indisponível."));
+            var sid = identity.User?.Value ?? throw new InvalidOperationException(T("Windows user unavailable.", "Usuário do Windows indisponível.", "Пользователь Windows недоступен."));
             var type = Type.GetTypeFromProgID("Schedule.Service", throwOnError: true)!;
             dynamic scheduler = Activator.CreateInstance(type)!;
             scheduler.Connect();
@@ -88,7 +88,7 @@ internal static class WindowsStartup
         catch (Exception error) when (error is COMException or RuntimeBinderException)
         {
             throw new InvalidOperationException(T("AppTunnel could not access the Windows Task Scheduler.",
-                "O AppTunnel não conseguiu acessar o Agendador de Tarefas do Windows."), error);
+                "O AppTunnel não conseguiu acessar o Agendador de Tarefas do Windows.", "AppTunnel не смог обратиться к планировщику заданий Windows."), error);
         }
     }
 

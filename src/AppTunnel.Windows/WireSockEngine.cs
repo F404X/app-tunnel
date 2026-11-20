@@ -15,9 +15,11 @@ using static AppTunnel.Core.Localized;
 namespace AppTunnel.Windows;
 
 internal sealed record TunnelSession(StoredProfile Profile, int ProgramCount, string[] RequestedPrograms,
-    RouteOptions Options, bool Diagnostics, string EnginePath = "", string ConfigPath = "", string OwnerSid = "");
+    RouteOptions Options, bool Diagnostics, string EnginePath = "", string ConfigPath = "", string OwnerSid = "",
+    VpnProtocol Protocol = VpnProtocol.WireGuard, string[]? BlockedIpv6Applications = null,
+    bool VerifyHandshake = false, Guid RequestedProfile = default, ProtocolPreference RequestedProtocol = ProtocolPreference.Profile);
 
-internal sealed partial class WireSockEngine
+internal sealed partial class WireSockEngine : ITunnelEngine
 {
     private const string Executable = "wiresock-client.exe";
     private const string ServiceName = "wiresock-client-service";
@@ -29,7 +31,25 @@ internal sealed partial class WireSockEngine
     private static readonly string ProgramData = Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData);
     private readonly SecurityIdentifier owner = CurrentUser();
 
+    private WireSockHealth? health;
+    private string? observedSession;
     public event Action<string>? Output;
+
+    public bool Supports(VpnProtocol protocol) =>
+        protocol is VpnProtocol.WireGuard or VpnProtocol.WireGuardPadding or VpnProtocol.AmneziaWG;
+
+    public VpnSessionConfig Prepare(WireGuardProfile profile, string[] applications, RouteOptions options, VpnProtocol protocol) =>
+        profile.BuildSessionConfig(applications, options, protocol);
+
+    public TunnelHealth ReadHealth(TunnelSession session)
+    {
+        if (health is null || observedSession != session.ConfigPath)
+        {
+            health = new WireSockHealth();
+            observedSession = session.ConfigPath;
+        }
+        return health.Poll();
+    }
 
     public TunnelSession? GetActive()
     {
@@ -40,8 +60,13 @@ internal sealed partial class WireSockEngine
         catch (InvalidOperationException) when (!OwnsService(session)) { return null; }
     }
 
-    public TunnelSession Start(string executable, string config, TunnelSession request)
+    public TunnelSession Start(string preferredPath, VpnSessionConfig config, TunnelSession request, bool verifyHandshake)
     {
+        var executable = preferredPath.Length > 0 && File.Exists(preferredPath) ? preferredPath : Locate();
+        if (executable is null)
+            throw new InvalidOperationException(T("Install WireSock Secure Connect CLI using the command in Diagnostics.",
+                "Instale o WireSock Secure Connect CLI. O comando está na aba Diagnóstico.",
+                "Установите WireSock Secure Connect CLI с помощью команды на вкладке «Диагностика»."));
         var path = ValidateInstallation(executable);
         using var gate = LockOperations();
         try
@@ -50,22 +75,29 @@ internal sealed partial class WireSockEngine
             var installed = ServiceImage() is not null;
             if (installed && (previous is null || !OwnsService(previous)))
                 throw new InvalidOperationException(T("A different WireSock service is installed. Disconnect it in its original app first.",
-                    "Outro serviço do WireSock está instalado. Desconecte-o no aplicativo de origem primeiro."));
+                    "Outro serviço do WireSock está instalado. Desconecte-o no aplicativo de origem primeiro.", "Установлена другая служба WireSock. Отключите её в исходном приложении."));
             if (!installed)
             {
                 if (Process.GetProcessesByName("wiresock-client").Any(IsLiveProcess))
                     throw new InvalidOperationException(T("Close the other running WireSock client before connecting.",
-                        "Feche o outro cliente WireSock em execução antes de conectar."));
+                        "Feche o outro cliente WireSock em execução antes de conectar.", "Перед подключением закройте другой работающий клиент WireSock."));
                 if (previous is not null) RemoveConfig(previous);
                 previous = null;
             }
 
-            var session = Stage(path, config, request);
+            var session = Stage(path, config.Text, request with
+            {
+                VerifyHandshake = verifyHandshake
+            });
             try
             {
+                Ipv6Firewall.Add(session);
                 if (previous is not null) RemoveService(previous);
                 WriteRecord(session);
+                health = new WireSockHealth();
+                observedSession = session.ConfigPath;
                 InstallAndStart(session);
+                if (verifyHandshake) VerifyHealth(session);
             }
             catch
             {
@@ -92,7 +124,7 @@ internal sealed partial class WireSockEngine
             if (OwnsService(session)) RemoveService(session);
             if (ServiceImage() is not null)
                 throw new InvalidOperationException(T("The installed WireSock service no longer belongs to this AppTunnel session.",
-                    "O serviço WireSock instalado não pertence mais a esta sessão do AppTunnel."));
+                    "O serviço WireSock instalado não pertence mais a esta sessão do AppTunnel.", "Установленная служба WireSock больше не принадлежит этому сеансу AppTunnel."));
             RemoveConfig(session);
             WriteRecord(null);
         }
@@ -105,21 +137,41 @@ internal sealed partial class WireSockEngine
     private void InstallAndStart(TunnelSession session)
     {
         RunTool(session.EnginePath, "install", "-start-type", "3", "-config", session.ConfigPath, "-log-level",
-            session.Diagnostics ? "info" : "error");
+            session.Diagnostics || session.VerifyHandshake ? "info" : "error");
         if (!OwnsService(session))
             throw new InvalidOperationException(T("WireSock did not register the expected Windows service.",
-                "O WireSock não registrou o serviço do Windows esperado."));
+                "O WireSock não registrou o serviço do Windows esperado.", "WireSock не зарегистрировал ожидаемую службу Windows."));
 
         using var service = new ServiceController(ServiceName);
         if (service.Status == ServiceControllerStatus.Stopped) service.Start();
         service.WaitForStatus(ServiceControllerStatus.Running, ServiceTimeout);
     }
 
+    private void VerifyHealth(TunnelSession session)
+    {
+        var watch = Stopwatch.StartNew();
+        var state = TunnelHealth.Unknown;
+        do
+        {
+            state = ReadHealth(session);
+            if (state == TunnelHealth.HandshakeReceived) break;
+            if (state is TunnelHealth.EndpointResolutionFailed or TunnelHealth.RoutingFailed)
+                throw new InvalidOperationException(TunnelDiagnostics.Describe(state));
+            Thread.Sleep(300);
+        } while (watch.Elapsed < TimeSpan.FromSeconds(12));
+        if (state is TunnelHealth.HandshakeSent or TunnelHealth.HandshakeTimedOut)
+            throw new System.TimeoutException(TunnelDiagnostics.Describe(TunnelHealth.HandshakeTimedOut));
+        if (GetActive()?.ConfigPath != session.ConfigPath)
+            throw new InvalidOperationException(T("WireSock stopped while verifying the route.",
+                "O WireSock parou durante a verificação da rota.", "WireSock остановился при проверке маршрута."));
+        Output?.Invoke(TunnelDiagnostics.Describe(state));
+    }
+
     private void RemoveService(TunnelSession session)
     {
         if (!OwnsService(session))
             throw new InvalidOperationException(T("The WireSock service configuration changed during the operation.",
-                "A configuração do serviço WireSock mudou durante a operação."));
+                "A configuração do serviço WireSock mudou durante a operação.", "Конфигурация службы WireSock изменилась во время операции."));
         using (var service = new ServiceController(ServiceName))
         {
             if (service.Status == ServiceControllerStatus.StartPending)
@@ -130,13 +182,13 @@ internal sealed partial class WireSockEngine
         }
         if (!OwnsService(session))
             throw new InvalidOperationException(T("The WireSock service configuration changed during the operation.",
-                "A configuração do serviço WireSock mudou durante a operação."));
+                "A configuração do serviço WireSock mudou durante a operação.", "Конфигурация службы WireSock изменилась во время операции."));
         RunTool(session.EnginePath, "uninstall");
         var watch = Stopwatch.StartNew();
         while (ServiceImage() is not null && watch.Elapsed < ServiceTimeout) Thread.Sleep(120);
         if (ServiceImage() is not null)
             throw new InvalidOperationException(T("Windows is still removing the WireSock service.",
-                "O Windows ainda está removendo o serviço WireSock."));
+                "O Windows ainda está removendo o serviço WireSock.", "Windows ещё удаляет службу WireSock."));
     }
 
     private void RollBack(TunnelSession session, TunnelSession? previous)
@@ -158,11 +210,16 @@ internal sealed partial class WireSockEngine
                 if (service.Status == ServiceControllerStatus.Stopped) service.Start();
                 service.WaitForStatus(ServiceControllerStatus.Running, ServiceTimeout);
             }
+            else if (!OwnsService(session))
+            {
+                RemoveConfig(session);
+                WriteRecord(null);
+            }
         }
         catch (Exception ex) when (ex is Win32Exception or InvalidOperationException or IOException or UnauthorizedAccessException or System.ServiceProcess.TimeoutException)
         {
             Output?.Invoke(T($"Could not restore the previous service: {ex.Message}",
-                $"Não foi possível restaurar o serviço anterior: {ex.Message}"));
+                $"Não foi possível restaurar o serviço anterior: {ex.Message}", $"Не удалось восстановить предыдущую службу: {ex.Message}"));
         }
     }
 
@@ -199,6 +256,7 @@ internal sealed partial class WireSockEngine
     {
         if (SafeConfigDirectory(session.ConfigPath) is not { } directory || !Directory.Exists(directory)) return;
         if ((File.GetAttributes(directory) & FileAttributes.ReparsePoint) != 0) return;
+        Ipv6Firewall.Remove(session);
         File.Delete(session.ConfigPath);
         Directory.Delete(directory);
     }
@@ -282,13 +340,13 @@ internal sealed partial class WireSockEngine
             WorkingDirectory = Path.GetDirectoryName(path)!
         };
         foreach (var argument in arguments) info.ArgumentList.Add(argument);
-        using var process = Process.Start(info) ?? throw new InvalidOperationException(T("WireSock could not start.", "O WireSock não iniciou."));
+        using var process = Process.Start(info) ?? throw new InvalidOperationException(T("WireSock could not start.", "O WireSock não iniciou.", "Не удалось запустить WireSock."));
         var output = process.StandardOutput.ReadToEndAsync();
         var error = process.StandardError.ReadToEndAsync();
         if (!process.WaitForExit((int)ServiceTimeout.TotalMilliseconds))
         {
             try { process.Kill(); } catch (InvalidOperationException) { }
-            throw new System.TimeoutException(T("The WireSock command timed out.", "O comando do WireSock excedeu o tempo limite."));
+            throw new System.TimeoutException(T("The WireSock command timed out.", "O comando do WireSock excedeu o tempo limite.", "Истекло время выполнения команды WireSock."));
         }
         foreach (var line in (output.GetAwaiter().GetResult() + Environment.NewLine + error.GetAwaiter().GetResult())
                      .Split(['\r', '\n'], StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
@@ -298,7 +356,7 @@ internal sealed partial class WireSockEngine
         }
         if (process.ExitCode != 0)
             throw new InvalidOperationException(T($"WireSock returned exit code {process.ExitCode}. See Diagnostics.",
-                $"O WireSock retornou o código {process.ExitCode}. Veja Diagnóstico."));
+                $"O WireSock retornou o código {process.ExitCode}. Veja Diagnóstico.", $"WireSock завершился с кодом {process.ExitCode}. Подробности на вкладке «Диагностика»."));
     }
 
     private static Mutex LockOperations()
@@ -312,7 +370,7 @@ internal sealed partial class WireSockEngine
         catch (AbandonedMutexException) { return gate; }
         gate.Dispose();
         throw new InvalidOperationException(T("Another AppTunnel instance is changing the VPN service.",
-            "Outra instância do AppTunnel está alterando o serviço da VPN."));
+            "Outra instância do AppTunnel está alterando o serviço da VPN.", "Другой экземпляр AppTunnel изменяет службу VPN."));
     }
 
     private static bool IsLiveProcess(Process process)
@@ -324,7 +382,7 @@ internal sealed partial class WireSockEngine
     {
         using var identity = WindowsIdentity.GetCurrent();
         return identity.User ?? throw new InvalidOperationException(T("Windows user identity is unavailable.",
-            "A identidade do usuário do Windows está indisponível."));
+            "A identidade do usuário do Windows está indisponível.", "Не удалось определить пользователя Windows."));
     }
 
     [DllImport("shell32.dll", CharSet = CharSet.Unicode, ExactSpelling = true)]
@@ -362,14 +420,14 @@ internal sealed partial class WireSockEngine
         if (!Path.GetFileName(fullPath).Equals(Executable, StringComparison.OrdinalIgnoreCase) ||
             !File.Exists(fullPath) || !ProgramDirectories().Any(root => IsUnder(fullPath, root)))
         {
-            throw new InvalidOperationException(T("Select wiresock-client.exe from the WireSock installation folder in Program Files.", "Selecione wiresock-client.exe na pasta em que o WireSock foi instalado em Arquivos de Programas."));
+            throw new InvalidOperationException(T("Select wiresock-client.exe from the WireSock installation folder in Program Files.", "Selecione wiresock-client.exe na pasta em que o WireSock foi instalado em Arquivos de Programas.", "Выберите wiresock-client.exe в папке установки WireSock внутри Program Files."));
         }
         var version = FileVersionInfo.GetVersionInfo(fullPath);
         if (new Version(version.FileMajorPart, version.FileMinorPart, version.FileBuildPart, version.FilePrivatePart) < new Version(3, 8, 2, 1))
-            throw new InvalidOperationException(T("Update WireSock Secure Connect CLI to version 3.8.2.1 or later.", "Atualize o WireSock Secure Connect CLI para a versão 3.8.2.1 ou superior."));
+            throw new InvalidOperationException(T("Update WireSock Secure Connect CLI to version 3.8.2.1 or later.", "Atualize o WireSock Secure Connect CLI para a versão 3.8.2.1 ou superior.", "Обновите WireSock Secure Connect CLI до версии 3.8.2.1 или новее."));
         if (!string.Equals(version.OriginalFilename, Executable, StringComparison.OrdinalIgnoreCase) ||
             !string.Equals(version.CompanyName, "WireSock Foundation", StringComparison.OrdinalIgnoreCase))
-            throw new InvalidOperationException(T("Select the executable published by the WireSock Foundation.", "Selecione o executável publicado pela WireSock Foundation."));
+            throw new InvalidOperationException(T("Select the executable published by the WireSock Foundation.", "Selecione o executável publicado pela WireSock Foundation.", "Выберите исполняемый файл от WireSock Foundation."));
         Authenticode.Verify(fullPath);
         return fullPath;
     }
@@ -421,7 +479,7 @@ internal static class Authenticode
             Marshal.StructureToPtr(file, data.FileInfo, false);
             var result = WinVerifyTrust(new nint(-1), ref action, ref data);
             if (result != 0)
-                throw new InvalidOperationException(T($"Windows could not validate the WireSock signature (0x{result:X8}). Reinstall the official WireSock client.", $"O Windows não validou a assinatura do WireSock (0x{result:X8}). Reinstale o WireSock oficial."));
+                throw new InvalidOperationException(T($"Windows could not validate the WireSock signature (0x{result:X8}). Reinstall the official WireSock client.", $"O Windows não validou a assinatura do WireSock (0x{result:X8}). Reinstale o WireSock oficial.", $"Windows не смогла проверить подпись WireSock (0x{result:X8}). Переустановите официальный клиент WireSock."));
         }
         finally
         {

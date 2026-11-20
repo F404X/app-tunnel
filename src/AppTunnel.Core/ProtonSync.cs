@@ -83,12 +83,12 @@ public static class ProtonSync
     public static ProtonConfiguration ReadExport(string path)
     {
         if (new FileInfo(path).Length > 512 * 1024)
-            throw new FormatException(Localized.T("The Proton profile is too large.", "O perfil da Proton é muito grande."));
+            throw new FormatException(Localized.T("The Proton profile is too large.", "O perfil da Proton é muito grande.", "Профиль Proton слишком большой."));
         var plain = UserProtection.Transform(File.ReadAllBytes(path), encrypt: false);
         try
         {
             return JsonSerializer.Deserialize(plain, ProtonJson.Default.ProtonConfiguration)
-                ?? throw new FormatException(Localized.T("The Proton profile is empty.", "O perfil da Proton está vazio."));
+                ?? throw new FormatException(Localized.T("The Proton profile is empty.", "O perfil da Proton está vazio.", "Профиль Proton пуст."));
         }
         finally { CryptographicOperations.ZeroMemory(plain); }
     }

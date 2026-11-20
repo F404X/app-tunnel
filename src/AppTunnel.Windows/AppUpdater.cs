@@ -41,7 +41,7 @@ internal static class AppUpdater
         var folder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "AppTunnel Updates");
         Directory.CreateDirectory(folder);
         if ((File.GetAttributes(folder) & FileAttributes.ReparsePoint) != 0)
-            throw new IOException(T("The update folder is a link.", "A pasta de atualizações é um link."));
+            throw new IOException(T("The update folder is a link.", "A pasta de atualizações é um link.", "Папка обновлений является ссылкой."));
 
         var temporary = Path.Combine(folder, Guid.NewGuid().ToString("N") + ".download");
         try
@@ -104,5 +104,5 @@ internal static class AppUpdater
     }
 
     private static IOException InvalidDownload() => new(T("The downloaded installer could not be verified.",
-        "Não foi possível verificar o instalador baixado."));
+        "Não foi possível verificar o instalador baixado.", "Не удалось проверить скачанный установщик."));
 }

@@ -28,7 +28,7 @@ internal static class DesktopTheme
     public static readonly Color AmberWash = Color.FromArgb(52, 43, 25);
 
     private static readonly FontResources Fonts = new();
-    private static readonly Dictionary<(float Size, FontStyle Style, bool Display), Font> UiFonts = new();
+    private static readonly Dictionary<(float Size, FontStyle Style, bool Display, bool Cyrillic), Font> UiFonts = new();
 
     public static Font Body(float size = 10, bool bold = false) => GetFont(size, bold ? FontStyle.Bold : FontStyle.Regular, false);
     public static Font Heading(float size) => GetFont(size, FontStyle.Bold, true);
@@ -36,12 +36,13 @@ internal static class DesktopTheme
 
     private static Font GetFont(float size, FontStyle style, bool display)
     {
-        var key = (size, style, display);
+        var cyrillic = Language == "ru";
+        var key = (size, style, display, cyrillic);
         if (UiFonts.TryGetValue(key, out var cached)) return cached;
-        var family = display ? Fonts.Display : Fonts.Body;
+        var family = cyrillic ? null : display ? Fonts.Display : Fonts.Body;
         var font = family is not null && family.IsStyleAvailable(style)
             ? new Font(family, size, style)
-            : new Font(display ? "Bahnschrift" : "Segoe UI", size, style);
+            : new Font(display && !cyrillic ? "Bahnschrift" : "Segoe UI", size, style);
         UiFonts.Add(key, font);
         return font;
     }
@@ -175,7 +176,7 @@ internal sealed class ThemeButton : Button
         {
             if (selected == value) return;
             selected = value;
-            AccessibleDescription = value ? T("Current section", "Seção atual") : "";
+            AccessibleDescription = value ? T("Current section", "Seção atual", "Текущий раздел") : "";
             Invalidate();
         }
     }
@@ -200,7 +201,7 @@ internal sealed class ThemeButton : Button
     public override Size GetPreferredSize(Size proposedSize)
     {
         var text = TextRenderer.MeasureText(Text, Font, Size.Empty, TextFormatFlags.SingleLine | TextFormatFlags.NoPadding);
-        return new Size(text.Width + Padding.Horizontal + 2, Math.Max(MinimumSize.Height, text.Height + 12));
+        return new Size(text.Width + Padding.Horizontal + (Image is null ? 2 : 25), Math.Max(MinimumSize.Height, text.Height + 12));
     }
 
     protected override void OnPaint(PaintEventArgs e)
@@ -228,8 +229,15 @@ internal sealed class ThemeButton : Button
         }
         var text = navigational ? new Rectangle(Padding.Left, 0, Math.Max(0, Width - Padding.Horizontal), Height)
             : ClientRectangle;
+        if (Image is { } icon)
+        {
+            var size = Math.Max(15, DeviceDpi * 18 / 96);
+            var left = DeviceDpi * 10 / 96;
+            e.Graphics.DrawImage(icon, new Rectangle(left, (Height - size) / 2, size * 4 / 3, size));
+            text = new Rectangle(left + size * 4 / 3 + left, 0, Math.Max(0, Width - left * 3 - size * 4 / 3), Height);
+        }
         DesktopTheme.PaintText(e.Graphics, Text, Font, text, ink,
-            navigational ? StringAlignment.Near : StringAlignment.Center);
+            navigational || Image is not null ? StringAlignment.Near : StringAlignment.Center);
     }
 
     protected override void OnMouseEnter(EventArgs e) { base.OnMouseEnter(e); hovering = true; Invalidate(); }

@@ -13,6 +13,12 @@ on:
         default: true
         type: boolean
 
+      publish:
+        description: Publish GitHub release
+        required: true
+        default: true
+        type: boolean
+
 permissions:
   contents: read
 
@@ -54,7 +60,13 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           $package = Join-Path $env:RUNNER_TEMP AppTunnel
           Copy-Item dist/win-x64 $package -Recurse
+          $cultures = Get-ChildItem $package -Recurse -Filter '*.resources.dll' | ForEach-Object { $_.Directory.Name } | Sort-Object -Unique
+          if ('pt-BR' -notin $cultures -or 'ru' -notin $cultures -or
+              ($cultures | Where-Object { $_ -notin @('pt-BR', 'ru', 'ru-RU', 'en-US') })) {
+            throw "Unexpected runtime languages: $cultures"
+          }
           Copy-Item README.md, LEIA-ME.md, LICENSE $package
+          Copy-Item docs $package -Recurse
           Copy-Item Licenses $package -Recurse
           Copy-Item src/AppTunnel.Windows/Fonts/*-OFL.txt (Join-Path $package Licenses)
           $asset = Join-Path $env:RUNNER_TEMP AppTunnel-Windows-x64.zip
@@ -81,18 +93,26 @@ jobs:
           $setup = Join-Path $env:RUNNER_TEMP AppTunnel-Setup-x64.exe
           $appDir = Join-Path $env:ProgramFiles AppTunnel
           $flags = '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART'
-          $install = Start-Process $setup -ArgumentList $flags -Wait -PassThru
+          $installFlags = $flags + '/LANG=russian'
+          $install = Start-Process $setup -ArgumentList $installFlags -Wait -PassThru
           if ($install.ExitCode -ne 0) { throw "AppTunnel setup failed ($($install.ExitCode))." }
           $record = (Get-ItemProperty HKLM:\SOFTWARE\AppTunnel\Installation).Path
           if ($record -ne $appDir) { throw "The installation path was not registered." }
           foreach ($name in @('AppTunnel.exe', 'AppTunnel.Proton.exe', 'coreclr.dll', 'unins000.exe')) {
             if (!(Test-Path (Join-Path $appDir $name))) { throw "Setup did not install $name." }
           }
+          $settingsDir = Join-Path $env:LOCALAPPDATA AppTunnel
+          New-Item -ItemType Directory -Path $settingsDir -Force | Out-Null
+          '{"Language":"ru"}' | Set-Content (Join-Path $settingsDir settings.json) -Encoding utf8
+          $legacyLanguage = Join-Path $appDir de
+          New-Item -ItemType Directory -Path $legacyLanguage -Force | Out-Null
+          New-Item -ItemType File -Path (Join-Path $legacyLanguage System.Windows.Forms.resources.dll) -Force | Out-Null
           $app = Start-Process (Join-Path $appDir AppTunnel.exe) -ArgumentList '--startup' -PassThru
           if ($app.WaitForExit(2500)) { throw "AppTunnel did not stay open at startup ($($app.ExitCode))." }
-          $upgrade = Start-Process $setup -ArgumentList $flags -Wait -PassThru
+          $upgrade = Start-Process $setup -ArgumentList $installFlags -Wait -PassThru
           if ($upgrade.ExitCode -ne 0) { throw "AppTunnel upgrade failed ($($upgrade.ExitCode))." }
           if (!$app.WaitForExit(10000)) { throw "Setup did not close the running AppTunnel interface." }
+          if (Test-Path $legacyLanguage) { throw "Setup did not remove obsolete language resources." }
           $uninstallLog = Join-Path $env:RUNNER_TEMP AppTunnel-uninstall.log
           $remove = Start-Process (Join-Path $appDir unins000.exe) -ArgumentList ($flags + "/LOG=$uninstallLog") -Wait -PassThru
           if ($remove.ExitCode -ne 0 -or (Test-Path (Join-Path $appDir AppTunnel.exe))) {
@@ -101,6 +121,7 @@ jobs:
           }
 
       - name: Publish GitHub release, installer and ZIP
+        if: inputs.publish
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
@@ -119,7 +140,8 @@ jobs:
 
           - Iniciar com o Windows em Configurações e no menu da bandeja.
           - Instalador com .NET incluído e verificação de atualizações pelo AppTunnel.
-          - Detectar Discord inclui Serein e outros clientes alternativos.
+          - Catálogo de aplicativos e interface em inglês, português e russo.
+          - Modos WireGuard, WireGuard com preenchimento e AmneziaWG, com tentativa automática de rotas.
           - Opção de reiniciar Discord, PTB e Canary após aplicar a rota VPN.
 
           SHA-256 do instalador: $setupChecksum
