@@ -152,7 +152,7 @@ begin
     Result := (HighVersion > $30008) or ((HighVersion = $30008) and (LowVersion >= $20001));
 end;
 
-function WireSockInRegistry(Root: HKEY): Boolean;
+function WireSockInRegistry(Root: Integer): Boolean;
 var
   Keys: TArrayOfString;
   Key, DisplayName, Folder: string;
@@ -184,7 +184,7 @@ begin
     WireSockInRegistry(HKLM64) or WireSockInRegistry(HKLM32));
 end;
 
-function HasWebView(Root: HKEY): Boolean;
+function HasWebView(Root: Integer): Boolean;
 var
   Version: string;
 begin

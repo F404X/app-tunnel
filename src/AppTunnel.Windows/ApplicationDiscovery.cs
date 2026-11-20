@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using AppTunnel.Core;
+using Microsoft.Win32;
 
 namespace AppTunnel.Windows;
 
@@ -25,11 +26,41 @@ internal static class ApplicationDiscovery
             }
         }
 
+        foreach (var target in FindRegistered())
+        {
+            if (found.Add(target.Match.TrimEnd(Path.DirectorySeparatorChar))) yield return target;
+        }
+
         foreach (var target in FindRunning(onlyDiscord: true))
         {
             if (found.Any(folder => target.Match.StartsWith(folder + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)))
                 continue;
             if (found.Add(target.Match)) yield return target;
+        }
+    }
+
+    private static IEnumerable<ApplicationTarget> FindRegistered()
+    {
+        const string uninstallPath = @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall";
+        foreach (var hive in new[] { RegistryHive.CurrentUser, RegistryHive.LocalMachine })
+        {
+            foreach (var view in new[] { RegistryView.Registry64, RegistryView.Registry32 })
+            {
+                using var baseKey = RegistryKey.OpenBaseKey(hive, view);
+                using var uninstall = baseKey.OpenSubKey(uninstallPath);
+                if (uninstall is null) continue;
+                foreach (var key in uninstall.GetSubKeyNames())
+                {
+                    using var entry = uninstall.OpenSubKey(key);
+                    if (entry?.GetValue("DisplayName") is not string name || !DiscordClients.IsKnown(name) ||
+                        entry.GetValue("InstallLocation") is not string folder || !Path.IsPathFullyQualified(folder) ||
+                        !Directory.Exists(folder)) continue;
+                    string match;
+                    try { match = ApplicationTarget.Validate(Path.TrimEndingDirectorySeparator(Path.GetFullPath(folder)) + Path.DirectorySeparatorChar); }
+                    catch (FormatException) { continue; }
+                    yield return new ApplicationTarget(name, match, Folder: true);
+                }
+            }
         }
     }
 
