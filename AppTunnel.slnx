@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/Application/">
+    <Project Path="src/AppTunnel.Core/AppTunnel.Core.csproj" />
+    <Project Path="src/AppTunnel.Windows/AppTunnel.Windows.csproj" />
+    <Project Path="src/AppTunnel.Proton/AppTunnel.Proton.csproj" />
+  </Folder>
+  <Folder Name="/Tests/">
+    <Project Path="tests/AppTunnel.Checks/AppTunnel.Checks.csproj" />
+  </Folder>
+</Solution>
