@@ -1,6 +1,15 @@
 name: Build and publish Windows release
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/release.yml'
+      - 'src/**'
+      - 'tests/**'
+      - 'installer/**'
+      - 'Directory.Build.props'
+      - 'Compilar.ps1'
   workflow_dispatch:
     inputs:
       tag:
@@ -45,9 +54,10 @@ jobs:
         run: |
           [xml]$props = Get-Content -Raw Directory.Build.props
           $version = $props.Project.PropertyGroup.Version
-          if ($env:RELEASE_TAG -notmatch '^v\d+\.\d+\.\d+$' -or $env:RELEASE_TAG -ne "v$version") {
+          if ($env:RELEASE_TAG -and $env:RELEASE_TAG -ne "v$version") {
             throw "The tag must match v$version."
           }
+          "APPTUNNEL_VERSION=$version" >> $env:GITHUB_ENV
           dotnet run --project tests/AppTunnel.Checks -c Release
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           node tests/proton-portal.test.cjs
@@ -75,8 +85,6 @@ jobs:
 
       - name: Build Windows installer
         shell: pwsh
-        env:
-          RELEASE_TAG: ${{ inputs.tag }}
         run: |
           $iscc = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6/ISCC.exe'
           if (!(Test-Path $iscc)) {
@@ -84,7 +92,7 @@ jobs:
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           }
           $package = Join-Path $env:RUNNER_TEMP AppTunnel
-          & $iscc "/DAppVersion=$($env:RELEASE_TAG.Substring(1))" "/DPackageDir=$package" "/O$env:RUNNER_TEMP" installer/AppTunnel.iss
+          & $iscc "/DAppVersion=$env:APPTUNNEL_VERSION" "/DPackageDir=$package" "/O$env:RUNNER_TEMP" installer/AppTunnel.iss
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Smoke test installer on Windows
@@ -121,7 +129,7 @@ jobs:
           }
 
       - name: Publish GitHub release, installer and ZIP
-        if: inputs.publish
+        if: github.event_name == 'workflow_dispatch' && inputs.publish
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}

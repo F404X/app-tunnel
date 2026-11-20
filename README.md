@@ -208,7 +208,7 @@ dotnet run --project tests/AppTunnel.Checks -c Release
 node tests/proton-portal.test.cjs
 ```
 
-Use `./Compilar.ps1 -SelfContained` para incluir o .NET no pacote. O arquivo `installer/AppTunnel.iss` gera o instalador com o Inno Setup 6.3 ou superior. O workflow **Build and publish Windows release** compila o instalador e testa instalação, atualização e remoção no Windows. Deixe **Publish GitHub release** desmarcado para validar o pacote sem publicar uma versão. O build distribui somente os recursos de idioma usados pela interface.
+Use `./Compilar.ps1 -SelfContained` para incluir o .NET no pacote. O arquivo `installer/AppTunnel.iss` gera o instalador com o Inno Setup 6.3 ou superior. O workflow **Build and publish Windows release** valida o instalador e testa instalação, atualização e remoção no Windows após mudanças no código da branch `main`. Em uma execução manual, marque **Publish GitHub release** para publicar o pacote. O build distribui somente os recursos de idioma usados pela interface.
 
 | Projeto | Responsabilidade |
 | --- | --- |
