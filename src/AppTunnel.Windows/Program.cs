@@ -15,7 +15,7 @@ internal static class Program
             try
             {
                 if (!WindowsStartup.IsInstalled) return 1;
-                if (WindowsStartup.IsEnabled()) WindowsStartup.SetEnabled(false);
+                WindowsStartup.SetEnabled(false);
                 new WireSockEngine().Stop();
                 return 0;
             }

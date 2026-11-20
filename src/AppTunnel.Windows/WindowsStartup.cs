@@ -9,7 +9,8 @@ namespace AppTunnel.Windows;
 internal static class WindowsStartup
 {
     private const string InstallationKey = @"SOFTWARE\AppTunnel\Installation";
-    private const int TaskNotFound = unchecked((int)0x80070002);
+    private const int FileNotFound = unchecked((int)0x80070002);
+    private const int TaskNotFound = unchecked((int)0x8004130F);
     private const int InteractiveToken = 3;
 
     public static bool IsInstalled
@@ -34,7 +35,7 @@ internal static class WindowsStartup
             dynamic task = folder.GetTask(TaskName(sid));
             return (bool)task.Enabled;
         }
-        catch (COMException error) when (error.HResult == TaskNotFound) { return false; }
+        catch (Exception error) when (error.HResult is FileNotFound or TaskNotFound) { return false; }
     });
 
     public static void SetEnabled(bool enabled)
@@ -49,7 +50,7 @@ internal static class WindowsStartup
             if (!enabled)
             {
                 try { folder.DeleteTask(name, 0); }
-                catch (COMException error) when (error.HResult == TaskNotFound) { }
+                catch (Exception error) when (error.HResult is FileNotFound or TaskNotFound) { }
                 return false;
             }
 

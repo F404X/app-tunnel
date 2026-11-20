@@ -93,8 +93,10 @@ jobs:
           $upgrade = Start-Process $setup -ArgumentList $flags -Wait -PassThru
           if ($upgrade.ExitCode -ne 0) { throw "AppTunnel upgrade failed ($($upgrade.ExitCode))." }
           if (!$app.WaitForExit(10000)) { throw "Setup did not close the running AppTunnel interface." }
-          $remove = Start-Process (Join-Path $appDir unins000.exe) -ArgumentList $flags -Wait -PassThru
+          $uninstallLog = Join-Path $env:RUNNER_TEMP AppTunnel-uninstall.log
+          $remove = Start-Process (Join-Path $appDir unins000.exe) -ArgumentList ($flags + "/LOG=$uninstallLog") -Wait -PassThru
           if ($remove.ExitCode -ne 0 -or (Test-Path (Join-Path $appDir AppTunnel.exe))) {
+            if (Test-Path $uninstallLog) { Get-Content $uninstallLog -Tail 35 }
             throw "AppTunnel uninstall failed ($($remove.ExitCode))."
           }
 

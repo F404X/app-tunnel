@@ -133,7 +133,10 @@ begin
     exit;
   if not Exec(ExpandConstant('{app}\AppTunnel.exe'), '--uninstall', ExpandConstant('{app}'),
     SW_HIDE, ewWaitUntilTerminated, ExitCode) or (ExitCode <> 0) then
+  begin
+    Log(Format('AppTunnel uninstall cleanup returned %d.', [ExitCode]));
     RaiseException(CustomMessage('CleanupFailed'));
+  end;
 end;
 
 function HasWinGet(): Boolean;
