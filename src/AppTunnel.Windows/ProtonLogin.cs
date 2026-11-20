@@ -1,5 +1,3 @@
-using System.ComponentModel;
-using System.Runtime.InteropServices;
 using System.Text.Json;
 using AppTunnel.Core;
 using static AppTunnel.Core.Localized;
@@ -36,7 +34,7 @@ internal sealed class ProtonLogin(ProfileStore store)
         try
         {
             if (create) Signal(directory, "create");
-            OpenThroughExplorer(executable, $"{id} {(Portuguese ? "pt" : "en")}");
+            ExplorerLauncher.Open(executable, $"{id} {(Portuguese ? "pt" : "en")}");
             pending = directory;
             launchTime = DateTime.UtcNow;
         }
@@ -45,6 +43,20 @@ internal sealed class ProtonLogin(ProfileStore store)
             Directory.Delete(directory, recursive: true);
             throw;
         }
+    }
+
+    public async Task CloseForSetupAsync()
+    {
+        var requests = Requests().Where(directory => directory == pending || IsOpen(directory)).ToArray();
+        foreach (var directory in requests)
+        {
+            try { Signal(directory, "close"); }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
+        }
+
+        for (var attempt = 0; attempt < 25 && requests.Any(IsOpen); attempt++)
+            await Task.Delay(150);
     }
 
     public string? Poll(Action<ProtonConfiguration> import)
@@ -121,26 +133,4 @@ internal sealed class ProtonLogin(ProfileStore store)
     }
 
     private static bool IsLink(string path) => (File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0;
-
-    private static void OpenThroughExplorer(string executable, string arguments)
-    {
-        try
-        {
-            var shellType = Type.GetTypeFromProgID("Shell.Application", throwOnError: true)!;
-            dynamic shell = Activator.CreateInstance(shellType)!;
-            dynamic windows = shell.Windows();
-            object location = 0;
-            object? root = null;
-            int handle;
-            dynamic desktop = windows.FindWindowSW(ref location, ref root, 8, out handle, 1);
-            if (desktop is null || handle == 0)
-                throw new InvalidOperationException(T("The Windows desktop could not be reached.", "A área de trabalho do Windows está indisponível."));
-            desktop.Document.Application.ShellExecute(executable, arguments, Path.GetDirectoryName(executable), "open", 1);
-        }
-        catch (Exception error) when (error is COMException or Microsoft.CSharp.RuntimeBinder.RuntimeBinderException or Win32Exception)
-        {
-            throw new InvalidOperationException(T("AppTunnel could not open the Proton window through Windows Explorer.",
-                "O AppTunnel não conseguiu abrir a janela Proton pelo Windows Explorer."), error);
-        }
-    }
 }

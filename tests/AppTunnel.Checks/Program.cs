@@ -1,3 +1,4 @@
+using System.Text.Json;
 using AppTunnel.Core;
 
 var key = Convert.ToBase64String(Enumerable.Repeat((byte)0x42, 32).ToArray());
@@ -16,6 +17,59 @@ var sample = $"""
     """;
 var scenarios = new (string Name, Action Check)[]
 {
+    ("Discord detection includes Serein while restart matching respects app rules", () =>
+    {
+        Require(DiscordClients.IsKnown("Serein") && DiscordClients.IsKnown("Serein-portable-x64"));
+        Require(DiscordClients.IsKnown("Vesktop") && DiscordClients.IsKnown("Discord PTB"));
+        Require(DiscordClients.OfficialName("DISCORD.EXE") == "Discord");
+        Require(DiscordClients.OfficialName("DiscordPTB.exe") == "Discord PTB");
+        Require(DiscordClients.OfficialName("DiscordCanary.exe") == "Discord Canary");
+        Require(DiscordClients.OfficialName("Serein.exe") is null);
+        Require(DiscordClients.OfficialName("Vesktop.exe") is null);
+        ApplicationTarget[] rules =
+        [
+            new("Discord", @"C:\App\Discord\", Folder: true),
+            new("PTB", @"C:\App\DiscordPTB\DiscordPTB.exe", Enabled: false),
+            new("Canary", @"C:\Other\DiscordCanary.exe")
+        ];
+        Require(DiscordClients.IsRouted(@"C:\App\discord\app-1\Discord.exe", rules));
+        Require(DiscordClients.IsRouted(@"C:\Other\DiscordCanary.exe", rules));
+        Require(!DiscordClients.IsRouted(@"C:\App\DiscordPTB\DiscordPTB.exe", rules));
+        Require(!DiscordClients.IsRouted(@"C:\Other\DiscordCanary\DiscordCanary.exe", rules));
+    }),
+    ("updates choose the newest verified Windows installer by version", () =>
+    {
+        var digest = new string('b', 64);
+        object Release(string tag, bool draft = false, string host = "https://github.com", string? hash = null) => new
+        {
+            tag_name = tag,
+            draft,
+            prerelease = true,
+            assets = new[]
+            {
+                new
+                {
+                    name = ReleaseUpdate.InstallerName,
+                    browser_download_url = $"{host}/F404X/app-tunnel/releases/download/{tag}/{ReleaseUpdate.InstallerName}",
+                    size = 1024,
+                    digest = hash ?? $"sha256:{digest}"
+                }
+            }
+        };
+
+        var listing = JsonSerializer.SerializeToElement(new[]
+        {
+            Release("v0.6.0"), Release("v0.8.0", draft: true), Release("v0.12.0"), Release("v01.0.0"),
+            Release("v0.50.0", host: "https://github.com.example"), Release("v1.0.0", hash: "sha256:invalid")
+        });
+        var newest = ReleaseUpdate.FindNewest(listing, new Version(0, 5, 0));
+        Require(newest?.Version == new Version(0, 12, 0) && newest.Sha256 == digest && newest.Size == 1024);
+        Require(ReleaseUpdate.FindNewest(listing, new Version(0, 12, 0)) is null);
+        Require(ReleaseUpdate.IsDownloadUri(new Uri("https://release-assets.githubusercontent.com/download")));
+        Require(!ReleaseUpdate.IsDownloadUri(new Uri("http://release-assets.githubusercontent.com/download")));
+        Require(!ReleaseUpdate.IsDownloadUri(new Uri("https://github.com@elsewhere.example/download")));
+        Require(!ReleaseUpdate.IsDownloadUri(new Uri("https://github.com:444/download")));
+    }),
     ("upgrade copies saved profiles and preferences once", () =>
     {
         var root = Directory.CreateTempSubdirectory();

@@ -139,7 +139,13 @@ internal sealed class AccountWindow : Form
 
     private async Task SyncPage()
     {
-        if (syncing || web is null || IsDisposed || Disposing) return;
+        if (IsDisposed || Disposing) return;
+        if (TakeSignal("close"))
+        {
+            Close();
+            return;
+        }
+        if (syncing || web is null) return;
         syncing = true;
         try
         {

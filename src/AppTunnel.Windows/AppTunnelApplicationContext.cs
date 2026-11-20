@@ -11,8 +11,9 @@ internal sealed class AppTunnelApplicationContext : ApplicationContext
     private readonly ProtonLogin proton;
     private MainForm window;
     private bool exiting;
+    private bool preparingSetup;
 
-    public AppTunnelApplicationContext(ProfileStore store, EventWaitHandle activation)
+    public AppTunnelApplicationContext(ProfileStore store, EventWaitHandle activation, EventWaitHandle setupExit, bool trayOnly)
     {
         this.store = store;
         proton = new ProtonLogin(store);
@@ -24,11 +25,21 @@ internal sealed class AppTunnelApplicationContext : ApplicationContext
         tray.DoubleClick += (_, _) => ShowWindow();
         window = CreateWindow();
         BuildTrayMenu();
-        ShowWindow();
+        if (!trayOnly) ShowWindow();
 
-        activationTimer.Tick += (_, _) =>
+        activationTimer.Tick += async (_, _) =>
         {
-            if (activation.WaitOne(0)) ShowWindow();
+            if (!preparingSetup && !window.HasPendingOperation && setupExit.WaitOne(0))
+            {
+                preparingSetup = true;
+                window.Enabled = false;
+                try { await proton.CloseForSetupAsync(); }
+                catch (Exception error) when (error is IOException or UnauthorizedAccessException) { }
+                finally { Quit(); }
+                return;
+            }
+
+            if (!preparingSetup && activation.WaitOne(0)) ShowWindow();
         };
         activationTimer.Start();
     }
@@ -37,6 +48,8 @@ internal sealed class AppTunnelApplicationContext : ApplicationContext
     {
         var form = new MainForm(store, proton);
         form.LanguageRequested += ChangeLanguage;
+        form.StartupRequested += () => SetStartup(!form.StartsWithWindows);
+        form.RefreshStartup();
         form.FormClosing += OnWindowClosing;
         form.FormClosed += (_, args) =>
         {
@@ -52,7 +65,16 @@ internal sealed class AppTunnelApplicationContext : ApplicationContext
         menu.Items.Add(T("Open AppTunnel", "Abrir AppTunnel"), null, (_, _) => ShowWindow());
         var disconnect = menu.Items.Add(T("Disconnect VPN", "Desconectar VPN"));
         disconnect.Click += async (_, _) => await window.Disconnect();
-        menu.Opening += (_, _) => disconnect.Enabled = window.CanDisconnect;
+        var startup = new ToolStripMenuItem(T("Start with Windows", "Iniciar com o Windows"));
+        startup.Click += (_, _) => SetStartup(!startup.Checked);
+        menu.Items.Add(startup);
+        menu.Opening += (_, _) =>
+        {
+            disconnect.Enabled = window.CanDisconnect && !preparingSetup;
+            startup.Enabled = !preparingSetup;
+            window.RefreshStartup();
+            startup.Checked = window.StartsWithWindows;
+        };
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add(T("Hide Tray", "Ocultar ícone"), null, (_, _) => tray.Visible = false);
         menu.Items.Add(T("Exit interface", "Sair da interface"), null, (_, _) => Quit());
@@ -61,8 +83,15 @@ internal sealed class AppTunnelApplicationContext : ApplicationContext
         oldMenu?.Dispose();
     }
 
+    private void SetStartup(bool enabled)
+    {
+        if (preparingSetup) return;
+        window.SetStartup(enabled);
+    }
+
     private void ShowWindow(bool restoreTray = true)
     {
+        if (preparingSetup) return;
         if (restoreTray) tray.Visible = true;
         window.Show();
         if (window.WindowState == FormWindowState.Minimized) window.WindowState = FormWindowState.Normal;

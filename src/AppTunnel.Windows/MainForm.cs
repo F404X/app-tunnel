@@ -31,8 +31,8 @@ internal sealed partial class MainForm : Form
     private bool monitorFailed;
 
     public int CurrentPage { get; private set; }
-    public bool HasPendingOperation => busy || pingBusy;
-    public bool CanDisconnect => !busy && activeSession is not null;
+    public bool HasPendingOperation => busy || pingBusy || updateBusy;
+    public bool CanDisconnect => !busy && !updateBusy && activeSession is not null;
     public event Action<string>? LanguageRequested;
 
     private readonly StatusPill pill = new();
@@ -152,39 +152,20 @@ internal sealed partial class MainForm : Form
         diagnostics.CheckedChanged += (_, _) => Changed();
     }
 
-    private void AddKnown(bool onlySerein = false)
+    private void AddKnown()
     {
         Attempt(() =>
         {
-            var found = ApplicationDiscovery.FindInstalled()
-                .Where(x => !onlySerein || x.Label.Equals("Serein", StringComparison.OrdinalIgnoreCase)).ToArray();
-            if (onlySerein)
-            {
-                var existing = settings.Applications.Any(IsSerein);
-                if (!existing && found.Length == 0)
-                {
-                    footer.Text = T("Serein was not found. Open the client or select the portable executable.", "Serein não encontrado. Abra o cliente ou selecione o executável portátil.");
-                    return;
-                }
-
-                foreach (var match in found) AddTarget(match);
-                UpdateTargets(IsSerein);
-            }
-            else
-            {
-                foreach (var target in found) AddTarget(target);
-            }
+            var found = ApplicationDiscovery.FindInstalled().ToArray();
+            foreach (var target in found) AddTarget(target);
             DrawApps();
             Changed();
             footer.Text = found.Length > 0
                 ? T($"Detected {found.Length} matching installations or executables.", $"{found.Length} instalação(ões) ou executável(is) reconhecido(s).")
-                : onlySerein ? T("Only Serein entries are selected.", "Somente as entradas do Serein foram marcadas.") : T("No clients detected. Add an executable, a folder, or a running app.", "Nenhum cliente detectado. Use Executável, Pasta ou Em execução.");
+                : T("No clients detected. Add an executable, a folder, or a running app.",
+                    "Nenhum cliente detectado. Adicione um executável, uma pasta ou um programa em execução.");
         });
     }
-
-    private static bool IsSerein(ApplicationTarget target) =>
-        target.Label.Equals("Serein", StringComparison.OrdinalIgnoreCase) ||
-        Path.GetFileName(target.Match.TrimEnd('\\')).StartsWith("serein", StringComparison.OrdinalIgnoreCase);
 
     private void AddExecutable()
     {
@@ -524,7 +505,7 @@ internal sealed partial class MainForm : Form
 
     private async Task ChangeConnection(bool starting)
     {
-        if (busy || (starting && pingBusy)) return;
+        if (busy || updateBusy || (starting && pingBusy)) return;
         operation = !starting ? T("Disconnecting…", "Desconectando…") :
             activeSession is not null ? T("Applying changes…", "Aplicando ajustes…") : T("Connecting…", "Conectando…");
         busy = true;
@@ -542,26 +523,28 @@ internal sealed partial class MainForm : Form
 
             var route = SelectedRoute() ?? throw new InvalidOperationException(T("Add and select a profile in Routes.", "Importe e selecione um perfil na aba Rotas."));
             var requested = settings.Applications.Where(x => x.Enabled).ToArray();
-            var targets = requested.Where(x => x.Folder ? Directory.Exists(x.Match) : File.Exists(x.Match))
-                .Select(x => x.Match).ToArray();
-            var missing = requested.Length - targets.Length;
-            if (targets.Length == 0)
+            var routed = requested.Where(x => x.Folder ? Directory.Exists(x.Match) : File.Exists(x.Match)).ToArray();
+            var missing = requested.Length - routed.Length;
+            if (routed.Length == 0)
                 throw new InvalidOperationException(T("Select at least one existing app or folder in Apps.", "Selecione ao menos um programa ou uma pasta que exista na aba Programas."));
             var path = settings.EnginePath.Length > 0 && File.Exists(settings.EnginePath) ? settings.EnginePath :
                 WireSockEngine.Locate() ?? throw new InvalidOperationException(T("Install WireSock Secure Connect CLI using the command in Diagnostics.", "Instale o WireSock Secure Connect CLI. O comando está na aba Diagnóstico."));
             var options = CurrentRoute();
             var verbose = diagnostics.Checked;
             var profile = store.Read(route.Id);
-            var config = profile.BuildClientConfig(targets, options);
+            var config = profile.BuildClientConfig(routed.Select(x => x.Match), options);
             Save();
             await Task.Run(() => WireSockEngine.ValidateInstallation(path));
-            AddLog(T($"Starting {route.Name} at {profile.Endpoint} with {targets.Length} app rules.", $"Iniciando {route.Name} por {profile.Endpoint} para {targets.Length} regra(s) de programa."));
+            AddLog(T($"Starting {route.Name} at {profile.Endpoint} with {routed.Length} app rules.", $"Iniciando {route.Name} por {profile.Endpoint} para {routed.Length} regra(s) de programa."));
             if (missing > 0) AddLog(T($"Skipped {missing} selected paths that no longer exist.", $"{missing} caminho(s) marcado(s) deixaram de existir e foram ignorados."));
-            var request = new TunnelSession(route with { Endpoint = profile.Endpoint }, targets.Length,
+            var request = new TunnelSession(route with { Endpoint = profile.Endpoint }, routed.Length,
                 requested.Select(x => x.Match).ToArray(), options, verbose);
             activeSession = await Task.Run(() => engine.Start(path, config, request));
-            AddLog(T("Windows service is running.", "O serviço do Windows está em execução."));
-            footer.Text = T("Reopen your chat client before testing a call or stream.", "Feche e reabra o cliente antes de testar uma chamada ou transmissão.");
+            AddLog(T("The WireSock VPN service is running.", "O serviço VPN do WireSock está em execução."));
+            footer.Text = T("VPN route applied.", "Rota VPN aplicada.");
+            operation = "";
+            UpdateState();
+            await OfferDiscordRestart(routed);
         }
         catch (Exception e) when (Expected(e))
         {
@@ -573,6 +556,43 @@ internal sealed partial class MainForm : Form
             busy = false;
             UpdateState();
         }
+    }
+
+    private async Task OfferDiscordRestart(ApplicationTarget[] routed)
+    {
+        var clients = await Task.Run(() => DiscordRestart.FindRunning(routed));
+        if (clients.Length == 0) return;
+        var names = string.Join(", ", clients.Select(client => client.Name).Distinct());
+        var message = T($"Restart {names} to use the VPN? This will end any active calls or streams.",
+            $"Reiniciar {names} para usar a VPN? Isso interrompe chamadas e transmissões em andamento.");
+        if (MessageBox.Show(this, message, "AppTunnel", MessageBoxButtons.YesNo, MessageBoxIcon.Question,
+            MessageBoxDefaultButton.Button2) != DialogResult.Yes)
+        {
+            footer.Text = T("VPN route applied. Restart Discord when you're ready.",
+                "Rota VPN aplicada. Reinicie o Discord quando puder.");
+            return;
+        }
+
+        operation = T("Restarting Discord…", "Reiniciando o Discord…");
+        UpdateState();
+        var failed = new List<string>();
+        foreach (var client in clients)
+        {
+            try
+            {
+                await DiscordRestart.CloseAsync(client);
+                ExplorerLauncher.Open(client.Path);
+            }
+            catch (Exception error) when (Expected(error))
+            {
+                failed.Add(client.Name);
+                AddLog($"{client.Name} · {error.Message}");
+            }
+        }
+        if (failed.Count == 0) return;
+        var retry = string.Join(", ", failed.Distinct());
+        Failure(new InvalidOperationException(T($"Restart these clients manually: {retry}",
+            $"Reinicie estes clientes manualmente: {retry}")));
     }
 
     private RouteOptions CurrentRoute() => new(lan.Checked, ipv6.Checked, include.Text.Trim(), exclude.Text.Trim());
@@ -604,12 +624,12 @@ internal sealed partial class MainForm : Form
 
         start.Text = pick is null ? T("Add a server…", "Adicionar servidor…") : marked.Length == 0 ? T("Choose apps", "Escolher programas") : T("Connect", "Conectar");
         start.Visible = !running;
-        start.Enabled = !busy && !pingBusy;
+        start.Enabled = !HasPendingOperation;
         apply.Text = changedServer ? T("Switch server", "Trocar servidor") : T("Apply settings", "Aplicar ajustes");
         apply.Visible = running && canApply;
-        apply.Enabled = !busy && !pingBusy;
+        apply.Enabled = !HasPendingOperation;
         stop.Visible = running;
-        stop.Enabled = !busy;
+        stop.Enabled = !busy && !updateBusy;
         pageHost.Enabled = !busy;
         foreach (var button in navigationButtons) button.Enabled = !busy;
         ping.Enabled = !busy && !pingBusy && pick is not null;
@@ -618,10 +638,10 @@ internal sealed partial class MainForm : Form
         remove.Enabled = !busy && !pingBusy && pick is not null;
         ipv6.Enabled = pick?.HasIpv6 == true;
 
-        if (busy)
+        if (busy && operation.Length > 0)
             pill.ShowStatus(operation, Amber, AmberWash);
         else if (running)
-            pill.ShowStatus(T("Service running", "Serviço em execução"), Green, GreenWash);
+            pill.ShowStatus(T("WireSock VPN service is running", "Serviço VPN do WireSock em execução"), Green, GreenWash);
         else
             pill.ShowStatus(T("Offline", "Sem conexão"), Muted, Surface);
 

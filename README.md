@@ -4,7 +4,7 @@
 
 Use a **Proton VPN só nos aplicativos que você escolher**, como Serein, Discord ou outro cliente compatível. O AppTunnel permite selecionar os programas e a rota WireGuard pelo painel. O WireSock mantém a conexão como serviço do Windows e coloca o tráfego TCP e UDP dos programas escolhidos no túnel.
 
-**Para começar, baixe o ZIP em [Releases](https://github.com/F404X/app-tunnel/releases).** O guia abaixo explica desde a instalação até o primeiro teste.
+**Para começar, baixe o instalador x64 em [Releases](https://github.com/F404X/app-tunnel/releases).** O guia abaixo explica desde a instalação até o primeiro teste.
 
 ## Antes de instalar
 
@@ -12,32 +12,29 @@ Use a **Proton VPN só nos aplicativos que você escolher**, como Serein, Discor
 - **Uma conta Proton.** Você pode criar uma conta gratuita e escolher um dos servidores disponíveis no seu plano. [Criar conta Proton VPN](https://protonvpn.com/free-vpn)
 - **Permissão de administrador no Windows.** O sistema pede essa permissão porque o AppTunnel usa um serviço de rede.
 
-## 1. Instale as dependências
+## 1. Instale o AppTunnel
 
-Abra o menu **Iniciar**, digite **PowerShell** e abra o aplicativo. Copie **um comando por vez**, pressione **Enter** e aguarde terminar antes de colar o seguinte. Se o instalador pedir confirmação, leia o prompt e confirme.
+1. Abra [Releases](https://github.com/F404X/app-tunnel/releases). Em **Assets**, baixe **AppTunnel-Setup-x64.exe**.
+2. Clique duas vezes no arquivo baixado. Confirme a permissão de administrador do Windows e siga as etapas do instalador.
+3. Na última tela, mantenha marcadas as opções de instalar o **WireSock Secure Connect CLI** e o **Microsoft Edge WebView2 Runtime**, se aparecerem. O WireSock direciona o tráfego para a VPN. O WebView2 abre a página da Proton dentro do AppTunnel. Se o Windows pedir confirmação para instalar um deles, siga as instruções na tela.
+4. Clique em **Concluir**. Para abrir o AppTunnel depois, pesquise **AppTunnel** no menu **Iniciar**.
+
+O instalador inclui o .NET. Se você usava o ZIP da versão 0.4.0 ou anterior, feche primeiro a janela da Proton e escolha **Sair da interface** no menu da bandeja. Seus perfis e preferências continuam disponíveis ao abrir a versão instalada.
+
+### Versão portátil
+
+Em **Assets**, baixe **AppTunnel-Windows-x64.zip**, clique com o botão direito no arquivo e escolha **Extrair tudo**. Abra **AppTunnel.exe** de dentro da pasta extraída e mantenha todos os arquivos juntos. Em um PC sem WireSock ou WebView2, instale os componentes pelos links oficiais abaixo ou execute os comandos no PowerShell.
 
 ```powershell
-winget install --id Microsoft.DotNet.DesktopRuntime.10 --exact --source winget
 winget install --id NTKERNEL.WireSockVPNClientCLI --exact --source winget
 winget install --id Microsoft.EdgeWebView2Runtime --exact --source winget
 ```
 
-| Dependência | O que ela faz |
-| --- | --- |
-| .NET Desktop Runtime 10 | Permite abrir o AppTunnel. [Download do .NET](https://dotnet.microsoft.com/en-us/download/dotnet/10.0) |
-| WireSock Secure Connect CLI | Fornece o serviço que conecta a VPN e filtra o tráfego por aplicativo. O AppTunnel requer a versão 3.8.2.1 ou superior. [Documentação do WireSock CLI](https://wiresock.net/documentation/wiresock-secure-connect/command-line-interface.html) |
-| Microsoft Edge WebView2 Runtime | Abre a página oficial da Proton dentro da janela de conta do AppTunnel. [Download do WebView2](https://developer.microsoft.com/microsoft-edge/webview2/) |
+O AppTunnel requer o WireSock CLI 3.8.2.1 ou superior. Se o Windows não reconhecer `winget`, use as páginas de download dos fabricantes ou instale o **Instalador de Aplicativo** da Microsoft Store. [WireSock](https://wiresock.net/wiresock-secure-connect/download) · [WebView2](https://developer.microsoft.com/microsoft-edge/webview2/) · [Ajuda do WinGet](https://learn.microsoft.com/pt-br/windows/package-manager/winget/)
 
-Se aparecer **“winget não é reconhecido”**, instale ou atualize o **Instalador de Aplicativo** na Microsoft Store e abra o PowerShell novamente. Se um pacote já estiver instalado e atualizado, siga para o próximo comando. [Ajuda do WinGet](https://learn.microsoft.com/pt-br/windows/package-manager/winget/)
+## 2. Escolha o idioma
 
-## 2. Baixe e abra o AppTunnel
-
-1. Abra [Releases](https://github.com/F404X/app-tunnel/releases). Na seção **Assets** da versão que você quer usar, baixe **`AppTunnel-Windows-x64.zip`**.
-2. No Explorador de Arquivos, clique com o botão direito no ZIP e escolha **Extrair tudo**. Mantenha os arquivos juntos na pasta extraída.
-3. Abra a pasta **AppTunnel** e dê dois cliques em **`AppTunnel.exe`**. O Windows pode mostrar o pedido de permissão de administrador para o serviço.
-4. A interface abre em inglês. Para mudar, clique em **Language · EN → Português** no menu lateral. O restante do guia usa os nomes em português e indica os principais nomes em inglês entre parênteses.
-
-Se já usava uma versão anterior, encerre a interface antiga pelo menu do ícone na bandeja antes de abrir esta versão. O AppTunnel migra seus perfis locais e preferências na primeira abertura.
+O aplicativo abre em inglês. Para mudar, clique em **Language · EN → Português** no menu lateral. O restante do guia usa os nomes em português e traz os principais nomes em inglês entre parênteses.
 
 ## 3. Escolha o servidor da Proton
 
@@ -63,10 +60,10 @@ Guarde os arquivos `.conf` em um local privado. Eles contêm a chave privada do 
 
 ## 4. Selecione os aplicativos e conecte
 
-1. Abra **Programas (Apps)**. Para usar a VPN só no Serein, clique em **Só Serein (Serein only)**. Para encontrar o Discord e clientes derivados instalados, clique em **Detectar Discord (Detect Discord)**.
+1. Abra **Programas (Apps) → Detectar Discord (Detect Discord)** para localizar Discord, PTB, Canary, Serein e outros clientes alternativos conhecidos.
 2. Confira as caixas da coluna **VPN**. Marque os programas que devem usar o túnel. Se o programa estiver fora da pasta padrão, use **Adicionar .exe (Add .exe)** ou **Em execução… (Running apps…)**. Ao usar **Adicionar pasta**, escolha a pasta do próprio aplicativo, pois a regra abrange os executáveis nela.
 3. Volte a **Rotas** e clique no servidor desejado. No painel superior, clique em **Conectar (Connect)**.
-4. Quando aparecer **Serviço em execução (Service running)**, encerre o cliente de chat por completo, inclusive pelo ícone dele na bandeja, e abra-o novamente. Isso recria as conexões de voz e vídeo. Faça uma chamada ou teste o compartilhamento de tela.
+4. Aguarde **Serviço VPN do WireSock em execução (WireSock VPN service is running)**. Se um Discord oficial, PTB ou Canary estiver aberto e incluído na rota, o AppTunnel pergunta se você quer reiniciá-lo. Escolha **Sim** para recriar a conexão de voz e vídeo ou **Não** para reiniciar o Discord depois. Com o Serein, você pode seguir direto para o teste da chamada ou da transmissão.
 
 O painel superior mostra o **servidor em uso** e seu endereço. Para trocar, selecione outra linha em **Rotas** e clique em **Trocar servidor (Switch server)**. Se mudar os aplicativos ou os filtros durante a conexão, clique em **Aplicar ajustes (Apply settings)**.
 
@@ -78,17 +75,24 @@ O painel superior mostra o **servidor em uso** e seu endereço. Para trocar, sel
 | Esconder o ícone do AppTunnel | Clique com o botão direito nele e escolha **Ocultar ícone (Hide Tray)**. |
 | Restaurar a janela e o ícone | Abra `AppTunnel.exe` novamente. A instância existente é trazida de volta. |
 | Encerrar a interface e manter o serviço | Na bandeja, escolha **Sair da interface (Exit interface)**. |
+| Abrir o AppTunnel com o Windows | Marque **Iniciar com o Windows (Start with Windows)** em **Configurações (Settings)** ou no menu de contexto do ícone da bandeja. A opção está disponível na versão instalada. |
 | Parar a VPN | Clique em **Desconectar (Disconnect)** no painel ou **Desconectar VPN (Disconnect VPN)** na bandeja. |
 
-O serviço inicia sob demanda. Depois de reiniciar o Windows, abra o AppTunnel e clique em **Conectar** novamente.
+Com **Iniciar com o Windows** ativado, o AppTunnel abre na bandeja quando você entra na sua conta do Windows. Para ligar a VPN após reiniciar o PC, abra o AppTunnel e clique em **Conectar**.
+
+## Atualizar o AppTunnel
+
+Abra **Configurações (Settings) → Verificar atualizações (Check for updates)**. Se houver uma versão mais recente com instalador no GitHub, o AppTunnel baixa e verifica o arquivo, incluindo versões de prévia. Confirme quando aparecer a opção de instalar e siga o assistente. A atualização preserva perfis, preferências e o serviço da VPN em execução.
+
+Se estiver na versão 0.4.0 ou anterior, baixe o instalador pela página de [Releases](https://github.com/F404X/app-tunnel/releases).
 
 ## Se algo der errado
 
 | O que aparece | Como resolver |
 | --- | --- |
-| O executável pede o .NET | Instale o **.NET Desktop Runtime 10 x64** do passo 1 e abra o executável novamente. |
+| O executável pede o .NET | Baixe o instalador atual em Releases. Se preferir continuar com um ZIP antigo, instale o [.NET Desktop Runtime 10 x64](https://dotnet.microsoft.com/en-us/download/dotnet/10.0). |
 | A janela Proton fica indisponível | Instale ou atualize o **WebView2 Runtime**. Você também pode baixar o perfil pela página oficial da Proton e usar **Importar .conf**. |
-| O WireSock aparece como ausente | Instale o pacote **WireSock Secure Connect CLI** do passo 1. Em **Diagnóstico (Diagnostics)**, use **Detectar novamente (Detect again)**. Se ainda precisar indicar o caminho manualmente, use **Localizar WireSock… (Locate WireSock…)** e procure `wiresock-client.exe`, normalmente em `C:\Program Files\WireSock Secure Connect\sdk\`. |
+| O WireSock aparece como ausente | Instale o pacote **WireSock Secure Connect CLI** pela página oficial ou pelo comando acima. Em **Diagnóstico (Diagnostics)**, use **Detectar novamente (Detect again)**. Se ainda precisar indicar o caminho manualmente, use **Localizar WireSock… (Locate WireSock…)** e procure `wiresock-client.exe`, normalmente em `C:\Program Files\WireSock Secure Connect\sdk\`. |
 | A importação diz que `PrivateKey` está vazia ou inválida | Use o `.conf` original que contém a chave privada ou gere um novo perfil na Proton. |
 | O servidor aparece em uso e a chamada continua falhando | Confira se marcou o executável certo em **Programas**, aplique as alterações, feche o cliente de chat por completo e reabra. Se necessário, teste outro servidor e confira os registros em **Diagnóstico**. |
 | Outro serviço WireSock já está em uso | Desconecte a sessão no aplicativo que a iniciou e tente conectar pelo AppTunnel. |
@@ -104,6 +108,8 @@ Para compilar no Windows, instale o **SDK .NET 10** e execute na raiz do reposit
 dotnet run --project tests/AppTunnel.Checks -c Release
 node tests/proton-portal.test.cjs
 ```
+
+Use `./Compilar.ps1 -SelfContained` para incluir o .NET no pacote. O arquivo `installer/AppTunnel.iss` gera o instalador com o Inno Setup 6.3 ou superior. O workflow **Build and publish Windows release** compila, testa e publica o instalador e o ZIP no GitHub.
 
 | Projeto | Responsabilidade |
 | --- | --- |

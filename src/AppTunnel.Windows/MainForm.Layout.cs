@@ -24,7 +24,7 @@ internal sealed partial class MainForm
         var workspace = Column(140, 14, 0, 33);
         workspace.Padding = new Padding(20, 18, 20, 6);
         workspace.Controls.Add(BuildConnectionCard(), 0, 0);
-        pages.AddRange([BuildProgramsPage(), BuildRoutesPage(), BuildDiagnosticsPage()]);
+        pages.AddRange([BuildProgramsPage(), BuildRoutesPage(), BuildDiagnosticsPage(), BuildSettingsPage()]);
         workspace.Controls.Add(pageHost, 0, 2);
         footer.ForeColor = Muted;
         workspace.Controls.Add(footer, 0, 3);
@@ -38,7 +38,7 @@ internal sealed partial class MainForm
 
     private Control BuildSidebar()
     {
-        var sidebar = Column(62, 42, 42, 42, 0, 42);
+        var sidebar = Column(62, 42, 42, 42, 42, 0, 42);
         sidebar.BackColor = Surface;
         sidebar.Padding = new Padding(11, 17, 11, 9);
         var brand = new FlowLayoutPanel { Dock = DockStyle.Fill, WrapContents = false, Margin = new Padding(0) };
@@ -60,7 +60,8 @@ internal sealed partial class MainForm
         navigationButtons = [
             NavigationButton(T("Apps", "Programas"), 0),
             NavigationButton(T("Routes", "Rotas"), 1),
-            NavigationButton(T("Diagnostics", "Diagnóstico"), 2)
+            NavigationButton(T("Diagnostics", "Diagnóstico"), 2),
+            NavigationButton(T("Settings", "Configurações"), 3)
         ];
         for (var i = 0; i < navigationButtons.Length; i++)
             sidebar.Controls.Add(navigationButtons[i], 0, i + 1);
@@ -76,7 +77,7 @@ internal sealed partial class MainForm
         language.ContextMenuStrip = menu;
         language.Disposed += (_, _) => menu.Dispose();
         language.Click += (_, _) => menu.Show(language, new Point(0, -menu.GetPreferredSize(Size.Empty).Height));
-        sidebar.Controls.Add(language, 0, 5);
+        sidebar.Controls.Add(language, 0, 6);
         return sidebar;
     }
 
@@ -135,15 +136,14 @@ internal sealed partial class MainForm
             ActionButton(T("Add .exe", "Adicionar .exe"), AddExecutable),
             ActionButton(T("Add folder", "Adicionar pasta"), AddFolder),
             ActionButton(T("Running apps…", "Em execução…"), AddRunning),
-            ActionButton(T("Serein only", "Só Serein"), () => AddKnown(true)),
-            ActionButton(T("Detect Discord", "Detectar Discord"), () => AddKnown())), 0, 2);
+            ActionButton(T("Detect Discord", "Detectar Discord"), AddKnown)), 0, 2);
 
         apps.AccessibleName = T("Apps on the VPN", "Programas na VPN");
         AddCheckColumn(apps);
         AddColumn(apps, T("App", "Programa"), 200, font: Body(bold: true));
         AddColumn(apps, T("Rule", "Regra"), 91);
         AddColumn(apps, T("Executable or folder path", "Caminho do executável ou pasta"), 220, fill: true, font: Mono);
-        content.Controls.Add(GridFrame(apps, emptyApps, T("No apps added. Choose Serein only or add an executable.", "Nenhum programa adicionado. Use Só Serein ou adicione um executável.")), 0, 3);
+        content.Controls.Add(GridFrame(apps, emptyApps, T("No apps added. Use Detect Discord or add an executable.", "Nenhum programa adicionado. Use Detectar Discord ou adicione um executável.")), 0, 3);
         content.Controls.Add(MakeBar(
             ActionButton(T("Select all", "Marcar todos"), () => SetChecks(true), ButtonKind.Quiet),
             ActionButton(T("Clear all", "Desmarcar todos"), () => SetChecks(false), ButtonKind.Quiet),

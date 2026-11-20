@@ -5,13 +5,6 @@ namespace AppTunnel.Windows;
 
 internal static class ApplicationDiscovery
 {
-    internal static readonly string[] KnownClients =
-    [
-        "Serein", "Discord", "DiscordPTB", "DiscordCanary", "DiscordDevelopment",
-        "Vesktop", "Equibop", "Equicord", "ArmCord", "Legcord", "WebCord",
-        "Lightcord", "Dorion", "Dissent", "GoofCord", "Discordo"
-    ];
-
     public static IEnumerable<ApplicationTarget> FindInstalled()
     {
         var local = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
@@ -22,7 +15,7 @@ internal static class ApplicationDiscovery
             Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86)
         }.Where(x => !string.IsNullOrEmpty(x)).Distinct(StringComparer.OrdinalIgnoreCase);
         var found = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var client in KnownClients)
+        foreach (var client in DiscordClients.KnownNames)
         {
             foreach (var root in roots)
             {
@@ -50,7 +43,7 @@ internal static class ApplicationDiscovery
                 try
                 {
                     var name = process.ProcessName;
-                    if ((onlyDiscord && !KnownClients.Contains(name, StringComparer.OrdinalIgnoreCase)) ||
+                    if ((onlyDiscord && !DiscordClients.IsKnown(name)) ||
                         process.Id == Environment.ProcessId) continue;
                     var path = process.MainModule?.FileName;
                     if (path is null || !File.Exists(path)) continue;
