@@ -16,7 +16,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Version tag from Directory.Build.props (for example v0.9.0)
+        description: Version tag from Directory.Build.props (for example v0.9.1)
         required: true
         type: string
       prerelease:
@@ -169,11 +169,7 @@ jobs:
 
           Baixe **AppTunnel-Setup-x64.exe** em **Assets** e siga o instalador. O **AppTunnel-Windows-x64.zip** é a versão portátil. Veja o [guia de instalação](https://github.com/$env:GITHUB_REPOSITORY/blob/$env:GITHUB_SHA/README.md) para configurar a Proton e os aplicativos.
 
-          - A troca automática para uma rota mais rápida só é mantida após a resposta ao handshake. Sem essa confirmação, a rota anterior é restaurada.
-          - Se o serviço do WireSock parar sozinho, o AppTunnel remove o serviço, os arquivos da sessão e as regras de IPv6 que sobraram.
-          - **Atualizar WireSock** interrompe o WinGet após 10 minutos, e a desinstalação limpa a sessão mesmo quando outro administrador conectou a VPN.
-          - Interface revisada: foco visível nos botões, bordas de campos mais nítidas, janelas secundárias com escala por DPI e barra de título no tema, menu da bandeja no tema e filtros de destino recolhíveis na aba **Rotas**.
-          - A janela da Proton reabre com o idioma e o tema atuais, e o pacote de build é montado do zero a cada compilação.
+          - No tema escuro, as barras de rolagem das listas, dos registros, das caixas de texto e dos painéis usam o estilo escuro do Windows 10 1809 ou superior. No tema claro, mantêm o estilo padrão.
 
           SHA-256 do instalador: $setupChecksum
 

@@ -37,7 +37,35 @@ internal static class DesktopTheme
         form.AutoScaleDimensions = new SizeF(96, 96);
         form.AutoScaleMode = AutoScaleMode.Dpi;
         form.HandleCreated += (_, _) => ApplyTitleBar(form.Handle);
+        ThemeScrollbars(form);
     }
+
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<Control, object> ScrollThemed = new();
+
+    // Gives every scrolling control in the tree Windows' dark scrollbars in dark mode (Windows 10 1809+ and 11).
+    // "DarkMode_Explorer" is an undocumented uxtheme class; older Windows ignores it and keeps the default look.
+    // Controls added later, such as pages swapped in on navigation, are themed when they join the tree.
+    public static void ThemeScrollbars(Control root)
+    {
+        if (!ScrollThemed.TryAdd(root, ScrollThemed)) return;
+        root.ControlAdded += (_, e) => { if (e.Control is { } child) ThemeScrollbars(child); };
+        if (Scrolls(root))
+        {
+            if (root.IsHandleCreated) ApplyScrollbarTheme(root);
+            root.HandleCreated += (_, _) => ApplyScrollbarTheme(root);
+        }
+        foreach (Control child in root.Controls) ThemeScrollbars(child);
+    }
+
+    // A DataGridView draws its scrollbars as ScrollBar child controls, so those are themed instead of the grid.
+    private static bool Scrolls(Control control) => control is TextBoxBase { Multiline: true } or ScrollBar or
+        ListBox or ListView or TreeView or ScrollableControl { AutoScroll: true };
+
+    private static void ApplyScrollbarTheme(Control control) =>
+        _ = SetWindowTheme(control.Handle, IsDark ? "DarkMode_Explorer" : "Explorer", null);
+
+    [DllImport("uxtheme.dll", CharSet = CharSet.Unicode, ExactSpelling = true)]
+    private static extern int SetWindowTheme(nint window, string? subAppName, string? subIdList);
 
     public static void ApplyTitleBar(nint window)
     {

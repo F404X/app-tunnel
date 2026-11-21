@@ -88,6 +88,7 @@ internal sealed partial class MainForm : Form
         Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath);
 
         BuildLayout();
+        ThemeScrollbars(this);
         lan.Checked = settings.Route.DirectLan;
         ipv6.Checked = settings.Route.UseIpv6;
         include.Text = settings.Route.Include;
