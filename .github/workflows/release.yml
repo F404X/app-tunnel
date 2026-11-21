@@ -169,7 +169,7 @@ jobs:
 
           Baixe **AppTunnel-Setup-x64.exe** em **Assets** e siga o instalador. O **AppTunnel-Windows-x64.zip** é a versão portátil. Veja o [guia de instalação](https://github.com/$env:GITHUB_REPOSITORY/blob/$env:GITHUB_SHA/README.md) para configurar a Proton e os aplicativos.
 
-          - No tema escuro, as barras de rolagem das listas, dos registros, das caixas de texto e dos painéis usam o estilo escuro do Windows 10 1809 ou superior. No tema claro, mantêm o estilo padrão.
+          - O ícone da bandeja agora não tem fundo e ocupa todo o espaço, como nos outros aplicativos. Ele fica âmbar na barra de tarefas escura e azul-marinho na clara.
 
           SHA-256 do instalador: $setupChecksum
 
