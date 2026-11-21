@@ -16,6 +16,7 @@
     <EmbeddedResource Include="Assets/Flags/*.png" LogicalName="AppTunnel.Flags.%(Filename)%(Extension)" />
     <EmbeddedResource Include="../../docs/telemetry-examples.txt" LogicalName="AppTunnel.TelemetryExamples" />
     <EmbeddedResource Include="../../docs/terms/*.txt" LogicalName="AppTunnel.Terms.%(Filename)" />
+    <EmbeddedResource Include="Assets/Tray/*.ico" LogicalName="AppTunnel.Tray.%(Filename)%(Extension)" />
     <EmbeddedResource Include="Fonts/*.ttf" LogicalName="AppTunnel.Fonts.%(Filename)%(Extension)" />
     <PackageReference Include="System.ServiceProcess.ServiceController" Version="10.0.0" />
   </ItemGroup>

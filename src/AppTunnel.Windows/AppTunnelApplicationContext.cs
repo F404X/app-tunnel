@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using AppTunnel.Core;
+using Microsoft.Win32;
 using static AppTunnel.Core.Localized;
 
 namespace AppTunnel.Windows;
@@ -17,17 +18,18 @@ internal sealed class AppTunnelApplicationContext : ApplicationContext
     private MainForm window;
     private bool exiting;
     private bool preparingSetup;
+    private Icon? trayIcon;
+    private string? trayVariant;
+    private Size traySize;
 
     public AppTunnelApplicationContext(ProfileStore store, Telemetry telemetry, EventWaitHandle activation, EventWaitHandle setupExit, bool trayOnly)
     {
         this.store = store;
         this.telemetry = telemetry;
         proton = new ProtonLogin(store);
-        tray = new NotifyIcon
-        {
-            Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath) ?? SystemIcons.Application,
-            Text = "AppTunnel", Visible = true
-        };
+        tray = new NotifyIcon { Text = "AppTunnel" };
+        RefreshTrayIcon();
+        tray.Visible = true;
         tray.DoubleClick += (_, _) => ShowWindow();
         window = CreateWindow();
         BuildTrayMenu();
@@ -51,6 +53,7 @@ internal sealed class AppTunnelApplicationContext : ApplicationContext
             if (now >= nextThemePoll)
             {
                 nextThemePoll = now + 2000;
+                RefreshTrayIcon();
                 if (DesktopTheme.ResolveDark(window.PreferredTheme) != DesktopTheme.IsDark)
                 {
                     window.SaveInterface();
@@ -112,6 +115,35 @@ internal sealed class AppTunnelApplicationContext : ApplicationContext
         var oldMenu = tray.ContextMenuStrip;
         tray.ContextMenuStrip = menu;
         oldMenu?.Dispose();
+    }
+
+    // The tray glyph has no background, so it follows the taskbar theme (not the app theme) to stay legible.
+    private void RefreshTrayIcon()
+    {
+        var variant = TaskbarIsLight() ? "light" : "dark";
+        var size = SystemInformation.SmallIconSize;
+        if (variant == trayVariant && size == traySize) return;
+        using var stream = typeof(AppTunnelApplicationContext).Assembly.GetManifestResourceStream($"AppTunnel.Tray.tray-{variant}.ico");
+        if (stream is null) return;
+        var previous = trayIcon;
+        trayIcon = new Icon(stream, size);
+        tray.Icon = trayIcon;
+        previous?.Dispose();
+        trayVariant = variant;
+        traySize = size;
+    }
+
+    private static bool TaskbarIsLight()
+    {
+        try
+        {
+            return Registry.GetValue(@"HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize",
+                "SystemUsesLightTheme", 0) is 1;
+        }
+        catch (Exception error) when (error is UnauthorizedAccessException or System.Security.SecurityException)
+        {
+            return false;
+        }
     }
 
     private void SetStartup(bool enabled)
@@ -187,6 +219,7 @@ internal sealed class AppTunnelApplicationContext : ApplicationContext
             tray.Visible = false;
             tray.ContextMenuStrip?.Dispose();
             tray.Dispose();
+            trayIcon?.Dispose();
         }
         base.Dispose(disposing);
     }
