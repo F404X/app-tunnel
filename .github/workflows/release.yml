@@ -16,7 +16,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Version tag from Directory.Build.props (for example v0.7.0)
+        description: Version tag from Directory.Build.props (for example v0.8.0)
         required: true
         type: string
       prerelease:
@@ -173,10 +173,10 @@ jobs:
 
           Baixe **AppTunnel-Setup-x64.exe** em **Assets** e siga o instalador. O **AppTunnel-Windows-x64.zip** é a versão portátil. Veja o [guia de instalação](https://github.com/$env:GITHUB_REPOSITORY/blob/$env:GITHUB_SHA/README.md) para configurar a Proton e os aplicativos.
 
-          - **Perfis da conta** em destaque nas rotas e um assistente para criar perfis WireGuard sob demanda. Use o servidor recomendado pela Proton ou escolha outro.
-          - Tema claro, opção de seguir o tema do Windows, status da VPN com espaço para o texto completo e opção de atualização automática na edição instalada.
-          - Estatísticas, relatórios de erro e diagnósticos com consentimentos independentes. Cada diagnóstico exige revisão e aprovação individual.
-          - Termos de uso no aplicativo e no instalador, em português, inglês e russo.
+          - A aba **Rotas** recomenda dois servidores diferentes para oferecer uma alternativa. Uma rota já permite conectar.
+          - O AppTunnel compara servidores compatíveis em segundo plano quando o ping da rota ativa passa de 400 ms por cinco segundos. Se houver uma opção mais rápida, a troca recarrega o túnel.
+          - **Configurações → Atualizar WireSock** verifica e instala atualizações pelo WinGet com a VPN desconectada.
+          - Rótulos e mensagens revisados em inglês, português e russo.
 
           SHA-256 do instalador: $setupChecksum
 
