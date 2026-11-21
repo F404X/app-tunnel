@@ -55,7 +55,8 @@ internal static class TelemetryWindow
                 var status = entry.Status == Delivery.Delivered
                     ? T("Accepted", "Aceito", "Принято")
                     : T("Delivery unconfirmed", "Envio sem confirmação", "Доставка не подтверждена");
-                items.Add($"{entry.At.ToLocalTime():g} · {status}{Environment.NewLine}{entry.Json}");
+                var timestamp = entry.At.ToLocalTime().ToString("g", System.Globalization.CultureInfo.CurrentUICulture);
+                items.Add($"{timestamp} · {status}{Environment.NewLine}{entry.Json}");
             }
             body.Text = string.Join(Environment.NewLine + Environment.NewLine, items);
         }

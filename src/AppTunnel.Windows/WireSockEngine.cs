@@ -373,6 +373,21 @@ internal sealed partial class WireSockEngine : ITunnelEngine
             "Outra instância do AppTunnel está alterando o serviço da VPN.", "Другой экземпляр AppTunnel изменяет службу VPN."));
     }
 
+    public static T WithInactiveService<T>(Func<T> operation)
+    {
+        using var gate = LockOperations();
+        try
+        {
+            if (ServiceImage() is not null || Process.GetProcessesByName("wiresock-client").Count(IsLiveProcess) > 0)
+                throw new InvalidOperationException(Localized.T(
+                    "Disconnect the WireSock VPN and close any other WireSock client before updating.",
+                    "Desconecte a VPN do WireSock e feche outros clientes WireSock antes de atualizar.",
+                    "Отключите VPN WireSock и закройте другие клиенты WireSock перед обновлением."));
+            return operation();
+        }
+        finally { gate.ReleaseMutex(); }
+    }
+
     private static bool IsLiveProcess(Process process)
     {
         using (process) { return !process.HasExited; }
@@ -462,7 +477,7 @@ internal sealed partial class WireSockEngine : ITunnelEngine
 
 internal static class Authenticode
 {
-    public static void Verify(string path)
+    public static void Verify(string path, string product = "WireSock")
     {
         var action = new Guid("00AAC56B-CD44-11d0-8CC2-00C04FC295EE");
         var file = new FileInfoData { Size = (uint)Marshal.SizeOf<FileInfoData>(), Path = path };
@@ -479,7 +494,9 @@ internal static class Authenticode
             Marshal.StructureToPtr(file, data.FileInfo, false);
             var result = WinVerifyTrust(new nint(-1), ref action, ref data);
             if (result != 0)
-                throw new InvalidOperationException(T($"Windows could not validate the WireSock signature (0x{result:X8}). Reinstall the official WireSock client.", $"O Windows não validou a assinatura do WireSock (0x{result:X8}). Reinstale o WireSock oficial.", $"Windows не смогла проверить подпись WireSock (0x{result:X8}). Переустановите официальный клиент WireSock."));
+                throw new InvalidOperationException(T($"Windows could not validate the {product} signature (0x{result:X8}). Reinstall it from its official source.",
+                    $"O Windows não pôde validar a assinatura de {product} (0x{result:X8}). Reinstale-o pela fonte oficial.",
+                    $"Windows не удалось проверить подпись {product} (0x{result:X8}). Переустановите программу из официального источника."));
         }
         finally
         {

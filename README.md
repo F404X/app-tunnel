@@ -38,7 +38,7 @@ O aplicativo abre em inglês. Para mudar, clique em **Language → Português** 
 
 ## 3. Escolha o servidor da Proton
 
-Um **perfil WireGuard** guarda o endereço do servidor e a chave necessária para conectar. Você pode reaproveitar um perfil da sua conta Proton, criar um pelo assistente ou importar um arquivo que já tenha guardado.
+Um **perfil WireGuard** guarda o endereço do servidor e a chave necessária para conectar. Você pode reaproveitar um perfil da sua conta Proton, criar um pelo assistente ou importar um arquivo que já tenha guardado. Adicione pelo menos duas rotas de servidores diferentes para permitir a troca automática. Uma rota já é suficiente para conectar.
 
 ### Criar um perfil pelo AppTunnel
 
@@ -155,6 +155,8 @@ Selecione uma opção em **Rotas → Protocolo VPN**. Depois de mudar a opção,
 
 No modo **Automático**, importe mais de um perfil para permitir a troca de servidor. Com a interface aberta ou recolhida na bandeja, uma falha posterior identificada nos registros pode iniciar uma rodada de recuperação com as alternativas disponíveis. O split tunneling, os filtros e as opções de privacidade continuam sendo aplicados em cada tentativa. A troca pode interromper chamadas ou transmissões.
 
+Se as respostas de ping da rota em uso ficarem acima de **400 ms por pelo menos cinco segundos**, o AppTunnel mede os outros servidores compatíveis em segundo plano. Se houver uma alternativa mais rápida e a rota atual continuar lenta, ele faz a troca pelo WireSock. As medições deixam a conexão ativa. A troca em si pode interromper brevemente uma chamada ou transmissão porque o serviço carrega o novo perfil.
+
 **Diagnóstico** separa resposta de handshake, ausência de resposta após o envio, erro de endpoint e erro de rota ou adaptador. O AppTunnel usa eventos recentes do WireSock. Quando os registros não expõem esses eventos, o painel mostra **status do handshake indisponível**. Uma ausência de resposta também pode indicar servidor indisponível ou chaves incompatíveis.
 
 O Proton Stealth está disponível nos clientes oficiais da Proton. Os arquivos manuais fornecidos pela Proton usam WireGuard. O AppTunnel usa esses arquivos no WireSock. WireGuard com preenchimento e AmneziaWG também dependem de UDP, e a eficácia varia conforme a rede. [Protocolos da Proton](https://protonvpn.com/support/how-to-change-vpn-protocols) · [Configuração manual da Proton](https://protonvpn.com/support/wireguard-manual-windows) · [Parâmetros do WireSock](https://wiresock.net/documentation/wiresock-secure-connect/advanced-parameters)
@@ -180,15 +182,15 @@ O Proton Stealth está disponível nos clientes oficiais da Proton. Os arquivos 
 
 Com **Iniciar com o Windows** ativado, o AppTunnel abre na bandeja quando você entra na sua conta do Windows. Para ligar a VPN após reiniciar o PC, abra o AppTunnel e clique em **Conectar**.
 
-## Aparência e privacidade
+## Aparência
 
 Em **Configurações → Aparência**, o tema padrão acompanha a preferência de cores do Windows. Também há opções de tema **Claro** e **Escuro**.
-
-O instalador e **Configurações → Privacidade e feedback** oferecem **Enviar estatísticas anônimas**, **Relatórios automáticos de erros** e **Incluir diagnósticos detalhados**. Cada opção começa desmarcada. Use **Visualizar dados enviados** para conferir os campos, as prévias e o histórico local. O envio de cada relatório de diagnóstico exige autorização própria. [Política de privacidade](docs/PRIVACY.md) · [Infraestrutura e testes](telemetry/README.md)
 
 ## Atualizar o AppTunnel
 
 Abra **Configurações (Settings) → Verificar atualizações (Check for updates)**. Se houver uma versão mais recente com instalador no GitHub, o AppTunnel baixa e verifica o arquivo, incluindo versões de prévia. Confirme quando aparecer a opção de instalar e siga o assistente. A atualização preserva perfis, preferências e o serviço da VPN em execução.
+
+Com a VPN desconectada, use **Configurações → Atualizar WireSock**. O AppTunnel usa o WinGet do Windows para verificar e instalar atualizações do pacote WireSock CLI.
 
 Na edição instalada, **Atualizar automaticamente**, logo abaixo de **Iniciar com o Windows**, verifica uma vez por dia e instala a atualização verificada em segundo plano. O app volta para a bandeja com as preferências existentes.
 

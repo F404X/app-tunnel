@@ -2,8 +2,6 @@ using System.Collections.Concurrent;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Drawing;
-using System.Net.NetworkInformation;
-using System.Net.Sockets;
 using AppTunnel.Core;
 using static AppTunnel.Windows.DesktopTheme;
 using static AppTunnel.Core.Localized;
@@ -429,30 +427,8 @@ internal sealed partial class MainForm : Form
         footer.Text = T("Measuring endpoint latency over the current Windows connection…", "Medindo ICMP para os endpoints pela conexão do Windows…", "Измерение задержки до серверов через текущее подключение Windows…");
         try
         {
-            using var limiter = new SemaphoreSlim(6);
-            var results = await Task.WhenAll(profiles.Select(async profile =>
-            {
-                await limiter.WaitAsync();
-                try
-                {
-                    var host = store.Read(profile.Id).Host;
-                    using var client = new Ping();
-                    var data = new byte[24];
-                    var times = new List<long>(2);
-                    for (var attempt = 0; attempt < 2; attempt++)
-                    {
-                        var reply = await client.SendPingAsync(host, TimeSpan.FromSeconds(2), data, options: null);
-                        if (reply.Status == IPStatus.Success) times.Add(reply.RoundtripTime);
-                    }
-                    return (profile, latency: times.Count > 0 ? (long?)Math.Round(times.Average()) : null);
-                }
-                catch (Exception e) when (e is PingException or SocketException or InvalidOperationException or
-                    IOException or FormatException or Win32Exception or ArgumentException)
-                {
-                    return (profile, latency: (long?)null);
-                }
-                finally { limiter.Release(); }
-            }));
+            var results = await PingRoutesAsync(profiles, minimum: 1, latencyLifetime.Token);
+            if (IsDisposed || Disposing) return;
             foreach (var result in results) latencies[result.profile.Id] = result.latency;
             var best = results.Where(x => x.latency.HasValue).OrderBy(x => x.latency).FirstOrDefault();
             if (chooseFastest && best.profile is not null)
@@ -464,10 +440,11 @@ internal sealed partial class MainForm : Form
             footer.Text = best.profile is null ? T("The endpoints did not respond to ICMP. You can still try connecting.", "Os endpoints não responderam a ICMP. Você ainda pode tentar conectar.", "Серверы не ответили на ICMP. Можно попробовать подключиться.")
                 : T($"{best.profile.Name} · {best.latency} ms to the server. Connect or apply settings to use this route.", $"{best.profile.Name} · {best.latency} ms até o servidor. A seleção só entra em vigor ao conectar ou aplicar.", $"{best.profile.Name} · {best.latency} мс до сервера. Подключитесь или примените настройки, чтобы использовать маршрут.");
         }
+        catch (OperationCanceledException) when (latencyLifetime.IsCancellationRequested) { }
         finally
         {
             pingBusy = false;
-            UpdateState();
+            if (!IsDisposed && !Disposing) UpdateState();
         }
     }
 
@@ -854,6 +831,7 @@ internal sealed partial class MainForm : Form
                     return;
                 }
             }
+            if (session is not null) _ = MonitorRouteLatency(session);
             var note = proton.Poll(config =>
             {
                 var profile = store.ImportProton(config, settings.Profiles);
@@ -890,6 +868,8 @@ internal sealed partial class MainForm : Form
         if (disposing)
         {
             monitor.Dispose();
+            latencyLifetime.Cancel();
+            latencyLifetime.Dispose();
             foreach (var page in pages)
                 if (page.Parent is null) page.Dispose();
         }

@@ -192,7 +192,8 @@ internal sealed partial class AccountWindow
         {
             "true" => true,
             "false" => false,
-            _ => throw new InvalidOperationException("The Proton page did not return a creation result.")
+            _ => throw new InvalidOperationException(T("The Proton page did not confirm profile creation.",
+                "A página da Proton não confirmou a criação do perfil.", "Страница Proton не подтвердила создание профиля."))
         };
     }
 

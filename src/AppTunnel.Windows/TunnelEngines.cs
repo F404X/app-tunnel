@@ -29,7 +29,8 @@ internal sealed class TunnelEngines
 
     public TunnelSession Connect(IReadOnlyList<VpnRoute<StoredProfile>> plan, Func<StoredProfile, WireGuardProfile> readProfile,
         ApplicationTarget[] routed, string[] requested, RouteOptions options, bool diagnostics,
-        string preferredPath, ProtocolPreference preference, Action<string> output, Guid requestedProfile = default)
+        string preferredPath, ProtocolPreference preference, Action<string> output, Guid requestedProfile = default,
+        bool verifyHandshake = false)
     {
         var automatic = preference == ProtocolPreference.Automatic;
         var paths = routed.Select(target => target.Match).ToArray();
@@ -58,7 +59,7 @@ internal sealed class TunnelEngines
                     BlockedIpv6Applications: config.BlockPublicIpv6 ? paths : null,
                     RequestedProfile: requestedProfile == Guid.Empty ? plan[0].Profile.Id : requestedProfile,
                     RequestedProtocol: preference);
-                return engine.Start(preferredPath, config, request, verifyHandshake: automatic);
+                return engine.Start(preferredPath, config, request, verifyHandshake: automatic || verifyHandshake);
             }
             catch (Exception error) when (automatic && error is (FormatException or IOException or Win32Exception or
                 InvalidOperationException or TimeoutException or System.ServiceProcess.TimeoutException))

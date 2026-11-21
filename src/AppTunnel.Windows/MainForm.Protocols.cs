@@ -64,9 +64,7 @@ internal sealed partial class MainForm
             var plan = VpnProtocols.Plan(ProtocolPreference.Automatic, route, settings.Profiles.Select(profile =>
                 new VpnRoute<StoredProfile>(profile, profile.Endpoint, profile.Protocol))).Skip(1).ToArray();
             if (plan.Length == 0) return;
-            var routed = session.RequestedPrograms.Select(path =>
-                new ApplicationTarget(path, path, Folder: path.EndsWith('\\')))
-                .Where(rule => rule.Folder ? Directory.Exists(rule.Match) : File.Exists(rule.Match)).ToArray();
+            var routed = SessionApplications(session);
             if (routed.Length == 0) return;
             activeSession = await Task.Run(() => engine.Connect(plan, profile => store.Read(profile.Id), routed,
                 session.RequestedPrograms, session.Options, session.Diagnostics, session.EnginePath,
@@ -90,4 +88,8 @@ internal sealed partial class MainForm
             UpdateState();
         }
     }
+
+    private static ApplicationTarget[] SessionApplications(TunnelSession session) => session.RequestedPrograms
+        .Select(path => new ApplicationTarget(path, path, Folder: Directory.Exists(path)))
+        .Where(rule => rule.Folder || File.Exists(rule.Match)).ToArray();
 }

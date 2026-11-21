@@ -11,6 +11,8 @@ internal sealed partial class MainForm
     private readonly CheckBox autoUpdate = MakeCheck(T("Update automatically", "Atualizar automaticamente", "Автоматически обновлять"));
     private readonly ThemeButton checkUpdates = MakeButton(T("Check for updates", "Verificar atualizações", "Проверить обновления"));
     private readonly Label updateStatus = MakeLabel("", muted: true);
+    private readonly ThemeButton updateWireSock = MakeButton(T("Update WireSock", "Atualizar WireSock", "Обновить WireSock"));
+    private readonly Label wireSockUpdateStatus = MakeLabel("", muted: true);
     private bool updateBusy;
 
     public bool StartsWithWindows => startup.Checked;
@@ -21,7 +23,7 @@ internal sealed partial class MainForm
     private Control BuildSettingsPage()
     {
         var page = MakePage();
-        var content = Column(34, 29, 29, 28, 10, 34, 36, 10, 34, 40, 34, 12, 34, 29, 29, 29, 42, 34, 10, 42, 0);
+        var content = Column(34, 29, 29, 28, 10, 34, 36, 10, 34, 40, 34, 40, 34, 12, 34, 29, 29, 29, 42, 34, 10, 42, 0);
         content.Controls.Add(SectionTitle(T("Startup", "Inicialização", "Автозапуск")), 0, 0);
         startup.AutoCheck = false;
         startup.Click += (_, _) => StartupRequested?.Invoke();
@@ -71,14 +73,70 @@ internal sealed partial class MainForm
         installed.Margin = new Padding(10, 7, 0, 0);
         content.Controls.Add(MakeBar(checkUpdates, installed), 0, 9);
         content.Controls.Add(updateStatus, 0, 10);
-        AddPrivacyControls(content, 12);
-        content.Controls.Add(MakeBar(ActionButton(TermsWindow.Caption, () => TermsWindow.Show(this))), 0, 19);
+        updateWireSock.Click += async (_, _) => await CheckWireSockUpdate();
+        content.Controls.Add(MakeBar(updateWireSock), 0, 11);
+        content.Controls.Add(wireSockUpdateStatus, 0, 12);
+        AddPrivacyControls(content, 14);
+        content.Controls.Add(MakeBar(ActionButton(TermsWindow.Caption, () => TermsWindow.Show(this))), 0, 21);
         var scroll = new Panel { Dock = DockStyle.Fill, AutoScroll = true, Margin = new Padding(0) };
         content.Dock = DockStyle.Top;
-        content.Height = 603;
+        content.Height = 677;
         scroll.Controls.Add(content);
         page.Controls.Add(scroll);
         return page;
+    }
+
+    private async Task CheckWireSockUpdate()
+    {
+        if (HasPendingOperation) return;
+        if (activeSession is not null)
+        {
+            wireSockUpdateStatus.Text = T("Disconnect the VPN before updating WireSock.",
+                "Desconecte a VPN antes de atualizar o WireSock.", "Перед обновлением WireSock отключите VPN.");
+            return;
+        }
+        updateBusy = true;
+        updateWireSock.Enabled = false;
+        checkUpdates.Enabled = false;
+        wireSockUpdateStatus.Text = T("Checking and installing WireSock updates via WinGet…",
+            "Verificando e instalando atualizações do WireSock pelo WinGet…", "Проверка и установка обновлений WireSock через WinGet…");
+        UpdateState();
+        try
+        {
+            var result = await Task.Run(WireSockUpdater.Upgrade);
+            if (IsDisposed || Disposing) return;
+            var message = result switch
+            {
+                0 => T("WireSock was updated.", "WireSock atualizado.", "WireSock обновлён."),
+                WireSockUpdater.NoUpdate => T("WinGet found no applicable WireSock update.",
+                    "O WinGet não encontrou atualização aplicável para o WireSock.", "WinGet не нашёл подходящего обновления WireSock."),
+                WireSockUpdater.PackageNotFound => T("WinGet did not find an installed WireSock CLI package.",
+                    "O WinGet não encontrou o pacote WireSock CLI instalado.", "WinGet не нашёл установленный пакет WireSock CLI."),
+                _ => T($"WinGet could not update WireSock (0x{result:X8}).",
+                    $"O WinGet não conseguiu atualizar o WireSock (0x{result:X8}).", $"WinGet не смог обновить WireSock (0x{result:X8}).")
+            };
+            if (result == 0) UpdateEngineInfo();
+            AddLog(message);
+            wireSockUpdateStatus.Text = message;
+        }
+        catch (Exception error) when (Expected(error))
+        {
+            if (!IsDisposed && !Disposing)
+            {
+                AddLog(error.Message);
+                wireSockUpdateStatus.Text = error.Message;
+            }
+        }
+        finally
+        {
+            updateBusy = false;
+            if (!IsDisposed && !Disposing)
+            {
+                updateWireSock.Enabled = true;
+                checkUpdates.Enabled = true;
+                UpdateState();
+            }
+        }
     }
 
     public void RefreshStartup()

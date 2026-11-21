@@ -145,7 +145,7 @@ internal sealed partial class MainForm
     private Control BuildRoutesPage()
     {
         var page = MakePage();
-        var content = Column(34, 42, 36, 42, 37, 0, 13, 145);
+        var content = Column(34, 42, 36, 42, 37, 27, 0, 13, 145);
         content.Controls.Add(SectionTitle(T("VPN routes", "Rotas VPN", "Маршруты VPN")), 0, 0);
         content.Controls.Add(MakeBar(
             ActionButton(T("Account profiles", "Perfis da conta", "Профили учётной записи"), ShowProtonProfiles, ButtonKind.Primary),
@@ -160,18 +160,22 @@ internal sealed partial class MainForm
         content.Controls.Add(accountRow, 0, 2);
         content.Controls.Add(MakeBar(ping, fastest, rename, remove), 0, 3);
         content.Controls.Add(BuildProtocolControl(), 0, 4);
+        content.Controls.Add(MakeLabel(T(
+            "For automatic switching, add two routes with different servers. One is enough to connect.",
+            "Para troca automática, adicione duas rotas em servidores diferentes. Uma já permite conectar.",
+            "Для автопереключения добавьте два маршрута с разными серверами. Для подключения достаточно одного."), muted: true), 0, 5);
 
         routes.AccessibleName = T("Server profiles", "Perfis de servidor", "Профили серверов");
         routes.MultiSelect = false;
         AddColumn(routes, T("Profile", "Perfil", "Профиль"), 126, fill: true, font: Body(bold: true));
-        AddColumn(routes, "Endpoint", 190, font: Mono);
+        AddColumn(routes, T("Server address", "Endereço do servidor", "Адрес сервера"), 190, font: Mono);
         AddColumn(routes, "IPv6", 83);
         AddColumn(routes, T("Latency", "Latência", "Задержка"), 90);
         AddColumn(routes, T("Protocol", "Protocolo", "Протокол"), 112);
         AddColumn(routes, T("Session", "Sessão", "Сеанс"), 101);
         content.Controls.Add(GridFrame(routes, emptyRoutes, T("Add a Proton WireGuard route or import an existing profile.",
-            "Crie uma rota WireGuard na Proton ou importe um perfil existente.", "Создайте профиль WireGuard в Proton или импортируйте имеющийся.")), 0, 5);
-        content.Controls.Add(BuildDestinationFilters(), 0, 7);
+            "Crie uma rota WireGuard na Proton ou importe um perfil existente.", "Создайте профиль WireGuard в Proton или импортируйте имеющийся.")), 0, 6);
+        content.Controls.Add(BuildDestinationFilters(), 0, 8);
         page.Controls.Add(content);
         return page;
     }

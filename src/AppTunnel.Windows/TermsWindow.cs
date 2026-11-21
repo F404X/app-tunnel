@@ -10,7 +10,8 @@ internal static class TermsWindow
     public static void Show(IWin32Window owner)
     {
         using var resource = typeof(TermsWindow).Assembly.GetManifestResourceStream($"AppTunnel.Terms.{Language}")
-            ?? throw new InvalidOperationException("Missing AppTunnel terms resource.");
+            ?? throw new InvalidOperationException(T("The AppTunnel terms of use are unavailable.",
+                "Os termos de uso do AppTunnel estão indisponíveis.", "Условия использования AppTunnel недоступны."));
         using var reader = new StreamReader(resource);
         using var dialog = new Form
         {

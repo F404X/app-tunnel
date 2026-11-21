@@ -18,6 +18,23 @@ var sample = $"""
 var scenarios = new (string Name, Action Check)[]
 {
     ("telemetry consent, exact previews, deduplication, persistence and failure isolation", TelemetryChecks.Run),
+    ("route latency requires five seconds of slow replies from the same live session", () =>
+    {
+        var latency = new RouteLatency();
+        bool Observe(int second, long? ms, string session = "active") =>
+            latency.ShouldSearch(session, TimeSpan.FromSeconds(second), ms);
+        for (var second = 0; second < 5; second++) Require(!Observe(second, 401));
+        Require(!Observe(5, 400));
+        for (var second = 6; second < 11; second++) Require(!Observe(second, 450));
+        Require(Observe(11, 450));
+        Require(!Observe(12, 900));
+        Require(!Observe(42, 500, "replacement"));
+        Require(!Observe(43, null, "replacement"));
+        Require(!Observe(44, 500, "replacement"));
+        Require(!Observe(48, 500, "replacement"));
+        for (var second = 49; second < 53; second++) Require(!Observe(second, 500, "replacement"));
+        Require(Observe(53, 500, "replacement"));
+    }),
     ("common app aliases preserve all recognized Discord clients and group alternate builds", () =>
     {
         Require(DiscordClients.KnownNames.All(name => CommonApps.Find(name) is not null));

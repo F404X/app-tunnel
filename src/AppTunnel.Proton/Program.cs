@@ -303,7 +303,8 @@ internal sealed partial class AccountWindow : Form
     private static string LoadScript(string file)
     {
         using var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream($"AppTunnel.Proton.Scripts.{file}")
-            ?? throw new InvalidOperationException("Missing Proton portal script.");
+            ?? throw new InvalidOperationException(T("The Proton account integration is unavailable.",
+                "A integração com a conta Proton está indisponível.", "Интеграция с учётной записью Proton недоступна."));
         using var reader = new StreamReader(stream);
         return reader.ReadToEnd();
     }
