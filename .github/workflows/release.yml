@@ -16,7 +16,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Version tag from Directory.Build.props (for example v0.8.0)
+        description: Version tag from Directory.Build.props (for example v0.9.0)
         required: true
         type: string
       prerelease:
@@ -96,10 +96,6 @@ jobs:
               ($cultures | Where-Object { $_ -notin @('pt-BR', 'ru', 'ru-RU', 'en-US') })) {
             throw "Unexpected runtime languages: $cultures"
           }
-          Copy-Item README.md, LEIA-ME.md, LICENSE $package
-          Copy-Item docs $package -Recurse
-          Copy-Item Licenses $package -Recurse
-          Copy-Item src/AppTunnel.Windows/Fonts/*-OFL.txt (Join-Path $package Licenses)
           $asset = Join-Path $env:RUNNER_TEMP AppTunnel-Windows-x64.zip
           Compress-Archive -Path $package -DestinationPath $asset -CompressionLevel Optimal
           Get-FileHash $asset -Algorithm SHA256
@@ -173,10 +169,11 @@ jobs:
 
           Baixe **AppTunnel-Setup-x64.exe** em **Assets** e siga o instalador. O **AppTunnel-Windows-x64.zip** é a versão portátil. Veja o [guia de instalação](https://github.com/$env:GITHUB_REPOSITORY/blob/$env:GITHUB_SHA/README.md) para configurar a Proton e os aplicativos.
 
-          - A aba **Rotas** recomenda dois servidores diferentes para oferecer uma alternativa. Uma rota já permite conectar.
-          - O AppTunnel compara servidores compatíveis em segundo plano quando o ping da rota ativa passa de 400 ms por cinco segundos. Se houver uma opção mais rápida, a troca recarrega o túnel.
-          - **Configurações → Atualizar WireSock** verifica e instala atualizações pelo WinGet com a VPN desconectada.
-          - Rótulos e mensagens revisados em inglês, português e russo.
+          - A troca automática para uma rota mais rápida só é mantida após a resposta ao handshake. Sem essa confirmação, a rota anterior é restaurada.
+          - Se o serviço do WireSock parar sozinho, o AppTunnel remove o serviço, os arquivos da sessão e as regras de IPv6 que sobraram.
+          - **Atualizar WireSock** interrompe o WinGet após 10 minutos, e a desinstalação limpa a sessão mesmo quando outro administrador conectou a VPN.
+          - Interface revisada: foco visível nos botões, bordas de campos mais nítidas, janelas secundárias com escala por DPI e barra de título no tema, menu da bandeja no tema e filtros de destino recolhíveis na aba **Rotas**.
+          - A janela da Proton reabre com o idioma e o tema atuais, e o pacote de build é montado do zero a cada compilação.
 
           SHA-256 do instalador: $setupChecksum
 

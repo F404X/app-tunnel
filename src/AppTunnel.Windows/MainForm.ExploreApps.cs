@@ -29,9 +29,9 @@ internal sealed partial class MainForm
         {
             Text = heading, StartPosition = FormStartPosition.CenterParent, ClientSize = new Size(764, 520),
             MinimumSize = new Size(570, 414), BackColor = Background, ForeColor = DesktopTheme.Text,
-            Font = Body(), Padding = new Padding(16), MinimizeBox = false, MaximizeBox = false, ShowInTaskbar = false,
-            AutoScaleDimensions = new SizeF(96, 96), AutoScaleMode = AutoScaleMode.Dpi
+            Font = Body(), Padding = new Padding(16), MinimizeBox = false, MaximizeBox = false, ShowInTaskbar = false
         };
+        PrepareDialog(dialog);
         using var layout = Column(35, 36, 0, 44);
         layout.Controls.Add(SectionTitle(heading), 0, 0);
         layout.Controls.Add(MakeLabel(T("Select installed apps to add them to your VPN rules.",
@@ -89,7 +89,9 @@ internal sealed partial class MainForm
             for (var i = 0; i < settings.Applications.Count; i++)
             {
                 var item = settings.Applications[i];
-                if (matches.Any(match => CoversTarget(match, item))) settings.Applications[i] = item with { Enabled = check.Checked };
+                // Same two-way coverage test used to pre-select the card, so unchecking also disables broader saved rules.
+                if (matches.Any(match => CoversTarget(match, item) || CoversTarget(item, match)))
+                    settings.Applications[i] = item with { Enabled = check.Checked };
             }
             if (check.Checked)
             {
@@ -103,5 +105,5 @@ internal sealed partial class MainForm
 
     private static bool CoversTarget(ApplicationTarget rule, ApplicationTarget item) =>
         rule.Match.Equals(item.Match, StringComparison.OrdinalIgnoreCase) ||
-        (rule.Folder && !item.Folder && DiscordClients.IsRouted(item.Match, [rule with { Enabled = true }]));
+        (rule.Folder && DiscordClients.IsRouted(item.Match, [rule with { Enabled = true }]));
 }

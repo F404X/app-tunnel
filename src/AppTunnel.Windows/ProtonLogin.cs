@@ -20,11 +20,36 @@ internal sealed class ProtonLogin(ProfileStore store)
 
     public ProtonAccountSnapshot? Catalog { get; private set; }
 
-    public void Open(bool create)
+    private bool opening;
+
+    // OpenAsync may wait for an old helper to close. ProtonLogin is shared by every MainForm instance,
+    // so this guard keeps repeat clicks (or a recreated window) from launching a second helper.
+    public async Task OpenAsync(bool create)
     {
+        if (opening) return;
+        opening = true;
+        try { await OpenCoreAsync(create); }
+        finally { opening = false; }
+    }
+
+    private async Task OpenCoreAsync(bool create)
+    {
+        var theme = DesktopTheme.IsDark ? "dark" : "light";
+        var appearance = $"{Language} {theme}";
         var current = pending is not null && Directory.Exists(pending) &&
             (DateTime.UtcNow - launchTime < TimeSpan.FromSeconds(20) || IsOpen(pending))
             ? pending : Requests().FirstOrDefault(IsOpen);
+        if (current is not null && ReadAppearance(current) is { } shown && shown != appearance)
+        {
+            // The helper reads language and theme only at startup, so restart it to match the main window.
+            Signal(current, "close");
+            for (var attempt = 0; attempt < 25 && IsOpen(current); attempt++) await Task.Delay(150);
+            if (!IsOpen(current))
+            {
+                if (pending == current) pending = null;
+                current = null;
+            }
+        }
         if (current is not null)
         {
             Signal(current, "show");
@@ -43,8 +68,8 @@ internal sealed class ProtonLogin(ProfileStore store)
         try
         {
             if (create) Signal(directory, "create");
-            var theme = DesktopTheme.IsDark ? "dark" : "light";
-            ExplorerLauncher.Open(executable, $"{id} {Language} {theme}");
+            ProtonSync.WriteAtomic(Path.Combine(directory, AppearanceFile), System.Text.Encoding.UTF8.GetBytes(appearance));
+            ExplorerLauncher.Open(executable, $"{id} {appearance}");
             pending = directory;
             launchTime = DateTime.UtcNow;
         }
@@ -53,6 +78,15 @@ internal sealed class ProtonLogin(ProfileStore store)
             Directory.Delete(directory, recursive: true);
             throw;
         }
+    }
+
+    private const string AppearanceFile = "appearance";
+
+    private static string? ReadAppearance(string directory)
+    {
+        var path = Path.Combine(directory, AppearanceFile);
+        try { return File.Exists(path) && !IsLink(path) ? File.ReadAllText(path).Trim() : null; }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException) { return null; }
     }
 
     public async Task CloseForSetupAsync()

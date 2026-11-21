@@ -29,6 +29,7 @@ internal sealed partial class MainForm : Form
     private int pollTicks;
     private bool monitorFailed;
 
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
     public int CurrentPage { get; private set; }
     public bool HasPendingOperation => busy || pingBusy || updateBusy;
     public bool CanDisconnect => !busy && !updateBusy && activeSession is not null;
@@ -95,6 +96,7 @@ internal sealed partial class MainForm : Form
         tunnelDns.Checked = settings.Route.TunnelDns;
         guardIpv6.Checked = settings.Route.BlockPublicIpv6;
         protocolMode.SelectedIndex = Enum.IsDefined(settings.Protocol) ? (int)settings.Protocol : 0;
+        SetFiltersExpanded(include.Text.Trim().Length > 0 || exclude.Text.Trim().Length > 0);
         DrawApps();
         DrawRoutes();
         UpdateEngineInfo();
@@ -201,6 +203,7 @@ internal sealed partial class MainForm : Form
                 StartPosition = FormStartPosition.CenterParent, BackColor = Background,
                 ForeColor = DesktopTheme.Text, Font = Body(), Padding = new Padding(17, 12, 17, 10)
             };
+            PrepareDialog(window);
             using var layout = Column(33, 0, 44);
             layout.Controls.Add(SectionTitle(T("Select apps", "Selecione os programas", "Выберите приложения")), 0, 0);
             using var list = MakeGrid();
@@ -322,6 +325,7 @@ internal sealed partial class MainForm : Form
             StartPosition = FormStartPosition.CenterParent, MinimizeBox = false, MaximizeBox = false, BackColor = Surface,
             ForeColor = DesktopTheme.Text, Font = Body(), Padding = new Padding(15, 10, 15, 9)
         };
+        PrepareDialog(window);
         using var layout = Column(23, 34, 0);
         layout.Controls.Add(MakeLabel(T("Profile name", "Nome do perfil", "Имя профиля"), muted: true), 0, 0);
         using var name = MakeText();
@@ -729,18 +733,20 @@ internal sealed partial class MainForm : Form
         }
     }
 
-    private void OpenProton(bool create = false)
+    private async void OpenProton(bool create = false)
     {
         if (HasPendingOperation) return;
-        Attempt(() =>
+        try
         {
-            proton.Open(create);
+            await proton.OpenAsync(create);
+            if (IsDisposed || Disposing) return;
             footer.Text = create
                 ? T("Follow the guide in the Proton window to create a profile.",
                     "Siga o assistente na janela da Proton para criar um perfil.", "Откройте мастер в окне Proton, чтобы создать профиль.")
                 : T("Your Proton account profiles will appear here after you sign in.",
                     "Os perfis da sua conta Proton aparecerão aqui após o login.", "Профили учётной записи Proton появятся здесь после входа.");
-        });
+        }
+        catch (Exception error) when (Expected(error)) { if (!IsDisposed && !Disposing) Failure(error); }
     }
 
     private void RenderProtonAccount()
@@ -768,6 +774,7 @@ internal sealed partial class MainForm : Form
             StartPosition = FormStartPosition.CenterParent, BackColor = Background,
             ForeColor = DesktopTheme.Text, Font = Body(), Padding = new Padding(16)
         };
+        PrepareDialog(window);
         using var layout = Column(34, 36, 0, 48);
         layout.Controls.Add(SectionTitle(window.Text), 0, 0);
         layout.Controls.Add(MakeLabel(T("Use a profile already saved in Routes, or create one when you need a new server.",
@@ -803,6 +810,33 @@ internal sealed partial class MainForm : Form
         window.ShowDialog(this);
     }
 
+    // Config path of a session whose service stopped on its own and still needs its leftovers removed.
+    private string? pendingCleanup;
+
+    private async Task CleanUpStoppedService()
+    {
+        if (pendingCleanup is not { } configPath) return;
+        busy = true;
+        operation = T("Cleaning up the stopped service…", "Limpando o serviço interrompido…", "Очистка остановленной службы…");
+        UpdateState();
+        try
+        {
+            await Task.Run(() => engine.RemoveStopped(configPath));
+            if (pendingCleanup == configPath) pendingCleanup = null;
+            AddLog(T("Removed the stopped WireSock service and its session files.",
+                "O serviço WireSock interrompido e os arquivos da sessão foram removidos.",
+                "Остановленная служба WireSock и файлы сеанса удалены."));
+        }
+        // Keep pendingCleanup set so Poll retries while no session is active.
+        catch (Exception error) when (Expected(error)) { AddLog(error.Message); }
+        finally
+        {
+            busy = false;
+            operation = "";
+            if (!IsDisposed && !Disposing) UpdateState();
+        }
+    }
+
     private void Poll()
     {
         DrainLogs();
@@ -817,10 +851,23 @@ internal sealed partial class MainForm : Form
                     telemetry.RecordEvent(TelemetryEvent.ServiceStopped);
                     _ = telemetry.ReportErrorAsync(TelemetryStage.Service, new InvalidOperationException());
                     footer.Text = T("The Windows service stopped.", "O serviço do Windows parou.", "Служба Windows остановилась.");
+                    pendingCleanup = activeSession.ConfigPath;
+                    activeSession = null;
+                    UpdateState();
+                    // The Disconnect button disappears with the session, so remove the leftover service,
+                    // session files and IPv6 block rules here instead of leaving them behind.
+                    _ = CleanUpStoppedService();
+                    return;
                 }
                 activeSession = session;
                 UpdateState();
             }
+            if (session is null && pendingCleanup is not null && pollTicks % 30 == 0)
+            {
+                _ = CleanUpStoppedService();
+                return;
+            }
+            if (session is not null) pendingCleanup = null;
             if (session is not null && pollTicks % 6 == 0)
             {
                 var health = ReadActiveDiagnostics(session);

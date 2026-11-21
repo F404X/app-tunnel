@@ -21,7 +21,7 @@ internal sealed partial class MainForm
         var menu = new ContextMenuStrip
         {
             Font = menuFont, BackColor = Surface, ForeColor = DesktopTheme.Text,
-            Renderer = new ToolStripProfessionalRenderer(new LanguageMenuColors()),
+            Renderer = new ToolStripProfessionalRenderer(new ThemeMenuColors()),
             ShowImageMargin = true, ShowCheckMargin = true, ImageScalingSize = new Size(24, 18)
         };
         foreach (var (code, country, name) in languages)
@@ -50,20 +50,5 @@ internal sealed partial class MainForm
         using var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream($"AppTunnel.Flags.{country}.png")!;
         using var image = Image.FromStream(stream);
         return new Bitmap(image);
-    }
-
-    private sealed class LanguageMenuColors : ProfessionalColorTable
-    {
-        public override Color MenuBorder => Border;
-        public override Color MenuItemBorder => Border;
-        public override Color MenuItemSelected => Hover;
-        public override Color MenuItemSelectedGradientBegin => Hover;
-        public override Color MenuItemSelectedGradientEnd => Hover;
-        public override Color ToolStripDropDownBackground => Surface;
-        public override Color ImageMarginGradientBegin => Raised;
-        public override Color ImageMarginGradientMiddle => Raised;
-        public override Color ImageMarginGradientEnd => Raised;
-        public override Color CheckBackground => Accent;
-        public override Color CheckSelectedBackground => Accent;
     }
 }

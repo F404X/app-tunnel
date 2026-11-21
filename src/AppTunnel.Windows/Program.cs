@@ -17,7 +17,7 @@ internal static class Program
             {
                 if (!WindowsStartup.IsInstalled) return 1;
                 WindowsStartup.SetEnabled(false);
-                new WireSockEngine().Stop();
+                WireSockEngine.ForUninstall().Stop();
                 WindowsTelemetry.RemoveForUninstall();
                 return 0;
             }

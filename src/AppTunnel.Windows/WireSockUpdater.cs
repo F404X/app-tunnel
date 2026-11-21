@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Diagnostics;
 using static AppTunnel.Core.Localized;
 
@@ -8,6 +9,7 @@ internal static class WireSockUpdater
     public const string PackageId = "NTKERNEL.WireSockVPNClientCLI";
     public const int NoUpdate = unchecked((int)0x8A15002B);
     public const int PackageNotFound = unchecked((int)0x8A150014);
+    private static readonly TimeSpan UpgradeTimeout = TimeSpan.FromMinutes(10);
 
     public static int Upgrade()
     {
@@ -23,7 +25,15 @@ internal static class WireSockUpdater
                 "--silent", "--disable-interactivity", "--accept-source-agreements" })
                 info.ArgumentList.Add(argument);
             using var process = Process.Start(info) ?? throw WinGetUnavailable();
-            process.WaitForExit();
+            // Bound the wait: the service-operation mutex is held for the whole upgrade.
+            if (!process.WaitForExit(UpgradeTimeout))
+            {
+                try { process.Kill(entireProcessTree: true); }
+                catch (Exception error) when (error is InvalidOperationException or Win32Exception or NotSupportedException) { }
+                throw new TimeoutException(T("WinGet did not finish the WireSock update within 10 minutes and was stopped.",
+                    "O WinGet não concluiu a atualização do WireSock em 10 minutos e foi interrompido.",
+                    "WinGet не завершил обновление WireSock за 10 минут и был остановлен."));
+            }
             return process.ExitCode;
         });
     }

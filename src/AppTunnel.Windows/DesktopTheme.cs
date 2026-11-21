@@ -30,12 +30,32 @@ internal static class DesktopTheme
 
     public static void Apply(ThemeMode mode) => IsDark = ResolveDark(mode);
 
+    // Shared setup for secondary windows: 96-DPI baseline scaling (the app is PerMonitorV2) and a title bar
+    // that follows the light/dark palette like the main window.
+    public static void PrepareDialog(Form form)
+    {
+        form.AutoScaleDimensions = new SizeF(96, 96);
+        form.AutoScaleMode = AutoScaleMode.Dpi;
+        form.HandleCreated += (_, _) => ApplyTitleBar(form.Handle);
+    }
+
+    public static void ApplyTitleBar(nint window)
+    {
+        var enabled = IsDark ? 1 : 0;
+        _ = DwmSetWindowAttribute(window, 20, ref enabled, sizeof(int));
+    }
+
+    [DllImport("dwmapi.dll", PreserveSig = true)]
+    private static extern int DwmSetWindowAttribute(nint window, int attribute, ref int value, int size);
+
     // The dark palette uses Cartigma's Midnight colors.
     public static Color Background => Palette(0x0b1018, 0xf3f5f9);
     public static Color Surface => Palette(0x111827, 0xffffff);
     public static Color Raised => Palette(0x1a2434, 0xe9eef5);
     public static Color Field => Palette(0x0b1018, 0xfbfcff);
     public static Color Border => Palette(0x283549, 0xcbd4e1);
+    // Input fields need at least 3:1 contrast against their surroundings; decorative borders stay softer.
+    public static Color InputBorder => Palette(0x56698a, 0x8592a6);
     public static Color Hover => Palette(0x233043, 0xdde6f3);
     public static Color Selection => Palette(0x1f2c3e, 0xe1ebf8);
     public static Color Text => Palette(0xebeff7, 0x182436);
@@ -225,8 +245,14 @@ internal sealed class ThemeButton : Button
     public override Size GetPreferredSize(Size proposedSize)
     {
         var text = TextRenderer.MeasureText(Text, Font, Size.Empty, TextFormatFlags.SingleLine | TextFormatFlags.NoPadding);
-        return new Size(text.Width + Padding.Horizontal + (Image is null ? 2 : 25), Math.Max(MinimumSize.Height, text.Height + 12));
+        // Use the same DPI-scaled icon geometry as OnPaint so measurement and painting agree at any scale.
+        var width = Image is null ? text.Width + Padding.Horizontal + 2
+            : text.Width + IconLeft * 3 + IconSize * 4 / 3 + 2;
+        return new Size(width, Math.Max(MinimumSize.Height, text.Height + DeviceDpi * 12 / 96));
     }
+
+    private int IconSize => Math.Max(15, DeviceDpi * 18 / 96);
+    private int IconLeft => DeviceDpi * 10 / 96;
 
     protected override void OnPaint(PaintEventArgs e)
     {
@@ -241,10 +267,23 @@ internal sealed class ThemeButton : Button
             hovering ? DesktopTheme.Hover : quiet ? Color.Transparent : DesktopTheme.Raised;
         var ink = !Enabled ? DesktopTheme.Disabled : primary ? DesktopTheme.AccentInk :
             Selected ? DesktopTheme.Accent : quiet && !hovering ? DesktopTheme.Muted : DesktopTheme.Text;
-        var edge = Focused && ShowFocusCues ? DesktopTheme.Accent :
-            !quiet && !primary ? DesktopTheme.Border : (Color?)null;
+        var radius = Math.Max(3, DeviceDpi * 4 / 96);
+        var edge = !quiet && !primary ? DesktopTheme.Border : (Color?)null;
         if (fill.A > 0 || edge.HasValue)
-            DesktopTheme.PaintRounded(e.Graphics, ClientRectangle, Math.Max(3, DeviceDpi * 4 / 96), fill, edge);
+            DesktopTheme.PaintRounded(e.Graphics, ClientRectangle, radius, fill, edge);
+        if (Focused && ShowFocusCues && Enabled)
+        {
+            // Inset ring in a color that contrasts with the fill: accent ink on primary, accent elsewhere.
+            var inset = Math.Max(2, DeviceDpi * 3 / 96);
+            var ring = Rectangle.Inflate(ClientRectangle, -inset, -inset);
+            var previous = e.Graphics.SmoothingMode;
+            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+            using var shape = DesktopTheme.Rounded(new RectangleF(ring.X + .5f, ring.Y + .5f, ring.Width - 1, ring.Height - 1),
+                Math.Max(2, radius - inset / 2));
+            using var pen = new Pen(primary ? DesktopTheme.AccentInk : DesktopTheme.Accent, Math.Max(1.5f, DeviceDpi * 2f / 96));
+            e.Graphics.DrawPath(pen, shape);
+            e.Graphics.SmoothingMode = previous;
+        }
         var navigational = Kind == ButtonKind.Navigation;
         if (Selected && navigational)
         {
@@ -255,8 +294,8 @@ internal sealed class ThemeButton : Button
             : ClientRectangle;
         if (Image is { } icon)
         {
-            var size = Math.Max(15, DeviceDpi * 18 / 96);
-            var left = DeviceDpi * 10 / 96;
+            var size = IconSize;
+            var left = IconLeft;
             e.Graphics.DrawImage(icon, new Rectangle(left, (Height - size) / 2, size * 4 / 3, size));
             text = new Rectangle(left + size * 4 / 3 + left, 0, Math.Max(0, Width - left * 3 - size * 4 / 3), Height);
         }
@@ -275,6 +314,15 @@ internal sealed class ThemeButton : Button
 
 internal sealed class ThemeCard : Panel
 {
+    private Color? edge;
+
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+    public Color? Edge
+    {
+        get => edge;
+        set { edge = value; Invalidate(); }
+    }
+
     public ThemeCard(Color background)
     {
         BackColor = background;
@@ -285,7 +333,7 @@ internal sealed class ThemeCard : Panel
     {
         base.OnPaint(e);
         if (Width < 2 || Height < 2) return;
-        using var border = new Pen(DesktopTheme.Border);
+        using var border = new Pen(edge ?? DesktopTheme.Border);
         e.Graphics.DrawRectangle(border, 0, 0, Width - 1, Height - 1);
     }
 }
@@ -359,4 +407,20 @@ internal sealed class StatusPill : Label
         TextRenderer.DrawText(e.Graphics, Text, Font, textArea, tint,
             TextFormatFlags.NoPadding | TextFormatFlags.VerticalCenter | TextFormatFlags.WordBreak);
     }
+}
+
+// Menu colors read the live palette, so open menus follow the current light/dark theme.
+internal sealed class ThemeMenuColors : ProfessionalColorTable
+{
+    public override Color MenuBorder => DesktopTheme.Border;
+    public override Color MenuItemBorder => DesktopTheme.Border;
+    public override Color MenuItemSelected => DesktopTheme.Hover;
+    public override Color MenuItemSelectedGradientBegin => DesktopTheme.Hover;
+    public override Color MenuItemSelectedGradientEnd => DesktopTheme.Hover;
+    public override Color ToolStripDropDownBackground => DesktopTheme.Surface;
+    public override Color ImageMarginGradientBegin => DesktopTheme.Raised;
+    public override Color ImageMarginGradientMiddle => DesktopTheme.Raised;
+    public override Color ImageMarginGradientEnd => DesktopTheme.Raised;
+    public override Color CheckBackground => DesktopTheme.Accent;
+    public override Color CheckSelectedBackground => DesktopTheme.Accent;
 }

@@ -87,7 +87,10 @@ internal sealed class AppTunnelApplicationContext : ApplicationContext
 
     private void BuildTrayMenu()
     {
-        var menu = new ContextMenuStrip { Font = DesktopTheme.Body() };
+        var menu = new ContextMenuStrip
+        {
+            Font = DesktopTheme.Body(), Renderer = new ToolStripProfessionalRenderer(new ThemeMenuColors())
+        };
         menu.Items.Add(T("Open AppTunnel", "Abrir AppTunnel", "Открыть AppTunnel"), null, (_, _) => ShowWindow());
         var disconnect = menu.Items.Add(T("Disconnect VPN", "Desconectar VPN", "Отключить VPN"));
         disconnect.Click += async (_, _) => await window.Disconnect();
@@ -96,6 +99,8 @@ internal sealed class AppTunnelApplicationContext : ApplicationContext
         menu.Items.Add(startup);
         menu.Opening += (_, _) =>
         {
+            menu.BackColor = DesktopTheme.Surface;
+            menu.ForeColor = DesktopTheme.Text;
             disconnect.Enabled = window.CanDisconnect && !preparingSetup;
             startup.Enabled = !preparingSetup;
             window.RefreshStartup();

@@ -1,4 +1,3 @@
-using System.Runtime.InteropServices;
 using static AppTunnel.Windows.DesktopTheme;
 using static AppTunnel.Core.Localized;
 
@@ -176,29 +175,63 @@ internal sealed partial class MainForm
         content.Controls.Add(GridFrame(routes, emptyRoutes, T("Add a Proton WireGuard route or import an existing profile.",
             "Crie uma rota WireGuard na Proton ou importe um perfil existente.", "Создайте профиль WireGuard в Proton или импортируйте имеющийся.")), 0, 6);
         content.Controls.Add(BuildDestinationFilters(), 0, 8);
+        routesContent = content;
         page.Controls.Add(content);
         return page;
+    }
+
+    private TableLayoutPanel? routesContent;
+    private ThemeButton? filtersToggle;
+    private readonly List<Control> filterBody = [];
+    private bool filtersExpanded = true;
+    private const int RoutesTitleRow = 34, FiltersExpandedRow = 145, FiltersCollapsedRow = 34;
+
+    // Collapsing the advanced filters gives the server list most of the Routes page.
+    private void SetFiltersExpanded(bool expanded)
+    {
+        filtersExpanded = expanded;
+        foreach (var control in filterBody) control.Visible = expanded;
+        if (filtersToggle is not null)
+        {
+            var caption = T("Destination filters", "Filtros de destino", "Фильтры адресов назначения");
+            // Plain text state instead of arrow glyphs, which the bundled UI fonts may not contain.
+            filtersToggle.Text = caption + " · " + (expanded ? T("Hide", "Ocultar", "Скрыть") : T("Show", "Mostrar", "Показать"));
+            filtersToggle.AccessibleName = caption;
+            filtersToggle.AccessibleDescription = expanded ? T("Expanded", "Expandido", "Развёрнуто") : T("Collapsed", "Recolhido", "Свёрнуто");
+        }
+        if (routesContent is null) return;
+        // Row heights are in device pixels once scaled; derive the factor from the fixed title row.
+        var factor = routesContent.RowStyles[0].Height / RoutesTitleRow;
+        routesContent.RowStyles[8].Height = (expanded ? FiltersExpandedRow : FiltersCollapsedRow) * factor;
+        routesContent.PerformLayout();
     }
 
     private Control BuildDestinationFilters()
     {
         var filter = Column(27, 29, 29, 0);
-        var title = SectionTitle(T("Destination filters", "Filtros de destino", "Фильтры адресов назначения"));
-        title.Font = Body(11, bold: true);
-        filter.Controls.Add(title, 0, 0);
+        filtersToggle = MakeButton(T("Destination filters", "Filtros de destino", "Фильтры адресов назначения"), ButtonKind.Quiet);
+        filtersToggle.Font = Body(11, bold: true);
+        filtersToggle.Margin = new Padding(0);
+        filtersToggle.Padding = new Padding(4, 0, 8, 0);
+        filtersToggle.MinimumSize = new Size(0, 27);
+        filtersToggle.Click += (_, _) => SetFiltersExpanded(!filtersExpanded);
+        filter.Controls.Add(filtersToggle, 0, 0);
 
         var options = Pair(50);
         options.Controls.Add(lan, 0, 0);
         options.Controls.Add(ipv6, 1, 0);
         filter.Controls.Add(options, 0, 1);
+        filterBody.Add(options);
         var privacy = Pair(50);
         privacy.Controls.Add(tunnelDns, 0, 0);
         privacy.Controls.Add(guardIpv6, 1, 0);
         filter.Controls.Add(privacy, 0, 2);
+        filterBody.Add(privacy);
         var fields = Pair(50);
         fields.Controls.Add(LabeledInput(T("Via VPN", "Pela VPN", "Через VPN"), include, new Padding(0, 0, 7, 0)), 0, 0);
         fields.Controls.Add(LabeledInput(T("Via direct connection", "Pela conexão direta", "Через прямое подключение"), exclude, new Padding(7, 0, 0, 0)), 1, 0);
         filter.Controls.Add(fields, 0, 3);
+        filterBody.Add(fields);
         include.AccessibleDescription = T("Optional. Enter IP addresses or CIDR ranges separated by commas.", "Opcional. Use endereços IP ou redes CIDR separados por vírgulas.", "Необязательно. Укажите IP-адреса или сети CIDR через запятую.");
         exclude.AccessibleDescription = include.AccessibleDescription;
         ipv6.AccessibleDescription = T("Available if the selected profile supports IPv6.", "Disponível quando o perfil selecionado inclui IPv6.", "Доступно, если выбранный профиль поддерживает IPv6.");
@@ -293,8 +326,11 @@ internal sealed partial class MainForm
     {
         var frame = new ThemeCard(Field)
         {
-            Dock = DockStyle.Fill, Padding = new Padding(9, 6, 9, 4), Margin = new Padding(0)
+            Dock = DockStyle.Fill, Padding = new Padding(9, 6, 9, 4), Margin = new Padding(0), Edge = InputBorder
         };
+        // A stronger border marks the field boundary, and the accent shows which field has focus.
+        textBox.Enter += (_, _) => frame.Edge = Accent;
+        textBox.Leave += (_, _) => frame.Edge = InputBorder;
         frame.Controls.Add(textBox);
         return frame;
     }
@@ -360,10 +396,6 @@ internal sealed partial class MainForm
     protected override void OnHandleCreated(EventArgs e)
     {
         base.OnHandleCreated(e);
-        var enabled = IsDark ? 1 : 0;
-        _ = DwmSetWindowAttribute(Handle, 20, ref enabled, sizeof(int));
+        ApplyTitleBar(Handle);
     }
-
-    [DllImport("dwmapi.dll", PreserveSig = true)]
-    private static extern int DwmSetWindowAttribute(nint window, int attribute, ref int value, int size);
 }

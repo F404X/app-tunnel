@@ -20,18 +20,26 @@ internal static class TermsWindow
             MinimumSize = new Size(470, 320), Font = Body(), BackColor = Surface, ForeColor = DesktopTheme.Text,
             Padding = new Padding(14)
         };
+        PrepareDialog(dialog);
         var body = new TextBox
         {
             Text = reader.ReadToEnd().ReplaceLineEndings("\r\n"), Dock = DockStyle.Fill,
             ReadOnly = true, Multiline = true, ScrollBars = ScrollBars.Vertical,
-            AccessibleName = Caption, BackColor = Field, ForeColor = DesktopTheme.Text
+            AccessibleName = Caption, BackColor = Field, ForeColor = DesktopTheme.Text,
+            BorderStyle = BorderStyle.FixedSingle
         };
         var close = new ThemeButton { Text = T("Close", "Fechar", "Закрыть"), DialogResult = DialogResult.Cancel };
-        var actions = new FlowLayoutPanel { Dock = DockStyle.Bottom, Height = 44, Padding = new Padding(0, 6, 0, 0) };
+        var actions = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Bottom, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            FlowDirection = FlowDirection.RightToLeft, Padding = new Padding(0, 8, 0, 0)
+        };
         actions.Controls.Add(close);
         dialog.Controls.Add(body);
         dialog.Controls.Add(actions);
         dialog.CancelButton = close;
+        // Read-only text should open unselected, with the caret at the top.
+        dialog.Shown += (_, _) => body.Select(0, 0);
         dialog.ShowDialog(owner);
     }
 }

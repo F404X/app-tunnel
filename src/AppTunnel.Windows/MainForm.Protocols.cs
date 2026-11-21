@@ -8,7 +8,7 @@ internal sealed partial class MainForm
 {
     private readonly CheckBox tunnelDns = MakeCheck(T("Use profile DNS (shared resolver)", "Usar DNS do perfil (resolvedor compartilhado)",
         "DNS профиля (общий резолвер)"));
-    private readonly CheckBox guardIpv6 = MakeCheck(T("Block public IPv6 when outside VPN", "Bloquear IPv6 público sem rota IPv6",
+    private readonly CheckBox guardIpv6 = MakeCheck(T("Block public IPv6 without an IPv6 route", "Bloquear IPv6 público sem rota IPv6",
         "Блокировать публичный IPv6 без маршрута"));
     private readonly ComboBox protocolMode = new()
     {

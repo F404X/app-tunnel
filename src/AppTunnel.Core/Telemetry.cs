@@ -156,10 +156,16 @@ public sealed class Telemetry : IDisposable
         {
             if (!CanSend(TelemetryConsent.Statistics) || state.StatisticsDue is not { } due ||
                 due > clock.GetUtcNow() || !HasStatistics()) return Task.FromResult(false);
-            var json = UsageJson(PrepareStatistics());
+            var batch = PrepareStatistics();
+            var json = UsageJson(batch);
             state.StatisticsDue = clock.GetUtcNow().AddHours(24);
             state.PreparedStatistics = null;
-            return BeginDelivery(TelemetryConsent.Statistics, json);
+            // If the pending entry cannot be persisted, keep the batch and its due time so nothing is lost.
+            return BeginDelivery(TelemetryConsent.Statistics, json, () =>
+            {
+                state.StatisticsDue = due;
+                state.PreparedStatistics = batch;
+            });
         }
     }
 
@@ -252,7 +258,7 @@ public sealed class Telemetry : IDisposable
 
     private bool CanSend(TelemetryConsent kind) => endpoint is not null && !disposed && channels.ContainsKey(kind);
 
-    private Task<bool> BeginDelivery(TelemetryConsent kind, string json)
+    private Task<bool> BeginDelivery(TelemetryConsent kind, string json, Action? restore = null)
     {
         var entry = new TelemetryHistory(clock.GetUtcNow(), kind, json, Delivery.Pending);
         state.History.Insert(0, entry);
@@ -260,6 +266,7 @@ public sealed class Telemetry : IDisposable
         if (!save(state))
         {
             state.History.Remove(entry);
+            restore?.Invoke();
             return Task.FromResult(false);
         }
         return DeliverAsync(entry, channels[kind].Token);

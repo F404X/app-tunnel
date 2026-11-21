@@ -30,6 +30,11 @@ internal sealed partial class WireSockEngine : ITunnelEngine
     private static readonly Encoding Utf8 = new UTF8Encoding(false);
     private static readonly string ProgramData = Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData);
     private readonly SecurityIdentifier owner = CurrentUser();
+    // Uninstall may run under a different administrator than the one who connected; it must still
+    // remove the recorded session. Path safety and service ownership checks still apply.
+    private bool anyOwner;
+
+    public static WireSockEngine ForUninstall() => new() { anyOwner = true };
 
     private WireSockHealth? health;
     private string? observedSession;
@@ -114,13 +119,23 @@ internal sealed partial class WireSockEngine : ITunnelEngine
         }
     }
 
-    public void Stop()
+    public void Stop(string? stoppedSession = null)
     {
         using var gate = LockOperations();
         try
         {
             var session = ReadRecord();
             if (session is null) return;
+            if (stoppedSession is not null)
+            {
+                // Recheck under the operation mutex: leave a session that was replaced or restarted meanwhile.
+                if (!string.Equals(session.ConfigPath, stoppedSession, StringComparison.OrdinalIgnoreCase)) return;
+                if (OwnsService(session))
+                {
+                    using var service = new ServiceController(ServiceName);
+                    if (service.Status != ServiceControllerStatus.Stopped) return;
+                }
+            }
             if (OwnsService(session)) RemoveService(session);
             if (ServiceImage() is not null)
                 throw new InvalidOperationException(T("The installed WireSock service no longer belongs to this AppTunnel session.",
@@ -159,11 +174,13 @@ internal sealed partial class WireSockEngine : ITunnelEngine
                 throw new InvalidOperationException(TunnelDiagnostics.Describe(state));
             Thread.Sleep(300);
         } while (watch.Elapsed < TimeSpan.FromSeconds(12));
-        if (state is TunnelHealth.HandshakeSent or TunnelHealth.HandshakeTimedOut)
-            throw new System.TimeoutException(TunnelDiagnostics.Describe(TunnelHealth.HandshakeTimedOut));
         if (GetActive()?.ConfigPath != session.ConfigPath)
             throw new InvalidOperationException(T("WireSock stopped while verifying the route.",
                 "O WireSock parou durante a verificação da rota.", "WireSock остановился при проверке маршрута."));
+        // Only a recorded handshake response proves the route works; missing evidence rolls back to the previous route.
+        if (state != TunnelHealth.HandshakeReceived)
+            throw new System.TimeoutException(TunnelDiagnostics.Describe(
+                state == TunnelHealth.Unknown ? TunnelHealth.Unknown : TunnelHealth.HandshakeTimedOut));
         Output?.Invoke(TunnelDiagnostics.Describe(state));
     }
 
@@ -265,7 +282,7 @@ internal sealed partial class WireSockEngine : ITunnelEngine
     {
         using var machine = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Registry64);
         var session = ReadSession(machine, AppRegistryPath) ?? ReadSession(machine, LegacyRegistryPath);
-        return session?.OwnerSid == owner.Value && SafeConfigDirectory(session.ConfigPath) is not null
+        return session is not null && (anyOwner || session.OwnerSid == owner.Value) && SafeConfigDirectory(session.ConfigPath) is not null
             ? session : null;
     }
 
@@ -421,12 +438,29 @@ internal sealed partial class WireSockEngine : ITunnelEngine
         var paths = registryPaths.Concat(roots.SelectMany(root => names.Select(name => Path.Combine(root, name))))
             .Distinct(StringComparer.OrdinalIgnoreCase);
 
-        return paths.SelectMany(path => new[] {
+        var candidates = paths.SelectMany(path => new[] {
                 Path.Combine(path, "sdk", Executable),
                 Path.Combine(path, Executable),
                 Path.Combine(path, "bin", Executable)
             })
-            .FirstOrDefault(File.Exists);
+            .Where(File.Exists).ToArray();
+        // Prefer an install that passes validation so an obsolete copy cannot hide a supported one.
+        // Fall back to the first existing file so the caller still reports why it was rejected.
+        return candidates.FirstOrDefault(IsValidInstallation) ?? candidates.FirstOrDefault();
+    }
+
+    private static bool IsValidInstallation(string path)
+    {
+        try
+        {
+            ValidateInstallation(path);
+            return true;
+        }
+        catch (Exception error) when (error is InvalidOperationException or IOException or UnauthorizedAccessException or
+            Win32Exception or ArgumentException or System.Security.SecurityException)
+        {
+            return false;
+        }
     }
 
     public static string ValidateInstallation(string path)

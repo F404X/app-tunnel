@@ -17,6 +17,7 @@ internal static class TelemetryWindow
             BackColor = Surface, ForeColor = DesktopTheme.Text, Font = Body(), Padding = new Padding(14),
             StartPosition = owner is null ? FormStartPosition.CenterScreen : FormStartPosition.CenterParent
         };
+        PrepareDialog(dialog);
         var summary = new Label
         {
             Dock = DockStyle.Top, Height = 50, ForeColor = Muted,
@@ -27,9 +28,13 @@ internal static class TelemetryWindow
         var body = new TextBox
         {
             Dock = DockStyle.Fill, Multiline = true, ReadOnly = true, BackColor = Field, ForeColor = DesktopTheme.Text,
-            Font = Mono, ScrollBars = ScrollBars.Both, WordWrap = false, AccessibleName = Caption
+            Font = Mono, ScrollBars = ScrollBars.Both, WordWrap = false, AccessibleName = Caption,
+            BorderStyle = BorderStyle.FixedSingle
         };
-        var actions = new FlowLayoutPanel { Dock = DockStyle.Bottom, Height = 46, WrapContents = false, Padding = new Padding(0, 4, 0, 0) };
+        var actions = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Bottom, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, Padding = new Padding(0, 8, 0, 0)
+        };
         void Render()
         {
             using var resource = Assembly.GetExecutingAssembly().GetManifestResourceStream("AppTunnel.TelemetryExamples")!;
@@ -76,6 +81,8 @@ internal static class TelemetryWindow
         dialog.Controls.Add(summary);
         dialog.CancelButton = close;
         Render();
+        // Read-only text should open unselected, with the caret at the top.
+        dialog.Shown += (_, _) => body.Select(0, 0);
         dialog.ShowDialog(owner);
     }
 
@@ -88,6 +95,7 @@ internal static class TelemetryWindow
             BackColor = Surface, ForeColor = DesktopTheme.Text, Font = Body(), Padding = new Padding(14),
             StartPosition = FormStartPosition.CenterParent
         };
+        PrepareDialog(dialog);
         var explanation = new Label
         {
             Dock = DockStyle.Top, Height = 46,
@@ -97,9 +105,14 @@ internal static class TelemetryWindow
         var body = new TextBox
         {
             Text = preview.Json, ReadOnly = true, Multiline = true, Dock = DockStyle.Fill,
-            ScrollBars = ScrollBars.Vertical, BackColor = Field, ForeColor = DesktopTheme.Text, Font = Mono
+            ScrollBars = ScrollBars.Vertical, BackColor = Field, ForeColor = DesktopTheme.Text, Font = Mono,
+            BorderStyle = BorderStyle.FixedSingle
         };
-        var actions = new FlowLayoutPanel { Dock = DockStyle.Bottom, Height = 44, FlowDirection = FlowDirection.RightToLeft };
+        var actions = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Bottom, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            FlowDirection = FlowDirection.RightToLeft, Padding = new Padding(0, 8, 0, 0)
+        };
         var approve = new ThemeButton { Text = T("Approve and send", "Autorizar e enviar", "Разрешить отправку"), DialogResult = DialogResult.OK, Kind = ButtonKind.Primary };
         var cancel = new ThemeButton { Text = T("Cancel", "Cancelar", "Отмена"), DialogResult = DialogResult.Cancel };
         actions.Controls.AddRange([approve, cancel]);

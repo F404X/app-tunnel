@@ -11,7 +11,8 @@ internal interface ITunnelEngine
     TunnelSession? GetActive();
     VpnSessionConfig Prepare(WireGuardProfile profile, string[] applications, RouteOptions options, VpnProtocol protocol);
     TunnelSession Start(string preferredPath, VpnSessionConfig config, TunnelSession request, bool verifyHandshake);
-    void Stop();
+    // With stoppedSession set, only removes that recorded session and only while its service is stopped.
+    void Stop(string? stoppedSession = null);
     TunnelHealth ReadHealth(TunnelSession session);
 }
 
@@ -80,6 +81,12 @@ internal sealed class TunnelEngines
         {
             foreach (var engine in engines) engine.Stop();
         }
+    }
+
+    public void RemoveStopped(string configPath)
+    {
+        if (ActiveEngine() is not null) return;
+        foreach (var engine in engines) engine.Stop(configPath);
     }
 
     public TunnelHealth ReadHealth(TunnelSession session) =>
