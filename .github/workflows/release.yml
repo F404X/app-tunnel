@@ -7,13 +7,16 @@ on:
       - '.github/workflows/release.yml'
       - 'src/**'
       - 'tests/**'
+      - 'telemetry/**'
+      - 'docs/telemetry-examples.txt'
+      - 'docs/terms/**'
       - 'installer/**'
       - 'Directory.Build.props'
       - 'Compilar.ps1'
   workflow_dispatch:
     inputs:
       tag:
-        description: Version tag from Directory.Build.props (for example v0.6.0)
+        description: Version tag from Directory.Build.props (for example v0.7.0)
         required: true
         type: string
       prerelease:
@@ -47,6 +50,10 @@ jobs:
         with:
           dotnet-version: 10.0.x
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
       - name: Verify release version and test source
         id: version
         shell: pwsh
@@ -72,9 +79,13 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           node tests/proton-portal.test.cjs
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node --test tests/telemetry.test.mjs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Build and package AppTunnel for Windows x64
         shell: pwsh
+        env:
+          AppTunnelTelemetryEndpoint: ${{ vars.APPTUNNEL_TELEMETRY_ENDPOINT }}
         run: |
           .\Compilar.ps1 -Architecture win-x64 -SelfContained
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -119,6 +130,10 @@ jobs:
           foreach ($name in @('AppTunnel.exe', 'AppTunnel.Proton.exe', 'coreclr.dll', 'unins000.exe')) {
             if (!(Test-Path (Join-Path $appDir $name))) { throw "Setup did not install $name." }
           }
+          $consent = 'HKCU:\Software\F404X\AppTunnel\Telemetry'
+          if (Test-Path $consent) { throw "Silent installation created telemetry consent." }
+          New-Item $consent -Force | Out-Null
+          New-ItemProperty $consent -Name Consent -Value 5 -PropertyType DWord -Force | Out-Null
           $settingsDir = Join-Path $env:LOCALAPPDATA AppTunnel
           New-Item -ItemType Directory -Path $settingsDir -Force | Out-Null
           '{"Language":"ru"}' | Set-Content (Join-Path $settingsDir settings.json) -Encoding utf8
@@ -131,12 +146,14 @@ jobs:
           if ($upgrade.ExitCode -ne 0) { throw "AppTunnel upgrade failed ($($upgrade.ExitCode))." }
           if (!$app.WaitForExit(10000)) { throw "Setup did not close the running AppTunnel interface." }
           if (Test-Path $legacyLanguage) { throw "Setup did not remove obsolete language resources." }
+          if ((Get-ItemProperty $consent).Consent -ne 5) { throw "Setup changed telemetry choices during upgrade." }
           $uninstallLog = Join-Path $env:RUNNER_TEMP AppTunnel-uninstall.log
           $remove = Start-Process (Join-Path $appDir unins000.exe) -ArgumentList ($flags + "/LOG=$uninstallLog") -Wait -PassThru
           if ($remove.ExitCode -ne 0 -or (Test-Path (Join-Path $appDir AppTunnel.exe))) {
             if (Test-Path $uninstallLog) { Get-Content $uninstallLog -Tail 35 }
             throw "AppTunnel uninstall failed ($($remove.ExitCode))."
           }
+          if (Test-Path $consent) { throw "AppTunnel uninstall left telemetry consent behind." }
 
       - name: Publish GitHub release, installer and ZIP
         if: steps.version.outputs.publish == 'true'
@@ -156,10 +173,10 @@ jobs:
 
           Baixe **AppTunnel-Setup-x64.exe** em **Assets** e siga o instalador. O **AppTunnel-Windows-x64.zip** é a versão portátil. Veja o [guia de instalação](https://github.com/$env:GITHUB_REPOSITORY/blob/$env:GITHUB_SHA/README.md) para configurar a Proton e os aplicativos.
 
-          - Inglês, português do Brasil e russo, com bandeiras no seletor de idiomas e um pacote menor.
-          - **Explore Common Apps** para selecionar aplicativos instalados, incluindo Serein, Discord, Telegram e Signal.
-          - WireGuard com preenchimento pré-handshake e AmneziaWG para perfis compatíveis, além de seleção automática de rotas.
-          - Diagnóstico de handshake e opções de DNS do perfil e bloqueio de IPv6 público por executável.
+          - **Perfis da conta** em destaque nas rotas e um assistente para criar perfis WireGuard sob demanda. Use o servidor recomendado pela Proton ou escolha outro.
+          - Tema claro, opção de seguir o tema do Windows, status da VPN com espaço para o texto completo e opção de atualização automática na edição instalada.
+          - Estatísticas, relatórios de erro e diagnósticos com consentimentos independentes. Cada diagnóstico exige revisão e aprovação individual.
+          - Termos de uso no aplicativo e no instalador, em português, inglês e russo.
 
           SHA-256 do instalador: $setupChecksum
 
