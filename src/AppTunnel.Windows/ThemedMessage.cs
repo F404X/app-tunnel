@@ -46,7 +46,6 @@ internal static class ThemedMessage
             // Declining stays the default, as with the message boxes this replaces.
             dialog.AcceptButton = no;
             dialog.CancelButton = no;
-            dialog.ActiveControl = no;
         }
         else
         {
@@ -57,6 +56,9 @@ internal static class ThemedMessage
         }
         dialog.Controls.Add(message);
         dialog.Controls.Add(actions);
+        // Set only now: a form refuses to activate a control it does not contain yet ("Invisible or disabled
+        // control cannot be activated"), which broke every question, including the update confirmation.
+        if (question) dialog.ActiveControl = dialog.AcceptButton as Control;
         // Tall enough for the whole message, so it never needs a scrollbar.
         var height = MeasureText(dialog, text, Body(), (int)((480 - 40 - 36) * dialog.DeviceDpi / 96f), wrap: true).Height * 96 / dialog.DeviceDpi;
         dialog.ClientSize = new Size(480, Math.Max(150, height + 18 + 14 + 64 + 8));
