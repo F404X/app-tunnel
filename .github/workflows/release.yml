@@ -169,10 +169,11 @@ jobs:
 
           Download **AppTunnel-Setup-x64.exe** from **Assets** and run the installer. **AppTunnel-Windows-x64.zip** is the portable version. See the [installation guide](https://github.com/$env:GITHUB_REPOSITORY/blob/$env:GITHUB_SHA/README.md) to set up Proton and your apps.
 
-          - New interface built around **Home**, **Apps** and **Servers**. Home has one large button to turn the VPN on or off, a server card, a connection check and app chips that turn each app on or off.
-          - **Apps** shows one card per app with an on/off switch. **Add app** groups common apps, running apps, an .exe or a whole folder.
-          - **Servers** offers **Automatic**, which connects through the lowest-latency server, or a pinned server, with latency bars. Protocol, DNS, IPv6 and IP filters moved to a collapsed **Advanced** section.
-          - A first-run assistant checks WireSock, helps create a Proton connection or import a .conf file, picks the detected apps and connects.
+          - Refreshed interface that follows the new design: dark sidebar with icons, a round power button on **Home**, **Server** and **Connection** cards, and app chips with **Undo** (also Ctrl+Z).
+          - **Apps**: one row per app with a switch, **Via VPN**/**Direct** label and remove button. Drag an .exe, a shortcut or a folder onto the page to add it already switched on.
+          - **Servers**: **Automatic** uses the fastest server and moves to another one if it fails or slows down; a pinned server never leaves its endpoint. Recovery tries each backup and keeps one only after the handshake is confirmed.
+          - Smoother text: the bundled DM Sans (now with a Medium weight) and Bricolage fonts are hinted, and all text is drawn with grayscale anti-aliasing at each monitor's DPI.
+          - The first-run assistant can be run again from **Settings**.
 
           Installer SHA-256: $setupChecksum
 
