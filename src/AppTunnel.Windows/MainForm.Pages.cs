@@ -340,6 +340,11 @@ internal sealed partial class MainForm
     private async Task TogglePower()
     {
         if (HasPendingOperation) return;
+        await Power();
+    }
+
+    private async Task Power()
+    {
         if (activeSession is not null)
         {
             await ChangeConnection(starting: false);

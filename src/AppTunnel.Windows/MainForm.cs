@@ -33,7 +33,9 @@ internal sealed partial class MainForm : Form
 
     [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
     public int CurrentPage { get; private set; }
-    public bool HasPendingOperation => busy || pingBusy || updateBusy || choosingRoute;
+    // A reconnect on start counts from its first step to its last, so the gaps between them (after the latency
+    // check, before connecting) never let the tray rebuild the window or start an update.
+    public bool HasPendingOperation => busy || pingBusy || updateBusy || choosingRoute || restoring;
     public bool CanDisconnect => !busy && !updateBusy && activeSession is not null;
     public event Action<string>? LanguageRequested;
 
@@ -476,8 +478,12 @@ internal sealed partial class MainForm : Form
             "Reconectando, pois a VPN estava ligada no último uso do AppTunnel.",
             "Повторное подключение: VPN был включён при последнем использовании AppTunnel."));
         restoring = true;
-        try { await TogglePower(); }
-        finally { restoring = false; }
+        try { await Power(); }
+        finally
+        {
+            restoring = false;
+            if (!IsDisposed && !Disposing) UpdateState();
+        }
     }
 
     // Apps already in the previous session on the same server keep their connections, so only
