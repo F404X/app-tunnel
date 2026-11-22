@@ -385,7 +385,8 @@ internal sealed partial class MainForm : Form
 
     private async Task ChangeConnection(bool starting)
     {
-        if (busy || updateBusy || (starting && pingBusy)) return;
+        // Nothing new starts once Setup asked AppTunnel to close, or after this window was replaced.
+        if (closingForSetup || IsDisposed || Disposing || busy || updateBusy || (starting && pingBusy)) return;
         operation = !starting ? T("Disconnecting…", "Desconectando…", "Отключение…") :
             activeSession is not null ? T("Applying changes…", "Aplicando ajustes…", "Применение настроек…") : T("Connecting…", "Conectando…", "Подключение…");
         busy = true;

@@ -114,6 +114,9 @@ var scenarios = new (string Name, Action Check)[]
         var full = ReleaseNotes.Full(nightlyRange);
         Require(full.StartsWith("AppTunnel 0.14.0\nUpdating from") && full.Contains("\n\nAppTunnel 0.13.3-beta.1\n• Beta change"));
         Require(ReleaseNotes.Summary([]) == "" && ReleaseNotes.Full([]) == "");
+        // Only a release's first list is its changes; an overview of the whole app after it stays for Read more.
+        var overview = new ReleaseNote(V("1.0.0-beta.1"), ReleaseNotes.Clean("Intro.\n\n### New\n\n- **New thing:** detail\n\n### Everything\n\n- **Old thing:** detail"));
+        Require(ReleaseNotes.Summary([overview]) == "• New thing" && ReleaseNotes.Full([overview]).Contains("• Old thing: detail"));
     }),
     ("common browsers are recognized by install folder, including ones that share an executable name", () =>
     {

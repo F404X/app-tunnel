@@ -37,10 +37,13 @@ internal sealed class AppTunnelApplicationContext : ApplicationContext
 
         activationTimer.Tick += async (_, _) =>
         {
-            if (!preparingSetup && !window.HasPendingOperation && setupExit.WaitOne(0))
+            // Taken at once, even while an operation runs: Setup waits a limited time, and an operation that blocked
+            // the request would leave it timing out. The operation in progress is drained below instead.
+            if (!preparingSetup && setupExit.WaitOne(0))
             {
                 preparingSetup = true;
                 window.PrepareForSetup();
+                tray.ContextMenuStrip?.Close();
                 try { await proton.CloseForSetupAsync(); }
                 catch (Exception error) when (error is IOException or UnauthorizedAccessException) { }
                 // An operation that started before the request (such as applying a change) finishes first; Setup
@@ -53,6 +56,8 @@ internal sealed class AppTunnelApplicationContext : ApplicationContext
             if (!preparingSetup && activation.WaitOne(0)) ShowWindow();
             if (preparingSetup || window.HasPendingOperation || Application.OpenForms.Cast<Form>().Any(form => form.Modal)) return;
             _ = window.RestoreConnection();
+            // A reconnect just started must not be cut off by recreating the window for a theme change.
+            if (window.HasPendingOperation) return;
             var now = Environment.TickCount64;
             if (now >= nextThemePoll)
             {
@@ -97,7 +102,10 @@ internal sealed class AppTunnelApplicationContext : ApplicationContext
         var menu = new ThemeMenu();
         menu.Add(T("Open AppTunnel", "Abrir AppTunnel", "Открыть AppTunnel"), Glyph.Window, (_, _) => ShowWindow());
         var disconnect = menu.Add(T("Disconnect VPN", "Desconectar VPN", "Отключить VPN"), Glyph.Power);
-        disconnect.Click += async (_, _) => await window.Disconnect();
+        disconnect.Click += async (_, _) =>
+        {
+            if (!preparingSetup) await window.Disconnect();
+        };
         var startup = menu.Add(T("Start with Windows", "Iniciar com o Windows", "Запускать вместе с Windows"), Glyph.Bolt);
         startup.Click += (_, _) => SetStartup(!startup.Checked);
         menu.Opening += (_, _) =>

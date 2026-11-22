@@ -52,11 +52,11 @@ public static partial class ReleaseNotes
             .DistinctBy(note => note.Version.ToString()).OrderByDescending(note => note.Version).ToArray();
 
     // A few short lines: each change cut to its title ("Updates install again" from "Updates install again: the
-    // confirmation…") or to one short sentence. Paragraphs that are not changes are left for Read more.
+    // confirmation…") or to one short sentence. Only each release's first list counts, its changes; later lists,
+    // such as an overview of everything the app does, and paragraphs that are not changes are left for Read more.
     public static string Summary(IReadOnlyList<ReleaseNote> notes, int count = 5)
     {
-        var changes = notes.SelectMany(note => note.Text.Split('\n')).Where(line => line.StartsWith("• ", StringComparison.Ordinal))
-            .Select(line => "• " + Shorten(line[2..])).ToList();
+        var changes = notes.SelectMany(note => FirstList(note.Text)).Select(line => "• " + Shorten(line[2..])).ToList();
         if (changes.Count == 0)
             return notes.Select(note => note.Text.Split('\n')[0]).Select(Shorten).FirstOrDefault() ?? "";
         var shown = changes.Take(count).ToList();
@@ -76,6 +76,10 @@ public static partial class ReleaseNotes
         }
         return text.ToString();
     }
+
+    private static IEnumerable<string> FirstList(string text) => text.Split('\n')
+        .SkipWhile(line => !line.StartsWith("• ", StringComparison.Ordinal))
+        .TakeWhile(line => line.StartsWith("• ", StringComparison.Ordinal));
 
     private static string Shorten(string line)
     {

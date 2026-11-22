@@ -274,7 +274,9 @@ begin
     CloseHandle(Event);
   end;
 
-  for Attempt := 1 to 100 do
+  // AppTunnel finishes an operation already in progress (a connection check can take about 12 s) and closes the
+  // Proton window before it exits, so Setup waits up to 45 s.
+  for Attempt := 1 to 450 do
   begin
     Sleep(100);
     Result := not CheckForMutexes(AppTunnelMutex);

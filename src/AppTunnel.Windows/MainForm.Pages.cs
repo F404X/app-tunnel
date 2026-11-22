@@ -366,6 +366,7 @@ internal sealed partial class MainForm
         }
         if (SelectedRoute() is null) settings.SelectedProfile = settings.Profiles[0].Id;
         if (settings.AutoServer && settings.Profiles.Count > 1) await MeasureLatency(chooseFastest: true);
+        if (IsDisposed || Disposing) return;
         await ChangeConnection(starting: true);
     }
 
