@@ -118,6 +118,8 @@ internal sealed partial class MainForm : Form
             UpdateState();
             _ = RefreshLatencyQuietly();
             if (NeedsSetup) BeginInvoke(RunSetup);
+            // Runs during a first-time setup too, where it only records the installed version.
+            BeginInvoke(() => _ = ShowWhatsNew());
         };
     }
 

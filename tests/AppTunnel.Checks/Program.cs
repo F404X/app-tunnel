@@ -78,6 +78,43 @@ var scenarios = new (string Name, Action Check)[]
         Require(CommonApps.Find("signal-desktop")?.Name == "Signal");
         Require(CommonApps.Find("Discord log viewer") is null);
     }),
+    ("release notes read from GitHub become a short list before updating and full notes after it", () =>
+    {
+        static SemVersion V(string text) => SemVersion.Parse(text) ?? throw new InvalidOperationException(text);
+        const string nightly = "## AppTunnel v0.13.3-nightly.20261122.39\n\nDownload **AppTunnel-Setup-x64.exe** from **Assets** and run the installer. " +
+            "See the [installation guide](https://example.com/README.md).\n\nAutomatic nightly build of 2213fbd. Nightly builds are experimental.\n\n" +
+            "### Changes\n\n- Show the AppTunnel version in the title bar\n\nInstaller SHA-256: 34ab\n\nZIP SHA-256: ef06\n";
+        const string stable = "## AppTunnel v0.14.0\n\nDownload **AppTunnel-Setup-x64.exe** from **Assets**.\n\n<!-- hidden -->" +
+            "**Updating from 0.13.0:** run the [installer](https://example.com) once.\n\n" +
+            "- **Updates install again:** the *Install now?* confirmation opens correctly, and if it ever cannot open, the installer asks.\n" +
+            "- **Servers page:** only the pinned servers scroll.\n" +
+            "- A change without a title that goes on for a long while, well past the length that a short changelog line should ever take up on screen.\n" +
+            "- Fourth\n- Fifth\n- Sixth\n\nInstaller SHA-256: aa\n";
+        Require(ReleaseNotes.Clean(nightly) == "• Show the AppTunnel version in the title bar");
+        var cleaned = ReleaseNotes.Clean(stable);
+        Require(cleaned.StartsWith("Updating from 0.13.0: run the installer once.\n\n• Updates install again: the Install now? confirmation") &&
+            !cleaned.Contains("SHA-256") && !cleaned.Contains("Download") && !cleaned.Contains("hidden") && !cleaned.Contains("**"));
+        var listing = JsonDocument.Parse(JsonSerializer.Serialize(new object[]
+        {
+            new { tag_name = "v0.14.0", draft = false, prerelease = false, body = stable },
+            new { tag_name = "v0.13.3-nightly.20261122.39", draft = false, prerelease = true, body = nightly },
+            new { tag_name = "v0.13.3-beta.1", draft = false, prerelease = true, body = "- Beta change" },
+            new { tag_name = "v0.13.2", draft = false, prerelease = false, body = "- Older change" },
+            new { tag_name = "v0.15.0", draft = true, prerelease = false, body = "- Draft" }
+        })).RootElement;
+        var notes = ReleaseNotes.Read(listing).ToList();
+        Require(notes.Count == 4);
+        var stableRange = ReleaseNotes.Between(notes, V("0.13.2"), V("0.14.0"), UpdateChannel.Stable);
+        Require(stableRange.Select(note => note.Version.ToString()).SequenceEqual(["0.14.0"]));
+        var nightlyRange = ReleaseNotes.Between(notes, V("0.13.2"), V("0.14.0"), UpdateChannel.Nightly);
+        Require(nightlyRange.Select(note => note.Version.ToString()).SequenceEqual(["0.14.0", "0.13.3-nightly.20261122.39", "0.13.3-beta.1"]));
+        var summary = ReleaseNotes.Summary(stableRange).Split('\n');
+        Require(summary.Length == 6 && summary[0] == "• Updates install again" && summary[1] == "• Servers page" &&
+            summary[2].EndsWith('…') && summary[2].Length < 115 && summary[5].Contains('1'));
+        var full = ReleaseNotes.Full(nightlyRange);
+        Require(full.StartsWith("AppTunnel 0.14.0\nUpdating from") && full.Contains("\n\nAppTunnel 0.13.3-beta.1\n• Beta change"));
+        Require(ReleaseNotes.Summary([]) == "" && ReleaseNotes.Full([]) == "");
+    }),
     ("common browsers are recognized by install folder, including ones that share an executable name", () =>
     {
         static string? ByPath(string path) => CommonApps.FindByPath(path)?.Name;

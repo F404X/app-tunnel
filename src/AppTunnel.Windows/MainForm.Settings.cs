@@ -293,6 +293,65 @@ internal sealed partial class MainForm
         return MakeBar(label, mode);
     }
 
+    // Shows what changed before installing: a short list, with Read more for every release up to the update.
+    // Without notes it falls back to the plain question.
+    private bool ConfirmInstall(ReleaseUpdate update, SemVersion installed, UpdateChannel channel, List<ReleaseNote> notes, string prompt)
+    {
+        var coming = ReleaseNotes.Between(notes, installed, update.Version, channel);
+        if (coming.Count == 0) return ThemedMessage.Ask(this, prompt);
+        var title = T($"AppTunnel {update.Version} is available", $"AppTunnel {update.Version} está disponível",
+            $"Доступна версия AppTunnel {update.Version}");
+        return ChangelogWindow.AskInstall(this, title, prompt, ReleaseNotes.Summary(coming), ReleaseNotes.Full(coming));
+    }
+
+    // After an update, the first time the window opens: the complete notes of every release since the last version
+    // this user ran, with Read more for the entire changelog. A fresh install only records its version. The window
+    // never opens by itself for this, so an automatic update that restarts AppTunnel in the tray stays silent.
+    private async Task ShowWhatsNew()
+    {
+        var current = AppUpdater.CurrentRelease;
+        if (settings.LastVersion == current.ToString()) return;
+        var last = SemVersion.Parse(settings.LastVersion);
+        if (NeedsSetup || last is not null && last >= current)
+        {
+            RememberVersion(current);
+            return;
+        }
+        IReadOnlyList<ReleaseNote> notes;
+        using (var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30)))
+        {
+            // Offline or rate limited: try again the next time the window opens.
+            try { notes = await AppUpdater.ReadNotesAsync(timeout.Token); }
+            catch (Exception error) when (Expected(error) || error is HttpRequestException or OperationCanceledException or System.Text.Json.JsonException)
+            {
+                return;
+            }
+        }
+        if (IsDisposed || !Visible) return;
+        var channel = Channel;
+        // Versions before this feature did not record themselves; their users see the notes of this version only.
+        var since = last ?? notes.Select(note => note.Version).Where(version => version < current).DefaultIfEmpty(ReleaseUpdate.FirstStable).Max()!;
+        var news = ReleaseNotes.Between(notes, since, current, ReleaseUpdate.Includes(channel, current) ? channel : current.Channel);
+        RememberVersion(current);
+        if (news.Count == 0) return;
+        var history = ReleaseNotes.Between(notes, new SemVersion(0, 0, 0, []), current, ReleaseUpdate.Includes(channel, current) ? channel : current.Channel);
+        try
+        {
+            ChangelogWindow.ShowWhatsNew(this, T($"What's new in AppTunnel {current}", $"Novidades do AppTunnel {current}",
+                    $"Что нового в AppTunnel {current}"),
+                last is null ? "" : T($"Updated from {last}.", $"Atualizado da versão {last}.", $"Обновлено с версии {last}."),
+                ReleaseNotes.Full(news), ReleaseNotes.Full(history));
+        }
+        catch (Exception error) when (Expected(error)) { AddLog(error.Message); }
+    }
+
+    private void RememberVersion(SemVersion version)
+    {
+        settings.LastVersion = version.ToString();
+        try { Save(); }
+        catch (Exception error) when (Expected(error)) { AddLog(error.Message); }
+    }
+
     public async Task CheckForAutomaticUpdate()
     {
         var now = DateTimeOffset.UtcNow;
@@ -317,7 +376,8 @@ internal sealed partial class MainForm
             updateStatus.Text = T("Checking GitHub for an update…", "Buscando atualização no GitHub…", "Проверка обновлений на GitHub…");
             var channel = Channel;
             var installed = AppUpdater.CurrentRelease;
-            var update = await AppUpdater.FindBestAsync(channel, timeout.Token);
+            var releaseNotes = new List<ReleaseNote>();
+            var update = await AppUpdater.FindBestAsync(channel, timeout.Token, releaseNotes);
             var name = ChannelName(channel);
             if (update is null)
             {
@@ -362,7 +422,7 @@ internal sealed partial class MainForm
                 // An update must never be blocked by the confirmation itself: if it cannot open, the installer opens
                 // with its own wizard, which asks before changing anything.
                 bool confirmed;
-                try { confirmed = ThemedMessage.Ask(this, prompt); }
+                try { confirmed = ConfirmInstall(update, installed, channel, releaseNotes, prompt); }
                 catch (Exception error) when (Expected(error))
                 {
                     AddLog(error.Message);

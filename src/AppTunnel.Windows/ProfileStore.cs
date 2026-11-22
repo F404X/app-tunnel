@@ -37,6 +37,8 @@ internal sealed class Preferences
     public bool Connected { get; set; }
     // Which releases the updater follows; missing or unknown values mean Stable.
     public UpdateChannel UpdateChannel { get; set; }
+    // The last version that ran, so the first start after an update can show what changed.
+    public string? LastVersion { get; set; }
 }
 
 internal enum DiscordRestartChoice

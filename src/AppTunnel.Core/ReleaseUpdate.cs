@@ -28,14 +28,8 @@ public sealed record ReleaseUpdate(SemVersion Version, Uri Download, string Sha2
         if (releases.ValueKind != JsonValueKind.Array) return best;
         foreach (var release in releases.EnumerateArray())
         {
-            if (release.ValueKind != JsonValueKind.Object || !release.TryGetProperty("draft", out var draft) ||
-                draft.ValueKind != JsonValueKind.False) continue;
-            if (!release.TryGetProperty("tag_name", out var tagValue) || tagValue.ValueKind != JsonValueKind.String ||
-                tagValue.GetString() is not { } tag ||
-                !tag.StartsWith('v') || SemVersion.Parse(tag[1..]) is not { } version || tag != "v" + version) continue;
-            var prerelease = release.TryGetProperty("prerelease", out var flag) && flag.ValueKind == JsonValueKind.True;
-            // The release flag must agree with the version: stables are full releases, betas and nightlies previews.
-            if (version.IsStable ? prerelease || version < FirstStable : !prerelease) continue;
+            if (Published(release) is not { } version) continue;
+            var tag = "v" + version;
             if (!Includes(channel, version) || best is not null && version <= best.Version) continue;
             if (!release.TryGetProperty("assets", out var assets) || assets.ValueKind != JsonValueKind.Array) continue;
 
@@ -60,6 +54,19 @@ public sealed record ReleaseUpdate(SemVersion Version, Uri Download, string Sha2
             }
         }
         return best;
+    }
+
+    // The version of a published release, or null for a draft, a malformed tag or a release whose prerelease flag
+    // does not match its kind of version (stables are full releases, betas and nightlies previews).
+    public static SemVersion? Published(JsonElement release)
+    {
+        if (release.ValueKind != JsonValueKind.Object || !release.TryGetProperty("draft", out var draft) ||
+            draft.ValueKind != JsonValueKind.False) return null;
+        if (!release.TryGetProperty("tag_name", out var tagValue) || tagValue.ValueKind != JsonValueKind.String ||
+            tagValue.GetString() is not { } tag ||
+            !tag.StartsWith('v') || SemVersion.Parse(tag[1..]) is not { } version || tag != "v" + version) return null;
+        var prerelease = release.TryGetProperty("prerelease", out var flag) && flag.ValueKind == JsonValueKind.True;
+        return (version.IsStable ? prerelease || version < FirstStable : !prerelease) ? null : version;
     }
 
     // The update to offer: the best release on the channel when it is newer than the installed version. The app

@@ -34,9 +34,31 @@ internal static class AppUpdater
     }
 
     // The highest release on the channel (newer or not than the installed version), reading every page of the list.
-    public static async Task<ReleaseUpdate?> FindBestAsync(UpdateChannel channel, CancellationToken cancellation)
+    // The release notes read on the way are added to notes, so the update can show what changed.
+    public static async Task<ReleaseUpdate?> FindBestAsync(UpdateChannel channel, CancellationToken cancellation,
+        List<ReleaseNote>? notes = null)
     {
         ReleaseUpdate? best = null;
+        await ReadReleasesAsync(releases =>
+        {
+            best = ReleaseUpdate.FindBest(releases, channel, best);
+            // Notes are extra: a page whose notes cannot be read still counts for the update itself.
+            try { notes?.AddRange(ReleaseNotes.Read(releases)); }
+            catch (Exception error) when (error is InvalidOperationException or ArgumentException) { }
+        }, cancellation);
+        return best;
+    }
+
+    // The notes of every published release, for "What's new" after an update.
+    public static async Task<IReadOnlyList<ReleaseNote>> ReadNotesAsync(CancellationToken cancellation)
+    {
+        var notes = new List<ReleaseNote>();
+        await ReadReleasesAsync(releases => notes.AddRange(ReleaseNotes.Read(releases)), cancellation);
+        return notes;
+    }
+
+    private static async Task ReadReleasesAsync(Action<JsonElement> read, CancellationToken cancellation)
+    {
         // Reads until a page comes back short; the cap only guards against a misbehaving API.
         for (var page = 1; page <= 1000; page++)
         {
@@ -47,10 +69,9 @@ internal static class AppUpdater
             response.EnsureSuccessStatusCode();
             await using var body = await response.Content.ReadAsStreamAsync(cancellation);
             using var releases = await JsonDocument.ParseAsync(body, cancellationToken: cancellation);
-            best = ReleaseUpdate.FindBest(releases.RootElement, channel, best);
+            read(releases.RootElement);
             if (releases.RootElement.ValueKind != JsonValueKind.Array || releases.RootElement.GetArrayLength() < 100) break;
         }
-        return best;
     }
 
     public static async Task<string> DownloadAsync(ReleaseUpdate update, IProgress<int> progress, CancellationToken cancellation)

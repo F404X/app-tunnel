@@ -21,6 +21,25 @@ internal static class DialogChecks
                     // A question starts on "No", so Enter never confirms by accident.
                     if (question) Require(dialog.ActiveControl is Button { DialogResult: DialogResult.No });
                 }
+                // The changelog that asks before installing, and the one shown after an update, with Read more.
+                foreach (var question in new[] { true, false })
+                foreach (var standalone in new[] { true, false })
+                {
+                    var notes = string.Join('\n', Enumerable.Range(1, 80).Select(line => $"• Change {line} " + new string('x', line)));
+                    using var changelog = ChangelogWindow.Build(standalone, "AppTunnel 9.9.9 is available",
+                        question ? "Install AppTunnel 9.9.9 now? The setup will close the AppTunnel interface." : "", "• Short change", notes, question);
+                    var buttons = changelog.Controls.OfType<Panel>().SelectMany(panel => panel.Controls.OfType<FlowLayoutPanel>())
+                        .SelectMany(bar => bar.Controls.OfType<Button>()).ToArray();
+                    Require(buttons.Count(button => button.DialogResult != DialogResult.None) == (question ? 2 : 1));
+                    if (question) Require(changelog.ActiveControl is Button { DialogResult: DialogResult.No });
+                    var before = changelog.ClientSize.Height;
+                    // PerformClick ignores a window that is not shown, so the click is raised directly.
+                    var readMore = buttons.Single(button => button.DialogResult == DialogResult.None);
+                    typeof(Control).GetMethod("OnClick", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+                        .Invoke(readMore, [EventArgs.Empty]);
+                    var text = changelog.Controls.OfType<ThemeCard>().Single().Controls.OfType<RichTextBox>().Single();
+                    Require(text.Text.Contains("Change 80") && changelog.ClientSize.Height >= before);
+                }
             }
             catch (Exception error) { failure = error; }
         });
