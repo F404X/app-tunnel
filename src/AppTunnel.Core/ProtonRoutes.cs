@@ -186,6 +186,50 @@ public static class ProtonServerNames
         name.Length >= 2 && char.IsAsciiLetter(name[0]) && char.IsAsciiLetter(name[1]) && (name.Length == 2 || !char.IsAsciiLetter(name[2]))
             ? name[..2].ToUpperInvariant() : "";
 
+    // Finds the country a saved server belongs to from its name: a leading ISO code ("US-FREE#89") or a
+    // country name in any app language ("Mexico - Discord", "Japão 2"). Returns "" when nothing matches.
+    public static string Guess(string name)
+    {
+        var trimmed = name.Trim();
+        var code = CountryOf(trimmed);
+        if (code.Length == 2 && Names.Value.ContainsKey(code)) return code;
+        var best = "";
+        var length = 0;
+        foreach (var (candidate, names) in Names.Value.Concat(Aliases))
+            foreach (var country in names)
+                if (country.Length > length && trimmed.StartsWith(country, StringComparison.CurrentCultureIgnoreCase) &&
+                    (trimmed.Length == country.Length || !char.IsLetter(trimmed[country.Length])))
+                {
+                    best = candidate;
+                    length = country.Length;
+                }
+        return best;
+    }
+
+    // Proton configurations name the server in a comment of the [Peer] section ("# US-FREE#89"), which stays
+    // right however the saved server is renamed.
+    public static string FromConfig(string text)
+    {
+        var peer = false;
+        foreach (var raw in text.Split('\n'))
+        {
+            var line = raw.Trim();
+            if (line.StartsWith('[')) peer = line.Equals("[Peer]", StringComparison.OrdinalIgnoreCase);
+            else if (peer && line.StartsWith('#') && !line.StartsWith("#@", StringComparison.Ordinal))
+            {
+                var country = Guess(line.TrimStart('#'));
+                if (country.Length > 0) return country;
+            }
+        }
+        return "";
+    }
+
+    private static readonly KeyValuePair<string, string[]>[] Aliases =
+    [
+        new("US", ["USA", "EUA", "США", "America"]), new("GB", ["UK", "England", "Inglaterra", "Britain"]),
+        new("AE", ["UAE", "EAU"]), new("KR", ["Korea", "Coreia"])
+    ];
+
     private static readonly Lazy<Dictionary<string, string[]>> Names = new(LoadNames);
 
     // Country names follow the AppTunnel language, not the Windows display language.

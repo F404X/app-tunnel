@@ -49,6 +49,7 @@ internal sealed class AppTunnelApplicationContext : ApplicationContext
 
             if (!preparingSetup && activation.WaitOne(0)) ShowWindow();
             if (preparingSetup || window.HasPendingOperation || Application.OpenForms.Cast<Form>().Any(form => form.Modal)) return;
+            _ = window.RestoreConnection();
             var now = Environment.TickCount64;
             if (now >= nextThemePoll)
             {

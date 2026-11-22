@@ -204,28 +204,33 @@ internal sealed partial class MainForm
         void GetPath([Out, MarshalAs(UnmanagedType.LPWStr)] StringBuilder file, int size, nint data, uint flags);
     }
 
+    private IEnumerable<ServerRow> ServerRows() =>
+        serverTop.Controls.OfType<ServerRow>().Concat(serverList.Controls.OfType<ServerRow>());
+
     private void DrawRoutes()
     {
         var live = activeSession?.Profile.Id;
         drawnLive = live;
-        var rows = serverList.Controls.OfType<ServerRow>().Where(row => !row.Automatic).ToArray();
-        var same = rows.Length == settings.Profiles.Count && rows.Zip(settings.Profiles).All(pair => Equals(pair.First.Tag, pair.Second.Id));
-        var focused = serverList.Controls.OfType<ServerRow>().FirstOrDefault(row => row.ContainsFocus);
+        var rows = serverList.Controls.OfType<ServerRow>().ToArray();
+        var hasAuto = serverTop.Controls.OfType<ServerRow>().Any();
+        var same = hasAuto == settings.Profiles.Count > 0 && rows.Length == settings.Profiles.Count &&
+            rows.Zip(settings.Profiles).All(pair => Equals(pair.First.Tag, pair.Second.Id));
+        var focused = ServerRows().FirstOrDefault(row => row.ContainsFocus);
         var refocus = focused is null ? null : focused.Automatic ? (object)"auto" : focused.Tag;
+        serverTop.SuspendLayout();
         serverList.SuspendLayout();
         try
         {
             if (!same)
             {
-                foreach (var row in serverList.Controls.OfType<ServerRow>().ToArray()) row.Dispose();
+                foreach (var row in ServerRows().ToArray()) row.Dispose();
                 if (settings.Profiles.Count > 0)
                 {
                     var auto = new ServerRow(automatic: true) { Title = T("Automatic", "Automático", "Автоматически") };
                     auto.Click += (_, _) => PickAuto();
-                    serverList.Controls.Add(auto);
-                    serverList.Controls.SetChildIndex(auto, 0);
+                    serverTop.Controls.Add(auto);
+                    serverTop.Controls.SetChildIndex(auto, 0);
                 }
-                var position = serverList.Controls.GetChildIndex(pinCaption) + 1;
                 foreach (var profile in settings.Profiles)
                 {
                     var id = profile.Id;
@@ -233,12 +238,11 @@ internal sealed partial class MainForm
                     row.Click += (_, _) => PickServer(id);
                     row.MenuRequested += point => ShowServerMenu(row, id, point);
                     serverList.Controls.Add(row);
-                    serverList.Controls.SetChildIndex(row, position++);
                 }
             }
             pinCaption.Visible = settings.Profiles.Count > 0;
             emptyRoutes.Visible = settings.Profiles.Count == 0;
-            foreach (var row in serverList.Controls.OfType<ServerRow>())
+            foreach (var row in ServerRows())
             {
                 if (row.Automatic)
                 {
@@ -266,9 +270,13 @@ internal sealed partial class MainForm
                 row.Refresh();
             }
         }
-        finally { serverList.ResumeLayout(performLayout: true); }
+        finally
+        {
+            serverList.ResumeLayout(performLayout: true);
+            serverTop.ResumeLayout(performLayout: true);
+        }
         if (!same && refocus is not null)
-            serverList.Controls.OfType<ServerRow>()
+            ServerRows()
                 .FirstOrDefault(row => refocus is "auto" ? row.Automatic : Equals(row.Tag, refocus))?.Focus();
     }
 
@@ -311,9 +319,11 @@ internal sealed partial class MainForm
         menu.Show(row, point);
     }
 
-    // Proton names profiles like "NL-FREE#12" or "US-NY#3"; the leading letters make a short country badge.
+    // The country saved with the server picks its flag; without one, Proton names like "NL-FREE#12" or
+    // "US-NY#3" still give a short badge from their leading letters.
     private static string CountryCode(StoredProfile profile)
     {
+        if (profile.Country is { Length: 2 } country) return country.ToUpperInvariant();
         var match = Regex.Match(profile.Name, @"^\s*([A-Za-z]{2})(?:[-#_\s]|$)");
         if (match.Success) return match.Groups[1].Value.ToUpperInvariant();
         var letters = new string(profile.Name.Where(char.IsLetterOrDigit).Take(2).ToArray());

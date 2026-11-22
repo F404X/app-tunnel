@@ -186,16 +186,23 @@ internal sealed partial class MainForm
                 "Задержка измеряется автоматически примерно раз в минуту."))
             { Dock = DockStyle.Fill }, 0, 0);
 
+        // Only the pinned servers scroll; Automatic above and the account actions below always stay visible.
         serverList.Dock = DockStyle.Fill;
         serverList.BackColor = Background;
         serverList.Margin = new Padding(0);
         serverList.AccessibleName = T("Server", "Servidor", "Сервер");
+        serverTop.Dock = DockStyle.Top;
+        serverTop.BackColor = Background;
+        serverTop.Padding = new Padding(0, 0, 0, serverTop.Gap);
+        serverBottom.Dock = DockStyle.Bottom;
+        serverBottom.BackColor = Background;
+        serverBottom.Padding = new Padding(0, serverBottom.Gap, 0, 0);
         pinCaption.Text = T("Or pin a server", "Ou fixe um servidor", "Или закрепите сервер").ToUpper(System.Globalization.CultureInfo.CurrentCulture);
         pinCaption.Font = Body(9.75f, bold: true);
         pinCaption.Padding = new Padding(4, 8, 0, 0);
         pinCaption.Dock = DockStyle.None;
         pinCaption.Height = 30;
-        serverList.Controls.Add(pinCaption);
+        serverTop.Controls.Add(pinCaption);
         emptyRoutes.Dock = DockStyle.None;
         emptyRoutes.Height = 64;
         emptyRoutes.AutoEllipsis = false;
@@ -203,7 +210,7 @@ internal sealed partial class MainForm
         emptyRoutes.Text = T("No servers yet. Sign in to Proton to create a WireGuard connection, or import a .conf file.",
             "Nenhum servidor ainda. Entre na Proton para criar uma conexão WireGuard ou importe um arquivo .conf.",
             "Серверов пока нет. Войдите в Proton, чтобы создать подключение WireGuard, или импортируйте файл .conf.");
-        serverList.Controls.Add(emptyRoutes);
+        serverTop.Controls.Add(emptyRoutes);
 
         var addServer = MakeButton(T("Add another country", "Adicionar outro país", "Добавить другую страну"), ButtonKind.Link);
         addServer.Glyph = Glyph.Plus;
@@ -230,10 +237,25 @@ internal sealed partial class MainForm
         protonAccount.Dock = DockStyle.None;
         protonAccount.Height = 22;
         protonAccount.Padding = new Padding(4, 0, 0, 0);
-        serverList.Controls.Add(addBar);
-        serverList.Controls.Add(protonAccount);
-        serverList.Controls.Add(BuildAdvanced());
-        page.Controls.Add(serverList, 0, 2);
+        serverBottom.Controls.Add(addBar);
+        serverBottom.Controls.Add(protonAccount);
+        serverBottom.Controls.Add(BuildAdvanced());
+        var area = new Panel { Dock = DockStyle.Fill, Margin = new Padding(0), BackColor = Background };
+        area.Controls.Add(serverList);
+        area.Controls.Add(serverTop);
+        area.Controls.Add(serverBottom);
+        // With Advanced open, the space under Automatic is shared: the pinned list keeps half and Advanced
+        // scrolls inside the other half once its options no longer fit.
+        area.Layout += (_, _) =>
+        {
+            if (advanced is null) return;
+            var fixedBottom = serverBottom.Height - advanced.Height + advanced.HeaderHeight;
+            var spare = area.ClientSize.Height - serverTop.Height - fixedBottom;
+            advanced.MaxBodyHeight = Math.Max(100 * area.DeviceDpi / 96, spare / 2);
+        };
+        // Docking runs from the back of the z-order, so the filling list goes in front to take the space left over.
+        serverList.BringToFront();
+        page.Controls.Add(area, 0, 2);
         return page;
     }
 
@@ -264,11 +286,24 @@ internal sealed partial class MainForm
         protocolMode.AccessibleName = T("VPN protocol", "Protocolo VPN", "Протокол VPN");
         foreach (var protocol in Enum.GetValues<Core.ProtocolPreference>()) protocolMode.Items.Add(Core.VpnProtocols.Name(protocol));
 
+        // The options scroll inside the card when the window leaves too little room for all of them.
+        var scroller = new Panel { AutoScroll = true, BackColor = Surface, Margin = new Padding(0) };
+        scroller.Controls.Add(body);
+        void FitBody()
+        {
+            // The width leaves room for the vertical bar, so the options never need a horizontal one.
+            var height = (14 + 66 + 36 + 36 + 66 + 16) * scroller.DeviceDpi / 96;
+            var bar = height > scroller.Height ? SystemInformation.GetVerticalScrollBarWidthForDpi(scroller.DeviceDpi) : 0;
+            body.Location = new Point(0, scroller.AutoScrollPosition.Y);
+            body.Size = new Size(Math.Max(0, scroller.Width - bar), height);
+        }
+        scroller.Resize += (_, _) => FitBody();
+        scroller.HandleCreated += (_, _) => FitBody();
         advanced = new ExpanderCard(new ExpanderHeader
         {
             Text = T("Advanced", "Avançado", "Дополнительно"),
             Detail = T("protocol, DNS, IPv6, IP filters", "protocolo, DNS, IPv6, filtros de IP", "протокол, DNS, IPv6, IP-фильтры")
-        }, body, bodyHeight: 14 + 66 + 36 + 36 + 66 + 16);
+        }, scroller, bodyHeight: 14 + 66 + 36 + 36 + 66 + 16);
         return advanced;
     }
 
@@ -517,7 +552,29 @@ internal sealed class ExpanderCard : ThemeCard
 
     private int Px(int logical) => logical * DeviceDpi / 96;
 
-    private void FitHeight() => Height = Px(56) + (Expanded ? Px(1) + Px(bodyHeight) : 0);
+    private int maxBodyHeight;
+
+    public int HeaderHeight => Px(56) + Px(1);
+
+    // Caps the open body in pixels (0 = no cap); a body taller than the cap scrolls inside it.
+    [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
+    public int MaxBodyHeight
+    {
+        get => maxBodyHeight;
+        set
+        {
+            if (maxBodyHeight == value) return;
+            maxBodyHeight = value;
+            FitHeight();
+        }
+    }
+
+    private void FitHeight()
+    {
+        var full = Px(bodyHeight);
+        var shown = maxBodyHeight > 0 ? Math.Min(full, maxBodyHeight) : full;
+        Height = Px(56) + (Expanded ? Px(1) + shown : 0);
+    }
 
     protected override void ScaleControl(SizeF factor, BoundsSpecified specified) =>
         base.ScaleControl(factor, specified & ~BoundsSpecified.Height);

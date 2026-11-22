@@ -88,7 +88,10 @@ internal sealed partial class MainForm
         installed.Margin = new Padding(10, 11, 0, 0);
         updateWireSock.Click += async (_, _) => await CheckWireSockUpdate();
         side.Controls.Add(BuildChannelSelector(), 0, 1);
-        side.Controls.Add(MakeBar(checkUpdates, updateWireSock, installed), 0, 2);
+        var updateButtons = MakeBar(checkUpdates, updateWireSock, installed);
+        // Keeps the buttons clear of the channel selector once both rows shrink to fit their content.
+        updateButtons.Margin = new Padding(0, 14, 0, 0);
+        side.Controls.Add(updateButtons, 0, 2);
         side.Controls.Add(updateStatus, 0, 3);
         side.Controls.Add(wireSockUpdateStatus, 0, 4);
         AddPrivacyControls(side, 6);
@@ -139,17 +142,28 @@ internal sealed partial class MainForm
         {
             var result = await Task.Run(WireSockUpdater.Upgrade);
             if (IsDisposed || Disposing) return;
-            var message = result switch
+            var installed = result.Installed?.ToString() ?? "—";
+            var latest = result.Latest?.ToString() ?? "—";
+            var message = result.Updated
+                ? T($"WireSock was updated to {installed}.", $"WireSock atualizado para {installed}.", $"WireSock обновлён до {installed}.")
+                : result.ExitCode switch
+                {
+                    WireSockUpdater.NoUpdate => T($"WireSock {installed} is up to date (latest on WinGet: {latest}).",
+                        $"O WireSock {installed} está atualizado (mais recente no WinGet: {latest}).",
+                        $"WireSock {installed} актуален (последняя версия в WinGet: {latest})."),
+                    WireSockUpdater.AlreadyInstalled => T($"WinGet ran, but WireSock is still {installed} (latest: {latest}).",
+                        $"O WinGet executou, mas o WireSock continua em {installed} (mais recente: {latest}).",
+                        $"WinGet завершил работу, но WireSock всё ещё {installed} (последняя: {latest})."),
+                    WireSockUpdater.PackageNotFound => T("WinGet did not find the WireSock CLI package.",
+                        "O WinGet não encontrou o pacote WireSock CLI.", "WinGet не нашёл пакет WireSock CLI."),
+                    var code => T($"WinGet could not update WireSock (0x{code:X8}).",
+                        $"O WinGet não conseguiu atualizar o WireSock (0x{code:X8}).", $"WinGet не смог обновить WireSock (0x{code:X8}).")
+                };
+            if (result.Updated)
             {
-                0 => T("WireSock was updated.", "WireSock atualizado.", "WireSock обновлён."),
-                WireSockUpdater.NoUpdate => T("WinGet found no applicable WireSock update.",
-                    "O WinGet não encontrou atualização aplicável para o WireSock.", "WinGet не нашёл подходящего обновления WireSock."),
-                WireSockUpdater.PackageNotFound => T("WinGet did not find an installed WireSock CLI package.",
-                    "O WinGet não encontrou o pacote WireSock CLI instalado.", "WinGet не нашёл установленный пакет WireSock CLI."),
-                _ => T($"WinGet could not update WireSock (0x{result:X8}).",
-                    $"O WinGet não conseguiu atualizar o WireSock (0x{result:X8}).", $"WinGet не смог обновить WireSock (0x{result:X8}).")
-            };
-            if (result == 0) UpdateEngineInfo();
+                wireSockChecked = default;
+                UpdateEngineInfo();
+            }
             AddLog(message);
             wireSockUpdateStatus.Text = message;
         }

@@ -44,6 +44,8 @@ internal sealed partial class MainForm : Form
     private readonly FlowLayoutPanel chips = new();
     private readonly StackPanel appList = new();
     private readonly StackPanel serverList = new();
+    private readonly StackPanel serverTop = new(fitContent: true);
+    private readonly StackPanel serverBottom = new(fitContent: true);
     private readonly DropZone dropZone = new(T("Drag an .exe, a shortcut or a folder here", "Arraste um .exe, um atalho ou uma pasta para cá",
         "Перетащите сюда .exe, ярлык или папку"), T("The app joins the list already switched on", "O app entra na lista já ligado",
         "Приложение появится в списке уже включённым"));
@@ -70,6 +72,7 @@ internal sealed partial class MainForm : Form
         this.proton = proton;
         this.telemetry = telemetry;
         settings = store.Load();
+        RememberCountries();
         engine = new TunnelEngines(AddLog, new WireSockEngine());
         activeSession = engine.GetActive();
 
@@ -347,6 +350,21 @@ internal sealed partial class MainForm : Form
         });
     }
 
+    // Servers saved by older versions get their country once, so the flag no longer depends on the name.
+    private void RememberCountries()
+    {
+        var changed = false;
+        for (var i = 0; i < settings.Profiles.Count; i++)
+        {
+            if (settings.Profiles[i].Country is not null) continue;
+            settings.Profiles[i] = settings.Profiles[i] with { Country = store.GuessCountry(settings.Profiles[i]) };
+            changed = true;
+        }
+        if (!changed) return;
+        try { store.Save(settings); }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException) { }
+    }
+
     private void UpdateEngineInfo()
     {
         var located = settings.EnginePath.Length > 0 && File.Exists(settings.EnginePath)
@@ -372,6 +390,7 @@ internal sealed partial class MainForm : Form
             {
                 await Task.Run(engine.Stop);
                 activeSession = null;
+                RememberConnected(false);
                 telemetry.RecordEvent(TelemetryEvent.Disconnected);
                 healthDetails.Text = "";
                 AddLog(T("VPN disconnected. Apps return to their normal connection.", "VPN desligada. Os programas voltam à conexão normal.", "VPN отключён. Приложения используют обычное соединение."));
@@ -406,6 +425,7 @@ internal sealed partial class MainForm : Form
                 requested.Select(target => target.Match).ToArray(), options, verbose, preferredPath, preference, AddLog));
             telemetry.RecordConnection(activeSession.Protocol, Stopwatch.GetElapsedTime(attemptStarted), success: true);
             telemetry.RecordEvent(TelemetryEvent.Connected);
+            RememberConnected(true);
             attemptProtocol = null;
             recoveryUsed = false;
             ReadActiveDiagnostics(activeSession);
@@ -431,6 +451,35 @@ internal sealed partial class MainForm : Form
         }
     }
 
+    private void RememberConnected(bool connected)
+    {
+        if (settings.Connected == connected) return;
+        settings.Connected = connected;
+        try { Save(); }
+        catch (Exception error) when (Expected(error)) { AddLog(error.Message); }
+    }
+
+    private bool restoring;
+    private static bool restoreAttempted;
+
+    // Brings back the connection the user left on: same apps and server (both already saved), connected again
+    // after a restart of Windows or AppTunnel. The tray timer calls this on the current window every tick; it waits
+    // out other work (such as the latency check when the window opens) by returning, and runs once per process.
+    public async Task RestoreConnection()
+    {
+        if (restoreAttempted || IsDisposed || Disposing || HasPendingOperation) return;
+        restoreAttempted = true;
+        if (activeSession is not null) RememberConnected(true);
+        if (!settings.Connected || activeSession is not null || NeedsSetup ||
+            settings.Profiles.Count == 0 || !settings.Applications.Any(x => x.Enabled)) return;
+        AddLog(T("Reconnecting, as the VPN was on when AppTunnel was last used.",
+            "Reconectando, pois a VPN estava ligada no último uso do AppTunnel.",
+            "Повторное подключение: VPN был включён при последнем использовании AppTunnel."));
+        restoring = true;
+        try { await TogglePower(); }
+        finally { restoring = false; }
+    }
+
     // Apps already in the previous session on the same server keep their connections, so only
     // newly routed apps, or every app after a server change, need their open connections recreated.
     private static ApplicationTarget[] NeedsReconnect(TunnelSession? previous, TunnelSession? current, ApplicationTarget[] routed)
@@ -444,6 +493,8 @@ internal sealed partial class MainForm : Form
     private async Task OfferDiscordRestart(ApplicationTarget[] routed)
     {
         if (routed.Length == 0 || settings.DiscordRestart == DiscordRestartChoice.Never) return;
+        // An unattended reconnect never asks; "Always" still restarts the clients.
+        if (restoring && settings.DiscordRestart == DiscordRestartChoice.Ask) return;
         var clients = await Task.Run(() => DiscordRestart.FindRunning(routed));
         if (clients.Length == 0 || IsDisposed || Disposing) return;
         var names = string.Join(", ", clients.Select(client => client.Name).Distinct());
@@ -828,7 +879,8 @@ internal sealed partial class MainForm : Form
     {
         AddLog(e.Message);
         footer.Text = e.Message;
-        ThemedMessage.Warn(this, e.Message);
+        // Reconnecting on start runs unattended, often from the tray, so its errors stay in the log and status line.
+        if (!restoring) ThemedMessage.Warn(this, e.Message);
     }
 
     private void Copy(string value)

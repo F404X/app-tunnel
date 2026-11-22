@@ -854,9 +854,13 @@ internal sealed class StackPanel : Panel
     [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
     public int Gap { get; set; } = 10;
 
-    public StackPanel()
+    // A fitted stack never scrolls: it grows or shrinks to the height of its children plus its padding.
+    private readonly bool fit;
+
+    public StackPanel(bool fitContent = false)
     {
-        AutoScroll = true;
+        fit = fitContent;
+        AutoScroll = !fitContent;
         SetStyle(ControlStyles.OptimizedDoubleBuffer | ControlStyles.AllPaintingInWmPaint, true);
     }
 
@@ -871,6 +875,19 @@ internal sealed class StackPanel : Panel
             var gap = Gap * DeviceDpi / 96;
             var visible = Controls.Cast<Control>().Where(child => child.Visible).ToArray();
             var total = visible.Sum(child => child.Height) + Math.Max(0, visible.Length - 1) * gap;
+            if (fit)
+            {
+                var top = visible.Length == 0 ? 0 : Padding.Top;
+                foreach (var child in visible)
+                {
+                    child.SetBounds(0, top, Width, child.Height);
+                    top += child.Height + gap;
+                }
+                var fitted = visible.Length == 0 ? 0 : total + Padding.Vertical;
+                if (Height != fitted) Height = fitted;
+                base.OnLayout(levent);
+                return;
+            }
             var bar = total > Height ? SystemInformation.GetVerticalScrollBarWidthForDpi(DeviceDpi) : 0;
             var width = Math.Max(0, Width - bar);
             var y = AutoScrollPosition.Y;

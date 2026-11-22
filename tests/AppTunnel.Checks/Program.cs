@@ -35,6 +35,10 @@ var scenarios = new (string Name, Action Check)[]
         var parsed = WireGuardProfile.Parse(ProtonRoutes.BuildConfig("AppTunnel NL-FREE#12", pair.WireGuardPrivateKey, server));
         Require(parsed.Endpoint == "192.0.2.30:51820" && parsed.HasIpv6);
         Require(ProtonServerNames.CountryOf("NL-FREE#12") == "NL" && ProtonServerNames.CountryOf("node") == "");
+        Require(ProtonServerNames.Guess("US-FREE#89") == "US" && ProtonServerNames.Guess("Mexico - Discord") == "MX" &&
+            ProtonServerNames.Guess("Japan - Teste") == "JP" && ProtonServerNames.Guess("USA - AppTunnel") == "US" &&
+            ProtonServerNames.Guess("Reino Unido 2") == "GB" && ProtonServerNames.Guess("Home server") == "");
+        Require(ProtonServerNames.FromConfig("[Interface]\n# Key for Japan\nPrivateKey = x\n\n[Peer]\n# MX-FREE#3\nPublicKey = y\n") == "MX");
         // Proton answers with the key wrapped as PEM/SPKI, exactly as its certificate API returns it.
         var raw = Convert.FromBase64String(pair.PublicKey);
         var newline = ((char)10).ToString();

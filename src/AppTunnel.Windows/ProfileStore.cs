@@ -7,7 +7,9 @@ using AppTunnel.Core;
 
 namespace AppTunnel.Windows;
 
-internal sealed record StoredProfile(Guid Id, string Name, string Endpoint, bool HasIpv6, string? Fingerprint = null, VpnProtocol Protocol = VpnProtocol.WireGuard)
+// Country is the ISO code saved with the server, so its flag stays right after a rename; null on servers saved by older versions.
+internal sealed record StoredProfile(Guid Id, string Name, string Endpoint, bool HasIpv6, string? Fingerprint = null, VpnProtocol Protocol = VpnProtocol.WireGuard,
+    string? Country = null)
 {
     public override string ToString() => Name;
 }
@@ -31,6 +33,8 @@ internal sealed class Preferences
     // Automatic server choice: connect to the fastest measured server and let latency monitoring move between them.
     public bool AutoServer { get; set; }
     public bool SetupDone { get; set; }
+    // Whether the VPN was connected when last used; AppTunnel reconnects on its next start when it was.
+    public bool Connected { get; set; }
     // Which releases the updater follows; missing or unknown values mean Stable.
     public UpdateChannel UpdateChannel { get; set; }
 }
@@ -120,7 +124,29 @@ internal sealed class ProfileStore
         {
             CryptographicOperations.ZeroMemory(plain);
         }
-        return new StoredProfile(id, name, profile.Endpoint, profile.HasIpv6, fingerprint ?? profile.Fingerprint(), profile.Protocol);
+        var country = ProtonServerNames.FromConfig(raw);
+        if (country.Length == 0) country = ProtonServerNames.Guess(name);
+        return new StoredProfile(id, name, profile.Endpoint, profile.HasIpv6, fingerprint ?? profile.Fingerprint(), profile.Protocol,
+            country);
+    }
+
+    // Works out the country of a server saved before countries were stored: from the server named in its
+    // configuration, then from its name. Returns "" when neither says.
+    public string GuessCountry(StoredProfile profile)
+    {
+        try
+        {
+            var raw = UserProtection.Transform(File.ReadAllBytes(ProfileFile(profile.Id)), encrypt: false);
+            try
+            {
+                var country = ProtonServerNames.FromConfig(Utf8.GetString(raw));
+                if (country.Length > 0) return country;
+            }
+            finally { CryptographicOperations.ZeroMemory(raw); }
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException or FormatException or ArgumentException or
+            DecoderFallbackException or System.ComponentModel.Win32Exception or CryptographicException) { }
+        return ProtonServerNames.Guess(profile.Name);
     }
 
     public WireGuardProfile Read(Guid id)
