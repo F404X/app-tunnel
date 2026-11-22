@@ -167,16 +167,16 @@ jobs:
           @"
           ## AppTunnel $env:RELEASE_TAG
 
-          Baixe **AppTunnel-Setup-x64.exe** em **Assets** e siga o instalador. O **AppTunnel-Windows-x64.zip** é a versão portátil. Veja o [guia de instalação](https://github.com/$env:GITHUB_REPOSITORY/blob/$env:GITHUB_SHA/README.md) para configurar a Proton e os aplicativos.
+          Download **AppTunnel-Setup-x64.exe** from **Assets** and run the installer. **AppTunnel-Windows-x64.zip** is the portable version. See the [installation guide](https://github.com/$env:GITHUB_REPOSITORY/blob/$env:GITHUB_SHA/README.md) to set up Proton and your apps.
 
-          - Na primeira abertura, o AppTunnel usa o idioma do Windows (português, inglês ou russo).
-          - Com a VPN conectada, mudanças em aplicativos, protocolo e filtros são aplicadas sozinhas. Trocar de servidor continua sendo uma escolha manual. Para voltar ao botão **Aplicar ajustes**, use **Configurações → Conexão**.
-          - A pergunta para reiniciar o Discord tem a opção **Lembrar minha escolha** e só aparece quando o Discord entra na rota ou o servidor muda.
-          - A coluna **Latência** é atualizada sozinha, e o painel mostra **Protegido · VPN ativa** quando a VPN está ligada.
+          - New interface built around **Home**, **Apps** and **Servers**. Home has one large button to turn the VPN on or off, a server card, a connection check and app chips that turn each app on or off.
+          - **Apps** shows one card per app with an on/off switch. **Add app** groups common apps, running apps, an .exe or a whole folder.
+          - **Servers** offers **Automatic**, which connects through the lowest-latency server, or a pinned server, with latency bars. Protocol, DNS, IPv6 and IP filters moved to a collapsed **Advanced** section.
+          - A first-run assistant checks WireSock, helps create a Proton connection or import a .conf file, picks the detected apps and connects.
 
-          SHA-256 do instalador: $setupChecksum
+          Installer SHA-256: $setupChecksum
 
-          SHA-256 do ZIP: $zipChecksum
+          ZIP SHA-256: $zipChecksum
           "@ | Set-Content -Encoding utf8 $notes
 
           $releaseArgs = @('release', 'create', $env:RELEASE_TAG, $setup, $asset,
