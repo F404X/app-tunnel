@@ -115,9 +115,9 @@ internal sealed partial class AccountWindow
             return T("If the guided options stay unavailable, use the Proton form below.",
                 "Se as opções do assistente continuarem indisponíveis, use o formulário da Proton abaixo.",
                 "Если мастер остаётся недоступен, воспользуйтесь формой Proton ниже.");
-        return T("Each creation adds one profile to your Proton account. You can reuse profiles from Routes.",
-                "Cada criação adiciona um perfil à sua conta Proton. Você pode reaproveitar perfis em Rotas.",
-                "Каждое создание добавляет один профиль в Proton. Имеющиеся профили можно выбрать в разделе «Маршруты».");
+        return T("Each creation adds one profile to your Proton account. You can reuse profiles from Servers.",
+                "Cada criação adiciona um perfil à sua conta Proton. Você pode reaproveitar perfis em Servidores.",
+                "Каждое создание добавляет один профиль в Proton. Имеющиеся профили можно выбрать в разделе «Серверы».");
     }
 
     private void ShowCreationFeedback(string message)
@@ -202,9 +202,9 @@ internal sealed partial class AccountWindow
         if (pendingCreation is not { } request || !accountProfiles.Any(profile => profile.State == ProtonProfileState.Available &&
             profile.Name.Equals(request.Name, StringComparison.Ordinal))) return;
         pendingCreation = null;
-        ShowCreationFeedback(T("Profile saved. Select it in Routes in the main AppTunnel window.",
-            "Perfil salvo. Selecione-o em Rotas, na janela principal do AppTunnel.",
-            "Профиль сохранён. Выберите его на вкладке «Маршруты» в главном окне AppTunnel."));
+        ShowCreationFeedback(T("Profile saved. It now appears in Servers in the main AppTunnel window.",
+            "Perfil salvo. Ele já aparece em Servidores, na janela principal do AppTunnel.",
+            "Профиль сохранён. Он уже есть в разделе «Серверы» главного окна AppTunnel."));
     }
 
     private void CheckCreationTimeout()

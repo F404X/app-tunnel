@@ -123,7 +123,9 @@ internal sealed partial class MainForm
             var results = await PingRoutesAsync(settings.Profiles.ToArray(), minimum: 1, latencyLifetime.Token);
             if (IsDisposed || Disposing || pingBusy) return;
             foreach (var result in results) latencies[result.profile.Id] = result.latency;
-            if (!busy) DrawRoutes();
+            // While disconnected, Automatic keeps pointing at the fastest route so the Home page shows what will be used.
+            if (settings.AutoServer && activeSession is null && !busy && SelectFastestRoute()) Attempt(Save);
+            if (!busy) UpdateState();
         }
         catch (OperationCanceledException) when (latencyLifetime.IsCancellationRequested) { }
         finally

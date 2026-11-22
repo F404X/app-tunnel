@@ -28,6 +28,9 @@ internal sealed class Preferences
     public DateTimeOffset? LastAutoUpdateCheck { get; set; }
     public bool AutoApply { get; set; } = true;
     public DiscordRestartChoice DiscordRestart { get; set; }
+    // Connect through the route with the lowest measured latency instead of a fixed one.
+    public bool AutoServer { get; set; }
+    public bool SetupDone { get; set; }
 }
 
 internal enum DiscordRestartChoice

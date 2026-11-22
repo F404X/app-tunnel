@@ -27,7 +27,6 @@ internal sealed partial class MainForm : Form
     private string operation = "";
     private bool busy;
     private bool pingBusy;
-    private bool rendering;
     private bool initializing = true;
     private int pollTicks;
     private bool monitorFailed;
@@ -39,25 +38,14 @@ internal sealed partial class MainForm : Form
     public event Action<string>? LanguageRequested;
 
     private readonly StatusPill pill = new();
-    private readonly Label liveTitle = MakeLabel("");
-    private readonly Label liveDetails = MakeLabel("", muted: true);
-    private readonly Label routeCaption = MakeLabel("", muted: true);
-    private readonly Label routeTitle = MakeLabel("");
-    private readonly Label routeDetails = MakeLabel("", muted: true);
     private readonly Label protonAccount = MakeLabel("", muted: true);
     private readonly Label appCount = MakeLabel("", muted: true);
-    private readonly Label emptyApps = MakeLabel("", muted: true);
-    private readonly Label emptyRoutes = MakeLabel("", muted: true);
     private readonly Label footer = MakeLabel("", muted: true);
     private readonly Label engineInfo = MakeLabel("", muted: true);
-    private readonly ThemeButton start = MakeButton(T("Connect", "Conectar", "Подключить"), ButtonKind.Primary);
     private readonly ThemeButton apply = MakeButton(T("Apply settings", "Aplicar ajustes", "Применить"), ButtonKind.Primary);
-    private readonly ThemeButton stop = MakeButton(T("Disconnect", "Desconectar", "Отключить"));
     private readonly ThemeButton fastest = MakeButton(T("Lowest ping", "Menor ping", "Лучший пинг"));
     private readonly ThemeButton rename = MakeButton(T("Rename", "Renomear", "Переименовать"), ButtonKind.Quiet);
     private readonly ThemeButton remove = MakeButton(T("Remove", "Remover", "Удалить"), ButtonKind.Quiet);
-    private readonly DataGridView apps = MakeGrid();
-    private readonly DataGridView routes = MakeGrid();
     private readonly CheckBox lan = MakeCheck(T("Keep local traffic on the direct connection", "Manter a rede local pela conexão direta", "Локальная сеть напрямую"));
     private readonly CheckBox ipv6 = MakeCheck(T("Include IPv6 when available", "Incluir IPv6 quando disponível", "Использовать IPv6 при наличии"));
     private readonly CheckBox diagnostics = MakeCheck(T("Enable detailed WireSock logs", "Detalhar registros do WireSock", "Подробные журналы WireSock"));
@@ -99,7 +87,7 @@ internal sealed partial class MainForm : Form
         tunnelDns.Checked = settings.Route.TunnelDns;
         guardIpv6.Checked = settings.Route.BlockPublicIpv6;
         protocolMode.SelectedIndex = Enum.IsDefined(settings.Protocol) ? (int)settings.Protocol : 0;
-        SetFiltersExpanded(include.Text.Trim().Length > 0 || exclude.Text.Trim().Length > 0);
+        SetAdvancedExpanded(include.Text.Trim().Length > 0 || exclude.Text.Trim().Length > 0);
         DrawApps();
         DrawRoutes();
         UpdateEngineInfo();
@@ -113,49 +101,39 @@ internal sealed partial class MainForm : Form
         {
             UpdateState();
             _ = RefreshLatencyQuietly();
+            if (!settings.SetupDone && settings.Profiles.Count == 0) BeginInvoke(new Action(ShowOnboarding));
         };
     }
 
     private void WireActions()
     {
-        start.Click += async (_, _) =>
+        power.Click += async (_, _) =>
         {
+            if (activeSession is not null)
+            {
+                await ChangeConnection(starting: false);
+                return;
+            }
+            if (settings.AutoServer && SelectFastestRoute()) DrawRouteStatuses(null, settings.SelectedProfile);
             if (SelectedRoute() is null)
             {
-                OpenPage(1);
+                OpenPage(ServersPage);
                 return;
             }
             if (!settings.Applications.Any(x => x.Enabled))
             {
-                OpenPage(0);
+                OpenPage(AppsPage);
                 return;
             }
             await ChangeConnection(starting: true);
         };
         apply.Click += async (_, _) => await ChangeConnection(starting: true);
-        stop.Click += async (_, _) => await ChangeConnection(starting: false);
+        switchServer.Click += async (_, _) => await ChangeConnection(starting: true);
+        serverAction.Click += (_, _) => OpenPage(ServersPage);
+        healthAction.Click += (_, _) => TestConnection();
         fastest.Click += async (_, _) => await MeasureLatency(true);
         rename.Click += (_, _) => RenameRoute();
         remove.Click += (_, _) => RemoveRoute();
-        apps.CellValueChanged += (_, args) =>
-        {
-            if (rendering || args.RowIndex < 0 || args.ColumnIndex != 0 ||
-                apps.Rows[args.RowIndex].Tag is not string match) return;
-            var index = settings.Applications.FindIndex(x => x.Match.Equals(match, StringComparison.OrdinalIgnoreCase));
-            if (index < 0) return;
-            var current = settings.Applications[index];
-            var enabled = apps.Rows[args.RowIndex].Cells[0].Value is true;
-            if (current.Enabled == enabled) return;
-            settings.Applications[index] = current with { Enabled = enabled };
-            Changed();
-        };
-        routes.SelectionChanged += (_, _) =>
-        {
-            if (rendering || routes.SelectedRows.Count == 0 ||
-                routes.SelectedRows[0].Tag is not Guid id || id == settings.SelectedProfile) return;
-            settings.SelectedProfile = id;
-            Changed();
-        };
         lan.CheckedChanged += (_, _) => Changed();
         ipv6.CheckedChanged += (_, _) => Changed();
         // Typing an address range applies when the field loses focus, never halfway through the value.
@@ -169,10 +147,10 @@ internal sealed partial class MainForm : Form
         protocolMode.SelectedIndexChanged += (_, _) => Changed();
     }
 
-    private void AddExecutable()
+    private void AddExecutable(IWin32Window? owner = null)
     {
         using var picker = new OpenFileDialog { Filter = T("Windows executables (*.exe)|*.exe", "Executáveis do Windows (*.exe)|*.exe", "Исполняемые файлы Windows (*.exe)|*.exe"), Multiselect = true };
-        if (picker.ShowDialog(this) != DialogResult.OK) return;
+        if (picker.ShowDialog(owner ?? this) != DialogResult.OK) return;
         Attempt(() =>
         {
             var targets = picker.FileNames.Select(path => new ApplicationTarget(Path.GetFileNameWithoutExtension(path),
@@ -254,59 +232,11 @@ internal sealed partial class MainForm : Form
             settings.Applications.Add(target with { Match = match });
     }
 
-    private void RemoveApps()
-    {
-        var remove = apps.SelectedRows.Cast<DataGridViewRow>().Select(x => (string)x.Tag!)
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
-        if (settings.Applications.RemoveAll(x => remove.Contains(x.Match)) == 0) return;
-        DrawApps();
-        Changed();
-    }
-
-    private void UpdateTargets(Func<ApplicationTarget, bool> predicate)
-    {
-        for (var i = 0; i < settings.Applications.Count; i++)
-        {
-            var target = settings.Applications[i];
-            settings.Applications[i] = target with { Enabled = predicate(target) };
-        }
-    }
-
-    private void SetChecks(bool enabled)
-    {
-        UpdateTargets(_ => enabled);
-        DrawApps();
-        Changed();
-    }
-
-    private void DrawApps()
-    {
-        rendering = true;
-        apps.SuspendLayout();
-        try
-        {
-            apps.Rows.Clear();
-            foreach (var target in settings.Applications.OrderBy(x => x.Label, StringComparer.CurrentCultureIgnoreCase))
-            {
-                var index = apps.Rows.Add(target.Enabled, target.Label, target.Folder ? T("Folder", "Pasta", "Папка") : "EXE", target.Match);
-                apps.Rows[index].Tag = target.Match;
-                apps.Rows[index].Cells[3].ToolTipText = target.Match;
-            }
-            apps.ClearSelection();
-            emptyApps.Visible = apps.Rows.Count == 0;
-        }
-        finally
-        {
-            apps.ResumeLayout();
-            rendering = false;
-        }
-    }
-
-    private void ImportProfiles()
+    private void ImportProfiles(IWin32Window? owner = null)
     {
         if (busy || pingBusy) return;
         using var picker = new OpenFileDialog { Filter = T("VPN profiles (*.conf)|*.conf", "Perfis VPN (*.conf)|*.conf", "Профили VPN (*.conf)|*.conf"), Multiselect = true };
-        if (picker.ShowDialog(this) != DialogResult.OK) return;
+        if (picker.ShowDialog(owner ?? this) != DialogResult.OK) return;
         var added = 0;
         foreach (var file in picker.FileNames)
         {
@@ -377,58 +307,6 @@ internal sealed partial class MainForm : Form
             Changed(save: false);
             store.Remove(profile.Id);
         });
-    }
-
-    private void DrawRoutes()
-    {
-        rendering = true;
-        routes.SuspendLayout();
-        try
-        {
-            routes.Rows.Clear();
-            foreach (var profile in settings.Profiles)
-            {
-                var latency = latencies.TryGetValue(profile.Id, out var ms)
-                    ? ms is { } value ? $"{value} ms" : T("No response", "Sem resposta", "Нет ответа") : "—";
-                var index = routes.Rows.Add(profile.Name, profile.Endpoint, profile.HasIpv6 ? T("Available", "Disponível", "Доступен") : "—",
-                    latency, VpnProtocols.Name(profile.Protocol), "");
-                var row = routes.Rows[index];
-                row.Tag = profile.Id;
-                row.Cells[0].ToolTipText = profile.Name;
-                row.Cells[1].ToolTipText = profile.Endpoint;
-                row.Cells[4].ToolTipText = VpnProtocols.Name(profile.Protocol);
-                row.Cells[3].ToolTipText = T("Ping to the endpoint over the current connection", "Ping até o endpoint pela conexão atual", "Пинг до адреса сервера через текущее соединение");
-            }
-            routes.ClearSelection();
-            foreach (DataGridViewRow row in routes.Rows)
-            {
-                if (row.Tag is not Guid id || id != settings.SelectedProfile) continue;
-                routes.CurrentCell = row.Cells[0];
-                row.Selected = true;
-                break;
-            }
-            emptyRoutes.Visible = routes.Rows.Count == 0;
-        }
-        finally
-        {
-            routes.ResumeLayout();
-            rendering = false;
-        }
-        DrawRouteStatuses(activeSession?.Profile.Id, settings.SelectedProfile);
-    }
-
-    private void DrawRouteStatuses(Guid? live, Guid selected)
-    {
-        foreach (DataGridViewRow row in routes.Rows)
-        {
-            var id = (Guid)row.Tag!;
-            var cell = row.Cells[5];
-            var color = id == live ? Green : id == selected ? Accent : Muted;
-            cell.Style.ForeColor = color;
-            cell.Style.SelectionForeColor = color;
-            cell.Style.Font = Body(9, bold: true);
-            cell.Value = id == live ? T("●  In use", "●  Em uso", "●  Активен") : id == selected ? T("Selected", "Selecionado", "Выбран") : "—";
-        }
     }
 
     private async Task MeasureLatency(bool chooseFastest)
@@ -511,12 +389,12 @@ internal sealed partial class MainForm : Form
                 return;
             }
 
-            var route = SelectedRoute() ?? throw new InvalidOperationException(T("Add and select a profile in Routes.", "Importe e selecione um perfil na aba Rotas.", "Добавьте и выберите профиль на вкладке «Маршруты»."));
+            var route = SelectedRoute() ?? throw new InvalidOperationException(T("Add and select a server in Servers.", "Adicione e selecione um servidor em Servidores.", "Добавьте и выберите сервер в разделе «Серверы»."));
             var requested = settings.Applications.Where(x => x.Enabled).ToArray();
             var routed = requested.Where(x => x.Folder ? Directory.Exists(x.Match) : File.Exists(x.Match)).ToArray();
             var missing = requested.Length - routed.Length;
             if (routed.Length == 0)
-                throw new InvalidOperationException(T("Select at least one existing app or folder in Apps.", "Selecione ao menos um programa ou uma pasta que exista na aba Programas.", "Выберите хотя бы одно существующее приложение или папку на вкладке «Приложения»."));
+                throw new InvalidOperationException(T("Select at least one existing app or folder in Apps.", "Ative ao menos um app ou pasta que exista em Apps.", "Включите хотя бы одно существующее приложение или папку в разделе «Приложения»."));
             var options = CurrentRoute();
             var verbose = diagnostics.Checked;
             var preference = SelectedProtocol;
@@ -674,19 +552,19 @@ internal sealed partial class MainForm : Form
         var session = activeSession;
         var running = session is not null;
         var pick = SelectedRoute();
-        var marked = settings.Applications.Where(x => x.Enabled).Select(x => x.Match).ToArray();
+        var enabledApps = settings.Applications.Where(x => x.Enabled).ToArray();
         var (pending, changedServer, canApply) = PendingChanges();
         // With automatic apply on, the button only remains for a server switch or to retry a failed apply.
         var applyingSoon = canApply && !changedServer && settings.AutoApply && !autoApplyFailed;
 
-        start.Text = pick is null ? T("Add a server…", "Adicionar servidor…", "Добавить сервер…") : marked.Length == 0 ? T("Choose apps", "Escolher programas", "Выбрать приложения") : T("Connect", "Conectar", "Подключить");
-        start.Visible = !running;
-        start.Enabled = !HasPendingOperation;
+        power.On = running;
+        power.Enabled = running ? !busy && !updateBusy : !HasPendingOperation;
+        power.AccessibleName = running ? T("Disconnect", "Desconectar", "Отключить") : T("Connect", "Conectar", "Подключить");
         apply.Text = changedServer ? T("Switch server", "Trocar servidor", "Сменить сервер") : T("Apply settings", "Aplicar ajustes", "Применить настройки");
         apply.Visible = running && canApply && !applyingSoon;
         apply.Enabled = !HasPendingOperation;
-        stop.Visible = running;
-        stop.Enabled = !busy && !updateBusy;
+        switchServer.Visible = running && changedServer && canApply;
+        switchServer.Enabled = !HasPendingOperation;
         pageHost.Enabled = !busy;
         foreach (var button in navigationButtons) button.Enabled = !busy;
         fastest.Enabled = !busy && !pingBusy && settings.Profiles.Count > 1;
@@ -697,55 +575,113 @@ internal sealed partial class MainForm : Form
         if (busy && operation.Length > 0)
             pill.ShowStatus(operation, Amber, AmberWash);
         else if (running)
-            pill.ShowStatus(T("Protected · VPN on", "Protegido · VPN ativa", "Защищено · VPN включён"), Green, GreenWash);
+            pill.ShowStatus(T("Connected", "Conectado", "Подключено"), Green, GreenWash);
         else
-            pill.ShowStatus(T("Offline", "Sem conexão", "Не подключено"), Muted, Surface);
+            pill.ShowStatus(T("Disconnected", "Desconectado", "Не подключено"), Muted, Raised);
 
-        if (session is not null)
+        var names = ListNames(enabledApps.Select(x => x.Label));
+        var one = enabledApps.Length == 1;
+        if (busy && operation.Length > 0)
         {
-            var live = settings.Profiles.Find(x => x.Id == session.Profile.Id) ?? session.Profile;
-            liveTitle.Text = live.Name;
-            liveDetails.Text = $"{session.Profile.Endpoint}  ·  {VpnProtocols.Name(session.Protocol)}";
-            liveDetails.Font = Mono;
+            heroTitle.Text = operation;
+            heroDetail.Text = T("This takes a few seconds.", "Isso leva alguns segundos.", "Это займёт несколько секунд.");
+        }
+        else if (session is not null)
+        {
+            heroTitle.Text = T("Protected", "Protegido", "Защищено");
+            heroDetail.Text = changedServer && pick is not null
+                ? T($"Click Switch server to move to {pick.Name}.", $"Clique em Trocar servidor para passar para {pick.Name}.", $"Нажмите «Сменить сервер», чтобы перейти на {pick.Name}.")
+                : applyingSoon ? T("Applying your changes in a moment…", "Aplicando suas mudanças em instantes…", "Изменения скоро будут применены…")
+                : pending && canApply ? T("Apply settings to update the session.", "Clique em Aplicar ajustes para atualizar a sessão.", "Примените настройки, чтобы обновить сеанс.")
+                : pending ? T("Turn on at least one app to apply the changes.", "Ligue ao menos um app para aplicar as mudanças.", "Включите хотя бы одно приложение, чтобы применить изменения.")
+                : one ? T($"{names} is going through the VPN. The rest of the PC stays direct.", $"{names} está passando pela VPN. O resto do PC segue direto.", $"{names} работает через VPN. Остальной трафик идёт напрямую.")
+                : T($"{names} are going through the VPN. The rest of the PC stays direct.", $"{names} estão passando pela VPN. O resto do PC segue direto.", $"{names} работают через VPN. Остальной трафик идёт напрямую.");
+        }
+        else if (pick is null)
+        {
+            heroTitle.Text = T("Add a server", "Adicione um servidor", "Добавьте сервер");
+            heroDetail.Text = T("Sign in to Proton or import a .conf file in Servers.", "Entre na Proton ou importe um arquivo .conf em Servidores.", "Войдите в Proton или импортируйте файл .conf в разделе «Серверы».");
+        }
+        else if (enabledApps.Length == 0)
+        {
+            heroTitle.Text = T("Choose your apps", "Escolha os apps", "Выберите приложения");
+            heroDetail.Text = T("Pick in Apps which programs use the VPN.", "Escolha em Apps quais programas usam a VPN.", "Выберите в разделе «Приложения», какие программы используют VPN.");
         }
         else
         {
+            heroTitle.Text = T("Ready to connect", "Pronto para conectar", "Готово к подключению");
+            heroDetail.Text = one
+                ? T($"Click the button. {names} will use the VPN; the rest of the PC stays direct.", $"Clique no botão. {names} vai pela VPN; o resto do PC segue direto.", $"Нажмите кнопку. {names} будет работать через VPN, остальное — напрямую.")
+                : T($"Click the button. {names} will use the VPN; the rest of the PC stays direct.", $"Clique no botão. {names} vão pela VPN; o resto do PC segue direto.", $"Нажмите кнопку. {names} будут работать через VPN, остальное — напрямую.");
+        }
+
+        var live = session is null ? null : settings.Profiles.Find(x => x.Id == session.Profile.Id) ?? session.Profile;
+        var shown = live ?? pick;
+        serverBadge.Text = shown is null ? "—" : CountryCode(shown.Name);
+        serverTitle.Text = settings.AutoServer && shown is not null ? T("Automatic (fastest)", "Automático (mais rápido)", "Автоматически (быстрейший)")
+            : shown?.Name ?? T("No server", "Nenhum servidor", "Нет сервера");
+        serverDetail.Text = shown is null ? T("Add a Proton server to connect.", "Adicione um servidor da Proton para conectar.", "Добавьте сервер Proton для подключения.")
+            : (live is null ? T("Next", "Próximo", "Следующий") : T("Now", "Agora", "Сейчас")) + $": {shown.Name}{LatencySuffix(shown.Id)}" +
+                (session is null ? "" : $" · {VpnProtocols.Name(session.Protocol)}");
+        serverAction.Text = settings.Profiles.Count == 0 ? T("Add", "Adicionar", "Добавить") : T("Change", "Trocar", "Сменить");
+
+        if (session is null)
+        {
+            lastHealth = TunnelHealth.Unknown;
             healthDetails.Text = "";
-            liveTitle.Text = busy ? T("Preparing session", "Preparando sessão", "Подготовка сеанса") : T("VPN disconnected", "VPN desligada", "VPN отключён");
-            liveDetails.Text = busy ? T("Updating the VPN connection.", "Aguarde a atualização da conexão.", "Обновление подключения VPN.") : T("No server in use.", "Nenhum servidor em uso.", "Сервер не используется.");
-            liveDetails.Font = Body();
+            ShowHealth("—", Raised, Muted, T("VPN off", "VPN desligada", "VPN отключён"),
+                T("Connect to check the tunnel.", "Conecte para verificar o túnel.", "Подключитесь, чтобы проверить туннель."));
         }
-
-        routeCaption.ForeColor = pending ? Amber : Muted;
-        routeDetails.Font = Body(9);
-        if (pick is null)
-        {
-            routeCaption.Text = T("Selected route", "Rota selecionada", "Выбранный маршрут");
-            routeTitle.Text = T("No profile selected", "Nenhum perfil escolhido", "Профиль не выбран");
-            routeDetails.Text = T("Sign in to Proton or import a .conf file.", "Importe um arquivo .conf da Proton.", "Войдите в Proton или импортируйте файл .conf.");
-        }
-        else if (session is null || changedServer)
-        {
-            routeCaption.Text = changedServer ? T("Next route", "Próxima rota", "Следующий маршрут") : T("Selected route", "Rota selecionada", "Выбранный маршрут");
-            routeTitle.Text = pick.Name;
-            routeDetails.Text = pick.Endpoint;
-            routeDetails.Font = Mono;
-        }
-        else if (pending)
-        {
-            routeCaption.Text = T("Pending changes", "Ajustes pendentes", "Ожидают применения");
-            routeTitle.Text = FormatPrograms(marked.Length, T("selected", "marcado", "выбрано"), T("selected", "marcados", "выбрано"));
-            routeDetails.Text = applyingSoon ? T("Applying automatically in a moment…", "Aplicando automaticamente em instantes…", "Изменения применятся автоматически…")
-                : canApply ? T("Apply changes to update the session.", "Aplique para atualizar a sessão.", "Примените изменения, чтобы обновить сеанс.") : T("Select an app to apply changes.", "Marque um programa para aplicar.", "Выберите приложение, чтобы применить изменения.");
-        }
+        else if (lastHealth == TunnelHealth.HandshakeReceived)
+            ShowHealth("OK", GreenWash, Green, T("Everything working", "Tudo funcionando", "Всё работает"),
+                T("The server answered the handshake.", "O servidor respondeu ao handshake.", "Сервер ответил на рукопожатие."));
+        else if (lastHealth is TunnelHealth.HandshakeTimedOut or TunnelHealth.EndpointResolutionFailed or TunnelHealth.RoutingFailed)
+            ShowHealth("!", AmberWash, Amber, T("Connection problem", "Problema na conexão", "Проблема с подключением"), healthDetails.Text);
         else
-        {
-            routeCaption.Text = T("Current session", "Sessão atual", "Текущий сеанс");
-            routeTitle.Text = FormatPrograms(session.ProgramCount, T("on the VPN", "pela VPN", "через VPN"), T("on the VPN", "pela VPN", "через VPN"));
-            routeDetails.Text = "";
-        }
-        appCount.Text = FormatPrograms(marked.Length, T("selected for the VPN", "marcado para usar a VPN", "выбрано для VPN"), T("selected for the VPN", "marcados para usar a VPN", "выбрано для VPN"));
+            ShowHealth("…", Raised, Muted, T("Checking…", "Verificando…", "Проверка…"),
+                T("Waiting for the server to answer.", "Aguardando resposta do servidor.", "Ожидание ответа сервера."));
+        healthAction.Text = session is null ? T("Logs", "Registros", "Журналы") : T("Test", "Testar", "Проверить");
+
+        appCount.Text = FormatPrograms(enabledApps.Length, T("on the VPN", "pela VPN", "через VPN"), T("on the VPN", "pela VPN", "через VPN"));
         DrawRouteStatuses(session?.Profile.Id, settings.SelectedProfile);
+    }
+
+    private void ShowHealth(string mark, Color fill, Color ink, string title, string detail)
+    {
+        healthBadge.Text = mark;
+        healthBadge.Fill = fill;
+        healthBadge.ForeColor = ink;
+        healthTitle.Text = title;
+        healthDetail.Text = detail;
+    }
+
+    private void TestConnection()
+    {
+        if (activeSession is not { } session)
+        {
+            OpenPage(DiagnosticsPage);
+            return;
+        }
+        Attempt(() =>
+        {
+            var state = ReadActiveDiagnostics(session);
+            footer.Text = healthDetails.Text.Length > 0 ? healthDetails.Text
+                : state == TunnelHealth.Unknown ? T("No handshake news in the logs yet.", "Ainda não há sinal do handshake nos registros.", "В журналах пока нет данных о рукопожатии.") : "";
+        });
+        UpdateState();
+    }
+
+    private static string ListNames(IEnumerable<string> labels)
+    {
+        var names = labels.Distinct(StringComparer.CurrentCultureIgnoreCase).ToArray();
+        var and = T(" and ", " e ", " и ");
+        return names.Length switch
+        {
+            0 => T("No app", "Nenhum app", "Ни одно приложение"),
+            1 => names[0],
+            <= 3 => string.Join(", ", names[..^1]) + and + names[^1],
+            _ => string.Join(", ", names[..3]) + $" +{names.Length - 3}"
+        };
     }
 
     private static string FormatPrograms(int count, string singular, string plural) =>
@@ -842,9 +778,9 @@ internal sealed partial class MainForm : Form
         PrepareDialog(window);
         using var layout = Column(34, 36, 0, 48);
         layout.Controls.Add(SectionTitle(window.Text), 0, 0);
-        layout.Controls.Add(MakeLabel(T("Use a profile already saved in Routes, or create one when you need a new server.",
-            "Use um perfil já salvo em Rotas ou crie um se precisar de outro servidor.",
-            "Используйте профиль из раздела «Маршруты» или создайте новый для другого сервера."), muted: true), 0, 1);
+        layout.Controls.Add(MakeLabel(T("Use a profile already saved in Servers, or create one when you need a new server.",
+            "Use um perfil já salvo em Servidores ou crie um se precisar de outro servidor.",
+            "Используйте профиль из раздела «Серверы» или создайте новый для другого сервера."), muted: true), 0, 1);
         using var list = MakeGrid();
         AddColumn(list, T("Account profile", "Perfil da conta", "Профиль учётной записи"), 175, fill: true, font: Body(bold: true));
         AddColumn(list, T("Server", "Servidor", "Сервер"), 145, font: Mono);
