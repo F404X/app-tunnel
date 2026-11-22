@@ -369,7 +369,8 @@ var scenarios = new (string Name, Action Check)[]
         foreach (var invalid in variants) Throws<FormatException>(() => WireGuardProfile.Parse(invalid));
     }),
     ("dialogs, including the update confirmation, build without errors", DialogChecks.Run),
-    ("themed menus and selection fields paint in both themes", MenuChecks.Run)
+    ("themed menus and selection fields paint in both themes", MenuChecks.Run),
+    ("the common apps dialog shows an even grid of cards", CatalogChecks.Run)
 };
 foreach (var scenario in scenarios)
 {
