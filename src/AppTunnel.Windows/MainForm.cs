@@ -684,7 +684,7 @@ internal sealed partial class MainForm : Form
         using var frame = GridFrame(list, empty, T("Your Proton account has no WireGuard profiles.",
             "Sua conta Proton ainda não tem perfis WireGuard.", "В учётной записи Proton пока нет профилей WireGuard."));
         layout.Controls.Add(frame, 0, 2);
-        var create = ActionButton(T("New WireGuard…", "Novo WireGuard…", "Новый профиль WireGuard…"), () => { window.Close(); OpenProton(create: true); }, ButtonKind.Primary);
+        var create = ActionButton(T("New WireGuard…", "Novo WireGuard…", "Новый профиль WireGuard…"), () => { window.Close(); BeginInvoke(async () => await ChooseRoute()); }, ButtonKind.Primary);
         var import = ActionButton(T("Import .conf", "Importar .conf", "Импорт .conf"), () => { window.Close(); ImportProfiles(); });
         var accountLink = ActionButton(T("Open in Proton", "Abrir na Proton", "Открыть в Proton"), () => { window.Close(); OpenProton(); });
         layout.Controls.Add(MakeBar(create, import, accountLink), 0, 3);

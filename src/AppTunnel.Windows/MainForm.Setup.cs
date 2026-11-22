@@ -294,8 +294,9 @@ internal sealed partial class MainForm
                 stack.Resize += (_, _) => note.Width = stack.ClientSize.Width - 2;
                 stack.Controls.Add(note);
                 if (count > 0)
+                    // Same native server list as the Continue button; only an expired sign-in opens the Proton window.
                     stack.Controls.Add(LinkButton(T("Create another connection", "Criar outra conexão", "Создать ещё одно подключение"),
-                        () => owner.OpenProton(create: true)));
+                        () => _ = ChooseAnother()));
             }
             stack.Controls.Add(LinkButton(T("I already have a .conf file", "Já tenho um arquivo .conf", "У меня уже есть файл .conf"),
                 () => { owner.ImportProfiles(); Render(force: true); }, muted: true));
@@ -356,6 +357,12 @@ internal sealed partial class MainForm
             other.Glyph = Glyph.Plus;
             rows.Controls.Add(MakeBar(other), 0, 5);
             return page;
+        }
+
+        private async Task ChooseAnother()
+        {
+            await owner.ChooseRoute(this);
+            if (!IsDisposed) Render(force: true);
         }
 
         private static ThemeButton LinkButton(string text, Action action, bool muted = false)
