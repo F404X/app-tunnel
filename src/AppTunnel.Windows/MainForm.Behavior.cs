@@ -33,7 +33,7 @@ internal sealed partial class MainForm
         };
         content.Controls.Add(autoApplyChanges, 0, row++);
 
-        var caption = T("When Discord needs a restart", "Quando o Discord precisar reiniciar", "Когда нужно перезапустить Discord");
+        var caption = T("When an app needs a restart", "Quando um app precisar reiniciar", "Когда приложению нужен перезапуск");
         var label = MakeLabel(caption, muted: true);
         label.Dock = DockStyle.None;
         label.AutoSize = true;

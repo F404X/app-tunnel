@@ -129,6 +129,20 @@ var scenarios = new (string Name, Action Check)[]
         Require(ByPath(@"C:\Games\Launcher\browser.exe") is null && CommonApps.Find("browser") is null);
         Require(CommonApps.Find("chrome")?.Name == "Google Chrome" && CommonApps.Find("msedge")?.Name == "Microsoft Edge");
         Require(CommonApps.IsKnownExecutable("browser") && !CommonApps.IsKnownExecutable("notepad"));
+        // Running portable Serein builds are still recognized by their name rule.
+        Require(CommonApps.IsKnownExecutable("serein-1.2.3-windows-portable"));
+        // An installed browser whose program sits in a version folder is found without running, by its install folder.
+        var root = Path.Combine(Path.GetTempPath(), "AppTunnelChecks-" + Guid.NewGuid().ToString("N"), "Opera GX");
+        try
+        {
+            Directory.CreateDirectory(Path.Combine(root, "120.0.5543.61"));
+            File.WriteAllBytes(Path.Combine(root, "120.0.5543.61", "opera.exe"), []);
+            var found = new Dictionary<string, ApplicationTarget>(StringComparer.OrdinalIgnoreCase);
+            AppTunnel.Windows.ApplicationDiscovery.InspectFolder(CommonApps.Catalog.Single(app => app.Name == "Opera GX"), root, found);
+            Require(found.Values.Single() is { Label: "Opera GX", Folder: true } rule &&
+                rule.Match.Equals(Path.GetFullPath(root) + "\\", StringComparison.OrdinalIgnoreCase));
+        }
+        finally { Directory.Delete(Path.GetDirectoryName(root)!, recursive: true); }
         // A browser found running from a version folder gets a rule for its install folder, which survives updates.
         var opera = AppTunnel.Windows.ApplicationDiscovery.SurvivesUpdates(
             new ApplicationTarget("Opera GX", @"D:\Browsers\Opera GX\120.0.5543.61\opera.exe"));

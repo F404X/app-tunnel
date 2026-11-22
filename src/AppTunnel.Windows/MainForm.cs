@@ -559,8 +559,20 @@ internal sealed partial class MainForm : Form
         Changed();
     }
 
+    private bool closingForSetup;
+
+    // The installer asked AppTunnel to close: nothing new starts (automatic apply, route recovery, latency switches),
+    // so the operation already running, if any, is the last one to wait for.
+    public void PrepareForSetup()
+    {
+        closingForSetup = true;
+        autoApply.Stop();
+        Enabled = false;
+    }
+
     private void ScheduleAutoApply()
     {
+        if (closingForSetup) return;
         if (initializing || !settings.AutoApply || activeSession is null) return;
         autoApplyFailed = false;
         autoApply.Stop();
@@ -571,7 +583,7 @@ internal sealed partial class MainForm : Form
     private async Task RunAutoApply()
     {
         autoApply.Stop();
-        if (!settings.AutoApply || activeSession is null || IsDisposed || Disposing) return;
+        if (closingForSetup || !settings.AutoApply || activeSession is null || IsDisposed || Disposing) return;
         if (HasPendingOperation)
         {
             autoApply.Start();
@@ -788,7 +800,7 @@ internal sealed partial class MainForm : Form
     private void Poll()
     {
         DrainLogs();
-        if (++pollTicks % 2 != 0 || HasPendingOperation) return;
+        if (++pollTicks % 2 != 0 || HasPendingOperation || closingForSetup) return;
         try
         {
             var session = engine.GetActive();

@@ -42,8 +42,10 @@ public static class CommonApps
     }
 
     // Whether a running process with this name could be one of the catalog's apps.
+    // Find keeps recognizing names it matches by rule, such as portable Serein builds.
     public static bool IsKnownExecutable(string name)
     {
+        if (Find(name) is not null) return true;
         var key = MatchKey(name);
         return Catalog.Any(app => app.ExecutableNames.Any(executable => MatchKey(executable) == key));
     }

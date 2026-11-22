@@ -103,10 +103,13 @@ internal static class ChangelogWindow
             notes.Text = full;
             notes.SelectionStart = 0;
             readMore.Visible = false;
-            var height = chrome + Fit(full, .85f);
+            // Sizes above are at 96 DPI; a shown dialog has already been scaled to its monitor, so convert first and
+            // keep the width it has.
+            var scale = dialog.Visible ? dialog.DeviceDpi / 96f : 1f;
+            var height = (int)Math.Round((chrome + Fit(full, .85f)) * scale);
             if (height > dialog.ClientSize.Height)
             {
-                dialog.ClientSize = new Size(width, height);
+                dialog.ClientSize = new Size(dialog.ClientSize.Width, height);
                 if (dialog.Visible && Screen.FromControl(dialog).WorkingArea is var area && dialog.Bottom > area.Bottom)
                     dialog.Top = Math.Max(area.Top, area.Bottom - dialog.Height);
             }

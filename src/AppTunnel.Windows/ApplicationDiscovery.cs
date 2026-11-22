@@ -38,7 +38,10 @@ internal static class ApplicationDiscovery
             targets.TryAdd(rule.Match, rule);
         }
 
-        return targets.Values.ToArray();
+        // A launcher found in an install folder adds nothing once that whole folder is routed for the same app.
+        var folders = targets.Values.Where(target => target.Folder).ToArray();
+        return targets.Values.Where(target => target.Folder || !folders.Any(folder => folder.Label == target.Label &&
+            target.Match.StartsWith(folder.Match, StringComparison.OrdinalIgnoreCase))).ToArray();
     }
 
     // Some apps, such as Opera and Opera GX, run from a folder named after their version (Opera\120.0.1\opera.exe),
@@ -57,13 +60,16 @@ internal static class ApplicationDiscovery
     private static bool IsVersion(string name) =>
         System.Text.RegularExpressions.Regex.IsMatch(name, @"^\d+(\.\d+)+$");
 
-    private static void InspectFolder(CommonApp app, string folder, Dictionary<string, ApplicationTarget> targets)
+    internal static void InspectFolder(CommonApp app, string folder, Dictionary<string, ApplicationTarget> targets)
     {
         if (!Directory.Exists(folder)) return;
         try
         {
+            // Version folders (OperaP.0.1) hold the real executable of apps whose root has only a launcher, or none.
+            var versions = Directory.EnumerateDirectories(folder, "*", SearchOption.TopDirectoryOnly)
+                .Where(path => IsVersion(Path.GetFileName(path))).Take(10);
             var candidates = Directory.EnumerateDirectories(folder, "app-*", SearchOption.TopDirectoryOnly)
-                .Take(30).Prepend(folder).Append(Path.Combine(folder, "bin"));
+                .Take(30).Concat(versions).Prepend(folder).Append(Path.Combine(folder, "bin"));
             foreach (var subfolder in candidates)
             {
                 if (!Directory.Exists(subfolder)) continue;
@@ -76,7 +82,11 @@ internal static class ApplicationDiscovery
                 var match = ApplicationTarget.Validate(ownFolder
                     ? Path.TrimEndingDirectorySeparator(Path.GetFullPath(folder)) + Path.DirectorySeparatorChar
                     : executable);
-                targets.TryAdd(match, new ApplicationTarget(app.Name, match, Folder: ownFolder));
+                // An executable inside a version folder is routed by its install folder, which updates keep.
+                var target = SurvivesUpdates(new ApplicationTarget(app.Name, match, Folder: ownFolder));
+                if (targets.Values.Any(existing => existing.Folder && existing.Label == app.Name &&
+                    target.Match.StartsWith(existing.Match, StringComparison.OrdinalIgnoreCase))) continue;
+                targets.TryAdd(target.Match, target);
             }
         }
         catch (Exception error) when (error is IOException or UnauthorizedAccessException or FormatException) { }

@@ -40,10 +40,13 @@ internal sealed class AppTunnelApplicationContext : ApplicationContext
             if (!preparingSetup && !window.HasPendingOperation && setupExit.WaitOne(0))
             {
                 preparingSetup = true;
-                window.Enabled = false;
+                window.PrepareForSetup();
                 try { await proton.CloseForSetupAsync(); }
                 catch (Exception error) when (error is IOException or UnauthorizedAccessException) { }
-                finally { Quit(); }
+                // An operation that started before the request (such as applying a change) finishes first; Setup
+                // waits for AppTunnel to close, so giving up here would leave both waiting.
+                for (var waited = 0; window.HasPendingOperation && waited < 30_000; waited += 200) await Task.Delay(200);
+                Quit(force: true);
                 return;
             }
 
@@ -208,9 +211,9 @@ internal sealed class AppTunnelApplicationContext : ApplicationContext
         window.Hide();
     }
 
-    private void Quit()
+    private void Quit(bool force = false)
     {
-        if (window.HasPendingOperation) return;
+        if (!force && window.HasPendingOperation) return;
         exiting = true;
         window.SaveInterface();
         window.Dispose();
