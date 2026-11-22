@@ -12,6 +12,7 @@
   </PropertyGroup>
   <ItemGroup>
     <AssemblyMetadata Include="TelemetryEndpoint" Value="$(AppTunnelTelemetryEndpoint)" />
+    <InternalsVisibleTo Include="AppTunnel.Checks" />
     <ProjectReference Include="../AppTunnel.Core/AppTunnel.Core.csproj" />
     <EmbeddedResource Include="Assets/Flags/*.png" LogicalName="AppTunnel.Flags.%(Filename)%(Extension)" />
     <EmbeddedResource Include="Assets/Countries/*.png" LogicalName="AppTunnel.Countries.%(Filename)%(Extension)" />

@@ -1,9 +1,12 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net10.0</TargetFramework>
+    <!-- Windows Forms, so the checks can build the app's dialogs (without showing them). -->
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../../src/AppTunnel.Core/AppTunnel.Core.csproj" />
+    <ProjectReference Include="../../src/AppTunnel.Windows/AppTunnel.Windows.csproj" />
   </ItemGroup>
 </Project>

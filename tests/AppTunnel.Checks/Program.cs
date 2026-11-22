@@ -367,7 +367,8 @@ var scenarios = new (string Name, Action Check)[]
             sample.Replace("10.2.0.2/32", "10.2.0.2/999"), sample.Replace(key, "chave inválida"),
             sample.Replace("MTU = 1380", "MTU = 1380\nMTU = 1420") };
         foreach (var invalid in variants) Throws<FormatException>(() => WireGuardProfile.Parse(invalid));
-    })
+    }),
+    ("dialogs, including the update confirmation, build without errors", DialogChecks.Run)
 };
 foreach (var scenario in scenarios)
 {

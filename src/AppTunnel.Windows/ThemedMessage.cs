@@ -13,10 +13,18 @@ internal static class ThemedMessage
 
     private static DialogResult Show(IWin32Window? owner, string text, bool question)
     {
-        using var dialog = new Form
+        using var dialog = Build(owner is null, text, question);
+        return owner is null ? dialog.ShowDialog() : dialog.ShowDialog(owner);
+    }
+
+    // Builds the dialog without showing it, so the checks can build every variant: a dialog that throws while it
+    // is being put together once blocked every update confirmation.
+    internal static Form Build(bool standalone, string text, bool question)
+    {
+        var dialog = new Form
         {
             Text = "AppTunnel", FormBorderStyle = FormBorderStyle.FixedDialog, MinimizeBox = false, MaximizeBox = false,
-            ShowInTaskbar = owner is null, StartPosition = owner is null ? FormStartPosition.CenterScreen : FormStartPosition.CenterParent,
+            ShowInTaskbar = standalone, StartPosition = standalone ? FormStartPosition.CenterScreen : FormStartPosition.CenterParent,
             BackColor = Surface, ForeColor = DesktopTheme.Text, Font = Body(), Padding = new Padding(20, 18, 20, 14),
             ClientSize = new Size(480, 160)
         };
@@ -62,6 +70,6 @@ internal static class ThemedMessage
         // Tall enough for the whole message, so it never needs a scrollbar.
         var height = MeasureText(dialog, text, Body(), (int)((480 - 40 - 36) * dialog.DeviceDpi / 96f), wrap: true).Height * 96 / dialog.DeviceDpi;
         dialog.ClientSize = new Size(480, Math.Max(150, height + 18 + 14 + 64 + 8));
-        return owner is null ? dialog.ShowDialog() : dialog.ShowDialog(owner);
+        return dialog;
     }
 }

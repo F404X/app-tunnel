@@ -342,7 +342,16 @@ internal sealed partial class MainForm
                 var prompt = T($"Install AppTunnel {version} now? The setup will close the AppTunnel interface and Proton sign-in window.",
                     $"Instalar o AppTunnel {version} agora? O instalador fechará a interface do AppTunnel e a janela de login da Proton.",
                     $"Установить AppTunnel {version}? Установщик закроет интерфейс AppTunnel и окно входа в Proton.");
-                if (!ThemedMessage.Ask(this, prompt)) return;
+                // An update must never be blocked by the confirmation itself: if it cannot open, the installer opens
+                // with its own wizard, which asks before changing anything.
+                bool confirmed;
+                try { confirmed = ThemedMessage.Ask(this, prompt); }
+                catch (Exception error) when (Expected(error))
+                {
+                    AddLog(error.Message);
+                    confirmed = true;
+                }
+                if (!confirmed) return;
             }
             var arguments = $"/LANG={InstallerLanguage}" + (automatic ? " /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /REOPENAPPTUNNEL=1" : "");
             using var setup = Process.Start(new ProcessStartInfo(installer, arguments) { WorkingDirectory = Path.GetDirectoryName(installer)! });
