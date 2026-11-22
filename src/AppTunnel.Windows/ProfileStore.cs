@@ -20,11 +20,21 @@ internal sealed class Preferences
     public RouteOptions Route { get; set; } = new();
     public string EnginePath { get; set; } = "";
     public bool DiagnosticLogs { get; set; }
-    public string Language { get; set; } = "en";
+    // A first run follows the Windows display language; saved settings keep the user's choice.
+    public string Language { get; set; } = AppTunnel.Core.Localized.Language;
     public ProtocolPreference Protocol { get; set; }
     public ThemeMode Theme { get; set; }
     public bool AutoUpdate { get; set; }
     public DateTimeOffset? LastAutoUpdateCheck { get; set; }
+    public bool AutoApply { get; set; } = true;
+    public DiscordRestartChoice DiscordRestart { get; set; }
+}
+
+internal enum DiscordRestartChoice
+{
+    Ask,
+    Always,
+    Never
 }
 
 [JsonSourceGenerationOptions(WriteIndented = true)]

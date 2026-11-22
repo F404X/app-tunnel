@@ -34,7 +34,7 @@ O AppTunnel requer o WireSock CLI 3.8.2.1 ou superior. Se o Windows não reconhe
 
 ## 2. Escolha o idioma
 
-O aplicativo abre em inglês. Para mudar, clique em **Language → Português** no menu lateral. O seletor com bandeiras também oferece **English** e **Русский**. O restante do guia usa os nomes em português e inclui os termos principais em inglês.
+Na primeira abertura, o aplicativo usa o idioma do Windows quando ele é português, inglês ou russo, e inglês nos demais casos. Para mudar, clique em **Idioma (Language)** no menu lateral. O seletor com bandeiras também oferece **English** e **Русский**. O restante do guia usa os nomes em português e inclui os termos principais em inglês.
 
 ## 3. Escolha o servidor da Proton
 
@@ -64,9 +64,9 @@ Guarde os arquivos `.conf` em um local privado. Eles contêm a chave privada do 
 1. Abra **Programas (Apps) → Explorar aplicativos comuns (Explore Common Apps)**. Marque os aplicativos detectados e clique em **Aplicar seleção**. O catálogo lista Discord, PTB, Canary, Serein, Telegram, Signal e outros clientes. Os cartões escurecidos ficam indisponíveis. Para programas portáteis, abra o executável e tente novamente ou use **Adicionar .exe**.
 2. Confira as caixas da coluna **VPN**. Marque os programas que devem usar o túnel. Se o programa estiver fora da pasta padrão, use **Adicionar .exe (Add .exe)** ou **Em execução… (Running apps…)**. Ao usar **Adicionar pasta**, escolha a pasta do próprio aplicativo, pois a regra abrange os executáveis nela.
 3. Volte a **Rotas** e clique no servidor desejado. No painel superior, clique em **Conectar (Connect)**.
-4. Aguarde **Serviço VPN do WireSock em execução (WireSock VPN service is running)**. Se um Discord oficial, PTB ou Canary estiver aberto e incluído na rota, o AppTunnel pergunta se você quer reiniciá-lo. Escolha **Sim** para recriar a conexão de voz e vídeo ou **Não** para reiniciar o Discord depois. Com o Serein, você pode seguir direto para o teste da chamada ou da transmissão.
+4. Aguarde **Protegido · VPN ativa (Protected · VPN on)**. Se um Discord oficial, PTB ou Canary estiver aberto e incluído na rota, o AppTunnel pergunta se você quer reiniciá-lo. Escolha **Reiniciar agora** para recriar a conexão de voz e vídeo ou **Agora não** para reiniciar o Discord depois. Marque **Lembrar minha escolha** para não ver a pergunta de novo. A escolha pode ser alterada em **Configurações → Conexão**. Com o Serein, você pode seguir direto para o teste da chamada ou da transmissão.
 
-O painel superior mostra o **servidor em uso** e seu endereço. Para trocar, selecione outra linha em **Rotas** e clique em **Trocar servidor (Switch server)**. Se mudar os aplicativos ou os filtros durante a conexão, clique em **Aplicar ajustes (Apply settings)**.
+O painel superior mostra o **servidor em uso** e seu endereço. Para trocar, selecione outra linha em **Rotas** e clique em **Trocar servidor (Switch server)**. Se mudar os aplicativos, o protocolo ou os filtros durante a conexão, o AppTunnel aplica os ajustes sozinho cerca de 1,5 segundo depois da última mudança. Os campos de IP são aplicados quando você sai do campo. Para aplicar manualmente com **Aplicar ajustes (Apply settings)**, desmarque **Aplicar mudanças automaticamente durante a conexão** em **Configurações → Conexão**. A coluna **Latência** é atualizada sozinha ao abrir o AppTunnel e a aba **Rotas**, no máximo uma vez por minuto.
 
 ## Como o AppTunnel funciona por dentro
 
@@ -137,13 +137,13 @@ sequenceDiagram
     end
 ```
 
-- **Aplicar ajustes** e **Trocar servidor** substituem a configuração e reiniciam o serviço. Se a nova sessão falhar, o AppTunnel tenta restaurar a anterior. O indicador **Serviço VPN do WireSock em execução** vem do estado `Running` do serviço. Para validar o caminho de ponta a ponta, gere tráfego em um aplicativo marcado. [Controle do serviço](https://github.com/F404X/app-tunnel/blob/main/src/AppTunnel.Windows/WireSockEngine.cs)
-- **Discord, PTB e Canary** recebem a opção de reiniciar quando estão abertos e pertencem à rota aplicada. O reinício recria as conexões já abertas. O Serein fica fora desse fluxo. [Regras de reinício](https://github.com/F404X/app-tunnel/blob/main/src/AppTunnel.Windows/DiscordRestart.cs) · [Aplicação da rota](https://github.com/F404X/app-tunnel/blob/main/src/AppTunnel.Windows/MainForm.cs)
+- A aplicação automática, **Aplicar ajustes** e **Trocar servidor** substituem a configuração e reiniciam o serviço. Se a nova sessão falhar, o AppTunnel tenta restaurar a anterior e mostra **Aplicar ajustes** para tentar de novo. O indicador **Protegido · VPN ativa** vem do estado `Running` do serviço. Para validar o caminho de ponta a ponta, gere tráfego em um aplicativo marcado. [Controle do serviço](https://github.com/F404X/app-tunnel/blob/main/src/AppTunnel.Windows/WireSockEngine.cs)
+- **Discord, PTB e Canary** recebem a opção de reiniciar quando estão abertos e acabaram de entrar na rota, ou quando o servidor mudou. Clientes que já estavam na sessão anterior, no mesmo servidor, não são reiniciados. O reinício recria as conexões já abertas. O Serein fica fora desse fluxo. [Regras de reinício](https://github.com/F404X/app-tunnel/blob/main/src/AppTunnel.Windows/DiscordRestart.cs) · [Aplicação da rota](https://github.com/F404X/app-tunnel/blob/main/src/AppTunnel.Windows/MainForm.cs)
 - **Sair da interface** fecha o processo da bandeja. O serviço do WireSock continua ativo como processo independente. **Iniciar com o Windows** registra uma tarefa por usuário que abre a interface na bandeja ao fazer login. [Bandeja](https://github.com/F404X/app-tunnel/blob/main/src/AppTunnel.Windows/AppTunnelApplicationContext.cs) · [Inicialização do Windows](https://github.com/F404X/app-tunnel/blob/main/src/AppTunnel.Windows/WindowsStartup.cs)
 
 ## Redes com filtragem e DPI
 
-Selecione uma opção em **Rotas → Protocolo VPN**. Depois de mudar a opção, clique em **Conectar** ou **Aplicar ajustes**.
+Selecione uma opção em **Rotas → Protocolo VPN**. Depois de mudar a opção, clique em **Conectar**. Com a VPN conectada, a mudança é aplicada automaticamente.
 
 | Opção | Motor e requisitos |
 | --- | --- |

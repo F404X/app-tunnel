@@ -20,6 +20,9 @@ internal sealed partial class MainForm : Form
     private readonly ConcurrentQueue<string> queuedLogs = new();
     private readonly Queue<string> history = new();
     private readonly System.Windows.Forms.Timer monitor = new() { Interval = 450 };
+    // Waits for a short pause after the last change before restarting the session, so several clicks apply once.
+    private readonly System.Windows.Forms.Timer autoApply = new() { Interval = 1500 };
+    private bool autoApplyFailed;
     private TunnelSession? activeSession;
     private string operation = "";
     private bool busy;
@@ -50,7 +53,6 @@ internal sealed partial class MainForm : Form
     private readonly ThemeButton start = MakeButton(T("Connect", "Conectar", "Подключить"), ButtonKind.Primary);
     private readonly ThemeButton apply = MakeButton(T("Apply settings", "Aplicar ajustes", "Применить"), ButtonKind.Primary);
     private readonly ThemeButton stop = MakeButton(T("Disconnect", "Desconectar", "Отключить"));
-    private readonly ThemeButton ping = MakeButton(T("Measure latency", "Medir latência", "Измерить задержку"));
     private readonly ThemeButton fastest = MakeButton(T("Lowest ping", "Menor ping", "Лучший пинг"));
     private readonly ThemeButton rename = MakeButton(T("Rename", "Renomear", "Переименовать"), ButtonKind.Quiet);
     private readonly ThemeButton remove = MakeButton(T("Remove", "Remover", "Удалить"), ButtonKind.Quiet);
@@ -106,7 +108,12 @@ internal sealed partial class MainForm : Form
 
         monitor.Tick += (_, _) => Poll();
         monitor.Start();
-        Shown += (_, _) => UpdateState();
+        autoApply.Tick += async (_, _) => await RunAutoApply();
+        Shown += (_, _) =>
+        {
+            UpdateState();
+            _ = RefreshLatencyQuietly();
+        };
     }
 
     private void WireActions()
@@ -127,7 +134,6 @@ internal sealed partial class MainForm : Form
         };
         apply.Click += async (_, _) => await ChangeConnection(starting: true);
         stop.Click += async (_, _) => await ChangeConnection(starting: false);
-        ping.Click += async (_, _) => await MeasureLatency(false);
         fastest.Click += async (_, _) => await MeasureLatency(true);
         rename.Click += (_, _) => RenameRoute();
         remove.Click += (_, _) => RemoveRoute();
@@ -152,8 +158,11 @@ internal sealed partial class MainForm : Form
         };
         lan.CheckedChanged += (_, _) => Changed();
         ipv6.CheckedChanged += (_, _) => Changed();
-        include.TextChanged += (_, _) => Changed(save: false);
-        exclude.TextChanged += (_, _) => Changed(save: false);
+        // Typing an address range applies when the field loses focus, never halfway through the value.
+        include.TextChanged += (_, _) => Changed(save: false, apply: false);
+        exclude.TextChanged += (_, _) => Changed(save: false, apply: false);
+        include.Leave += (_, _) => ApplyEditedField(include);
+        exclude.Leave += (_, _) => ApplyEditedField(exclude);
         diagnostics.CheckedChanged += (_, _) => Changed();
         tunnelDns.CheckedChanged += (_, _) => Changed();
         guardIpv6.CheckedChanged += (_, _) => Changed();
@@ -484,6 +493,8 @@ internal sealed partial class MainForm : Form
         operation = !starting ? T("Disconnecting…", "Desconectando…", "Отключение…") :
             activeSession is not null ? T("Applying changes…", "Aplicando ajustes…", "Применение настроек…") : T("Connecting…", "Conectando…", "Подключение…");
         busy = true;
+        autoApply.Stop();
+        var previous = activeSession;
         var attemptStarted = Stopwatch.GetTimestamp();
         VpnProtocol? attemptProtocol = null;
         UpdateState();
@@ -529,8 +540,9 @@ internal sealed partial class MainForm : Form
             AddLog(T("The WireSock VPN service is running.", "O serviço VPN do WireSock está em execução.", "Служба WireSock VPN запущена."));
             footer.Text = T("VPN route applied.", "Rota VPN aplicada.", "Маршрут VPN применён.");
             operation = "";
+            autoApplyFailed = false;
             UpdateState();
-            await OfferDiscordRestart(routed);
+            await OfferDiscordRestart(NeedsReconnect(previous, activeSession, routed));
         }
         catch (Exception e) when (Expected(e))
         {
@@ -547,15 +559,23 @@ internal sealed partial class MainForm : Form
         }
     }
 
+    // Apps already in the previous session on the same server keep their connections, so only
+    // newly routed apps, or every app after a server change, need their open connections recreated.
+    private static ApplicationTarget[] NeedsReconnect(TunnelSession? previous, TunnelSession? current, ApplicationTarget[] routed)
+    {
+        if (previous is null || current is null || previous.Profile.Id != current.Profile.Id ||
+            previous.Profile.Endpoint != current.Profile.Endpoint) return routed;
+        var before = previous.RequestedPrograms.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        return routed.Where(target => !before.Contains(target.Match)).ToArray();
+    }
+
     private async Task OfferDiscordRestart(ApplicationTarget[] routed)
     {
+        if (routed.Length == 0 || settings.DiscordRestart == DiscordRestartChoice.Never) return;
         var clients = await Task.Run(() => DiscordRestart.FindRunning(routed));
-        if (clients.Length == 0) return;
+        if (clients.Length == 0 || IsDisposed || Disposing) return;
         var names = string.Join(", ", clients.Select(client => client.Name).Distinct());
-        var message = T($"Restart {names} to use the VPN? This will end any active calls or streams.",
-            $"Reiniciar {names} para usar a VPN? Isso interrompe chamadas e transmissões em andamento.", $"Перезапустить {names} для подключения к VPN? Текущие звонки и трансляции будут прерваны.");
-        if (MessageBox.Show(this, message, "AppTunnel", MessageBoxButtons.YesNo, MessageBoxIcon.Question,
-            MessageBoxDefaultButton.Button2) != DialogResult.Yes)
+        if (!ConfirmDiscordRestart(names))
         {
             footer.Text = T("VPN route applied. Restart Discord when you're ready.",
                 "Rota VPN aplicada. Reinicie o Discord quando puder.", "Маршрут VPN применён. Перезапустите Discord, когда будете готовы.");
@@ -587,11 +607,58 @@ internal sealed partial class MainForm : Form
     private RouteOptions CurrentRoute() => new(lan.Checked, ipv6.Checked, include.Text.Trim(), exclude.Text.Trim(),
         tunnelDns.Checked, guardIpv6.Checked);
 
-    private void Changed(bool save = true)
+    private void Changed(bool save = true, bool apply = true)
     {
         if (initializing) return;
         if (save) Attempt(Save);
+        if (apply) ScheduleAutoApply();
         UpdateState();
+    }
+
+    private void ApplyEditedField(TextBox field)
+    {
+        if (!field.Modified) return;
+        field.Modified = false;
+        Changed();
+    }
+
+    private void ScheduleAutoApply()
+    {
+        if (initializing || !settings.AutoApply || activeSession is null) return;
+        autoApplyFailed = false;
+        autoApply.Stop();
+        autoApply.Start();
+    }
+
+    // A different server stays an explicit choice: selecting a row to rename or remove it must not switch the tunnel.
+    private async Task RunAutoApply()
+    {
+        autoApply.Stop();
+        if (!settings.AutoApply || activeSession is null || IsDisposed || Disposing) return;
+        if (HasPendingOperation)
+        {
+            autoApply.Start();
+            return;
+        }
+        var changes = PendingChanges();
+        if (!changes.CanApply || changes.ChangedServer) return;
+        await ChangeConnection(starting: true);
+        if (IsDisposed || Disposing) return;
+        autoApplyFailed = !autoApply.Enabled && PendingChanges().CanApply;
+        UpdateState();
+    }
+
+    private (bool Pending, bool ChangedServer, bool CanApply) PendingChanges()
+    {
+        var session = activeSession;
+        var pick = SelectedRoute();
+        var marked = settings.Applications.Where(x => x.Enabled).Select(x => x.Match).ToArray();
+        var requestedProfile = session is { RequestedProfile: var id } && id != Guid.Empty ? id : session?.Profile.Id;
+        var changedServer = session is not null && pick is not null && requestedProfile != pick.Id;
+        var pending = session is not null && (changedServer || !session.RequestedPrograms.ToHashSet(StringComparer.OrdinalIgnoreCase).SetEquals(marked) ||
+            session.Options != CurrentRoute() || session.Diagnostics != diagnostics.Checked ||
+            session.RequestedProtocol != SelectedProtocol);
+        return (pending, changedServer, pending && pick is not null && marked.Length > 0);
     }
 
     private void Save()
@@ -608,24 +675,20 @@ internal sealed partial class MainForm : Form
         var running = session is not null;
         var pick = SelectedRoute();
         var marked = settings.Applications.Where(x => x.Enabled).Select(x => x.Match).ToArray();
-        var requestedProfile = session is { RequestedProfile: var id } && id != Guid.Empty ? id : session?.Profile.Id;
-        var changedServer = session is not null && pick is not null && requestedProfile != pick.Id;
-        var pending = session is not null && (changedServer || !session.RequestedPrograms.ToHashSet(StringComparer.OrdinalIgnoreCase).SetEquals(marked) ||
-            session.Options != CurrentRoute() || session.Diagnostics != diagnostics.Checked ||
-            session.RequestedProtocol != SelectedProtocol);
-        var canApply = pending && pick is not null && marked.Length > 0;
+        var (pending, changedServer, canApply) = PendingChanges();
+        // With automatic apply on, the button only remains for a server switch or to retry a failed apply.
+        var applyingSoon = canApply && !changedServer && settings.AutoApply && !autoApplyFailed;
 
         start.Text = pick is null ? T("Add a server…", "Adicionar servidor…", "Добавить сервер…") : marked.Length == 0 ? T("Choose apps", "Escolher programas", "Выбрать приложения") : T("Connect", "Conectar", "Подключить");
         start.Visible = !running;
         start.Enabled = !HasPendingOperation;
         apply.Text = changedServer ? T("Switch server", "Trocar servidor", "Сменить сервер") : T("Apply settings", "Aplicar ajustes", "Применить настройки");
-        apply.Visible = running && canApply;
+        apply.Visible = running && canApply && !applyingSoon;
         apply.Enabled = !HasPendingOperation;
         stop.Visible = running;
         stop.Enabled = !busy && !updateBusy;
         pageHost.Enabled = !busy;
         foreach (var button in navigationButtons) button.Enabled = !busy;
-        ping.Enabled = !busy && !pingBusy && pick is not null;
         fastest.Enabled = !busy && !pingBusy && settings.Profiles.Count > 1;
         rename.Enabled = !busy && !pingBusy && pick is not null;
         remove.Enabled = !busy && !pingBusy && pick is not null;
@@ -634,7 +697,7 @@ internal sealed partial class MainForm : Form
         if (busy && operation.Length > 0)
             pill.ShowStatus(operation, Amber, AmberWash);
         else if (running)
-            pill.ShowStatus(T("WireSock VPN service is running", "Serviço VPN do WireSock em execução", "Служба WireSock VPN запущена"), Green, GreenWash);
+            pill.ShowStatus(T("Protected · VPN on", "Protegido · VPN ativa", "Защищено · VPN включён"), Green, GreenWash);
         else
             pill.ShowStatus(T("Offline", "Sem conexão", "Не подключено"), Muted, Surface);
 
@@ -672,7 +735,8 @@ internal sealed partial class MainForm : Form
         {
             routeCaption.Text = T("Pending changes", "Ajustes pendentes", "Ожидают применения");
             routeTitle.Text = FormatPrograms(marked.Length, T("selected", "marcado", "выбрано"), T("selected", "marcados", "выбрано"));
-            routeDetails.Text = canApply ? T("Apply changes to update the session.", "Aplique para atualizar a sessão.", "Примените изменения, чтобы обновить сеанс.") : T("Select an app to apply changes.", "Marque um programa para aplicar.", "Выберите приложение, чтобы применить изменения.");
+            routeDetails.Text = applyingSoon ? T("Applying automatically in a moment…", "Aplicando automaticamente em instantes…", "Изменения применятся автоматически…")
+                : canApply ? T("Apply changes to update the session.", "Aplique para atualizar a sessão.", "Примените изменения, чтобы обновить сеанс.") : T("Select an app to apply changes.", "Marque um programa para aplicar.", "Выберите приложение, чтобы применить изменения.");
         }
         else
         {
@@ -916,6 +980,7 @@ internal sealed partial class MainForm : Form
         if (disposing)
         {
             monitor.Dispose();
+            autoApply.Dispose();
             latencyLifetime.Cancel();
             latencyLifetime.Dispose();
             foreach (var page in pages)

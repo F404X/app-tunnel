@@ -23,7 +23,7 @@ internal sealed partial class MainForm
     private Control BuildSettingsPage()
     {
         var page = MakePage();
-        var content = Column(34, 29, 29, 28, 10, 34, 36, 10, 34, 40, 34, 40, 34, 12, 34, 29, 29, 29, 42, 34, 10, 42, 0);
+        var content = Column(34, 29, 29, 28, 10, 34, 36, 10, 34, 29, 36, 10, 34, 40, 34, 40, 34, 12, 34, 29, 29, 29, 42, 34, 10, 42, 0);
         content.Controls.Add(SectionTitle(T("Startup", "Inicialização", "Автозапуск")), 0, 0);
         startup.AutoCheck = false;
         startup.Click += (_, _) => StartupRequested?.Invoke();
@@ -64,23 +64,24 @@ internal sealed partial class MainForm
         themes.SelectedIndex = Enum.IsDefined(settings.Theme) ? (int)settings.Theme : 0;
         themes.SelectedIndexChanged += (_, _) => BeginInvoke(() => ThemeRequested?.Invoke((ThemeMode)themes.SelectedIndex));
         content.Controls.Add(MakeBar(themes), 0, 6);
+        AddConnectionBehavior(content, 8);
 
-        content.Controls.Add(SectionTitle(T("Updates", "Atualizações", "Обновления")), 0, 8);
+        content.Controls.Add(SectionTitle(T("Updates", "Atualizações", "Обновления")), 0, 12);
         checkUpdates.Click += async (_, _) => await CheckForUpdates();
         var installed = MakeLabel($"AppTunnel {AppUpdater.CurrentVersion}", muted: true);
         installed.Dock = DockStyle.None;
         installed.AutoSize = true;
         installed.Margin = new Padding(10, 7, 0, 0);
-        content.Controls.Add(MakeBar(checkUpdates, installed), 0, 9);
-        content.Controls.Add(updateStatus, 0, 10);
+        content.Controls.Add(MakeBar(checkUpdates, installed), 0, 13);
+        content.Controls.Add(updateStatus, 0, 14);
         updateWireSock.Click += async (_, _) => await CheckWireSockUpdate();
-        content.Controls.Add(MakeBar(updateWireSock), 0, 11);
-        content.Controls.Add(wireSockUpdateStatus, 0, 12);
-        AddPrivacyControls(content, 14);
-        content.Controls.Add(MakeBar(ActionButton(TermsWindow.Caption, () => TermsWindow.Show(this))), 0, 21);
+        content.Controls.Add(MakeBar(updateWireSock), 0, 15);
+        content.Controls.Add(wireSockUpdateStatus, 0, 16);
+        AddPrivacyControls(content, 18);
+        content.Controls.Add(MakeBar(ActionButton(TermsWindow.Caption, () => TermsWindow.Show(this))), 0, 25);
         var scroll = new Panel { Dock = DockStyle.Fill, AutoScroll = true, Margin = new Padding(0) };
         content.Dock = DockStyle.Top;
-        content.Height = 677;
+        content.Height = 786;
         scroll.Controls.Add(content);
         page.Controls.Add(scroll);
         return page;

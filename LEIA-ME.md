@@ -1,13 +1,13 @@
 # AppTunnel 0.9.2
 
-O AppTunnel conecta o Serein e outros clientes Discord à Proton VPN por meio de perfis WireGuard. A interface abre em inglês. Em **Language**, escolha **English**, **Português** ou **Русский**.
+O AppTunnel conecta o Serein e outros clientes Discord à Proton VPN por meio de perfis WireGuard. A interface abre no idioma do Windows (português, inglês ou russo; inglês nos demais casos). Em **Idioma (Language)**, escolha **English**, **Português** ou **Русский**.
 
 ## Instalar e conectar
 
 1. Baixe o **AppTunnel-Setup-x64.exe** em [Releases](https://github.com/F404X/app-tunnel/releases). Execute o instalador e aceite as opções do WireSock CLI e do Microsoft Edge WebView2 se elas aparecerem. Veja o [guia completo](README.md) para usar o ZIP portátil.
 2. Abra **AppTunnel.exe** e confirme a elevação. Em **Rotas → Perfis da conta**, entre na Proton e consulte os perfis encontrados. O AppTunnel salva automaticamente os perfis compatíveis com chave privada disponível na janela.
 3. Para criar um perfil, clique em **Novo WireGuard…**, dê um nome e clique em **Criar com servidor recomendado**. Para escolher a localização, use **Escolher outro servidor…** e clique em **Criar** ao lado do servidor na lista. Mantenha a janela aberta até que o perfil apareça em **Rotas**. [Guia da Proton](https://protonvpn.com/support/wireguard-configurations)
-4. Em **Programas**, use **Explorar aplicativos comuns** para selecionar Serein, Discord e outros clientes detectados. Marque os programas que devem usar a VPN e clique em **Conectar**. Se Discord, PTB ou Canary estiver aberto e incluído na rota, confirme se deseja reiniciá-lo.
+4. Em **Programas**, use **Explorar aplicativos comuns** para selecionar Serein, Discord e outros clientes detectados. Marque os programas que devem usar a VPN e clique em **Conectar**. Se Discord, PTB ou Canary estiver aberto e incluído na rota, confirme se deseja reiniciá-lo. Com **Lembrar minha escolha**, a pergunta não aparece de novo. Durante a conexão, mudanças em programas e filtros são aplicadas automaticamente.
 5. Em **Rotas → Protocolo VPN**, use **Automático** para tentar alternativas entre os perfis importados. Veja os [requisitos e limites](README.md#redes-com-filtragem-e-dpi). Para mudar de rota, selecione outro perfil e clique em **Trocar servidor**. O cartão e a coluna **Sessão** identificam o servidor em uso.
 
 Para usar um perfil antigo cuja chave já não aparece na Proton, importe o **.conf original** ou crie um novo. Os perfis já salvos pelo aplicativo são migrados. Entre na Proton pelo AppTunnel para vincular a janela desta versão. A janela integrada usa o WebView2 sem elevação. [Código da Proton](https://github.com/ProtonMail/WebClients/blob/main/packages/components/containers/vpn/WireGuardConfigurationSection/WireGuardConfigurationSection.tsx)

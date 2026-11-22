@@ -157,7 +157,7 @@ internal sealed partial class MainForm
         accountLink.FlowDirection = FlowDirection.RightToLeft;
         accountRow.Controls.Add(accountLink, 1, 0);
         content.Controls.Add(accountRow, 0, 2);
-        content.Controls.Add(MakeBar(ping, fastest, rename, remove), 0, 3);
+        content.Controls.Add(MakeBar(fastest, rename, remove), 0, 3);
         content.Controls.Add(BuildProtocolControl(), 0, 4);
         content.Controls.Add(MakeLabel(T(
             "For automatic switching, add two routes with different servers. One is enough to connect.",
@@ -301,6 +301,7 @@ internal sealed partial class MainForm
             pageHost.Controls.Clear();
             pageHost.Controls.Add(active);
             CurrentPage = index;
+            if (index == 1) _ = RefreshLatencyQuietly();
             for (var i = 0; i < navigationButtons.Length; i++) navigationButtons[i].Selected = i == index;
         }
         finally
