@@ -171,9 +171,8 @@ jobs:
 
           Download **AppTunnel-Setup-x64.exe** from **Assets** and run the installer. **AppTunnel-Windows-x64.zip** is the portable version. See the [installation guide](https://github.com/$env:GITHUB_REPOSITORY/blob/$env:GITHUB_SHA/README.md) to set up Proton and your apps.
 
-          - **Choose route** (Servers page and setup assistant): pick a Proton server from a list inside AppTunnel, with country, city, load and ping, and AppTunnel creates the WireGuard route in your Proton account. No browser window opens; AppTunnel uses the Proton sign-in it already saved and never sees your password. The Proton window only appears if the session has expired.
-          - Keys are created on your PC and saved before Proton registers them, so a route is never left without its key, even if the connection drops mid-request.
-          - Free accounts see only the free servers their plan allows.
+          - **Create another connection** in the setup assistant and **New WireGuard…** in the Proton account profiles dialog now open the built-in **Choose route** list instead of the Proton browser window.
+          - **Servers → More options → Create in the Proton window…** remains as the browser fallback.
 
           Installer SHA-256: $setupChecksum
 
