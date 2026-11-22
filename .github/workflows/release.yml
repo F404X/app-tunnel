@@ -70,7 +70,9 @@ jobs:
             if ($env:REQUESTED_TAG -cne $tag) { throw "The tag must match $tag." }
             $publish = $env:PUBLISH_REQUESTED -eq 'true'
           } else {
-            $publish = $env:GITHUB_EVENT_NAME -eq 'push' -and $env:HEAD_COMMIT_MESSAGE -ceq "Release AppTunnel $tag"
+            # Only the subject line counts, so trailers such as Co-Authored-By do not block a release.
+            $subject = ($env:HEAD_COMMIT_MESSAGE -split "`r?`n", 2)[0].Trim()
+            $publish = $env:GITHUB_EVENT_NAME -eq 'push' -and $subject -ceq "Release AppTunnel $tag"
           }
           "APPTUNNEL_VERSION=$version" >> $env:GITHUB_ENV
           "tag=$tag" >> $env:GITHUB_OUTPUT
