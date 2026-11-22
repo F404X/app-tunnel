@@ -85,11 +85,20 @@ public static class ProtonSync
     {
         if (new FileInfo(path).Length > 512 * 1024)
             throw new FormatException(Localized.T("The Proton profile is too large.", "O perfil da Proton é muito grande.", "Профиль Proton слишком большой."));
-        var plain = UserProtection.Transform(File.ReadAllBytes(path), encrypt: false);
+        return ReadExport(File.ReadAllBytes(path));
+    }
+
+    [SupportedOSPlatform("windows")]
+    public static ProtonConfiguration ReadExport(byte[] protectedBytes)
+    {
+        var plain = UserProtection.Transform(protectedBytes, encrypt: false);
         try
         {
-            return JsonSerializer.Deserialize(plain, ProtonJson.Default.ProtonConfiguration)
-                ?? throw new FormatException(Localized.T("The Proton profile is empty.", "O perfil da Proton está vazio.", "Профиль Proton пуст."));
+            var profile = JsonSerializer.Deserialize(plain, ProtonJson.Default.ProtonConfiguration);
+            // The fields are not nullable in C#, but a damaged file can still leave them out.
+            if (profile is null || profile.Name is null || string.IsNullOrWhiteSpace(profile.Text))
+                throw new FormatException(Localized.T("The Proton profile is empty.", "O perfil da Proton está vazio.", "Профиль Proton пуст."));
+            return profile;
         }
         finally { CryptographicOperations.ZeroMemory(plain); }
     }

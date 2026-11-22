@@ -14,10 +14,13 @@ internal static class Program
     [STAThread]
     private static void Main(string[] args)
     {
-        if (args.Length is < 2 or > 3 || !Guid.TryParseExact(args[0], "N", out var request)) return;
+        if (args.Length is < 2 or > 4 || !Guid.TryParseExact(args[0], "N", out var request)) return;
+        // "api" runs one background request for the main window with no visible window.
+        var api = args.Length == 4 && args[3] == "api";
+        if (args.Length == 4 && !api) return;
         SetLanguage(args[1]);
         var root = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AppTunnel", "Proton");
-        var inbox = Path.Combine(root, "request-" + request.ToString("N"));
+        var inbox = Path.Combine(root, (api ? "api-" : "request-") + request.ToString("N"));
         if (!Directory.Exists(inbox)) return;
 
         try
@@ -31,6 +34,12 @@ internal static class Program
             }
 
             ApplicationConfiguration.Initialize();
+            if (api)
+            {
+                using var worker = new ApiWindow(root, inbox);
+                Application.Run(worker);
+                return;
+            }
             using var window = new AccountWindow(root, inbox, dark: args.Length == 2 || args[2] == "dark");
             Application.Run(window);
         }

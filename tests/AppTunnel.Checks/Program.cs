@@ -18,6 +18,31 @@ var sample = $"""
 var scenarios = new (string Name, Action Check)[]
 {
     ("telemetry consent, exact previews, deduplication, persistence and failure isolation", TelemetryChecks.Run),
+    ("Proton key pairs match RFC 8032 and produce a WireGuard configuration AppTunnel accepts", () =>
+    {
+        static string Public(string seed) => Convert.ToHexString(Convert.FromBase64String(
+            ProtonKeyPair.FromSeed(Convert.FromHexString(seed)).PublicKey)).ToLowerInvariant();
+        Require(Public("9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60") ==
+            "d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a");
+        Require(Public("4ccd089b28ff96da9db6c346ec114e0f5b8a319f35aba624da8cf6ed4fb8a6fb") ==
+            "3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c");
+        var pair = ProtonKeyPair.Create();
+        Require(ProtonRoutes.IsKey(pair.PublicKey) && ProtonRoutes.IsKey(pair.WireGuardPrivateKey));
+        var server = new ProtonServerChoice("id", "NL-FREE#12", "NL", "Amsterdam", 0, 40, 1.5, "192.0.2.30", "2001:db8::30", key);
+        Require(ProtonRoutes.IsUsable(server));
+        Require(!ProtonRoutes.IsUsable(server with { EntryIp = "2001:db8::1" }));
+        Require(!ProtonRoutes.IsUsable(server with { PublicKey = "x" }));
+        var parsed = WireGuardProfile.Parse(ProtonRoutes.BuildConfig("AppTunnel NL-FREE#12", pair.WireGuardPrivateKey, server));
+        Require(parsed.Endpoint == "192.0.2.30:51820" && parsed.HasIpv6);
+        Require(ProtonServerNames.CountryOf("NL-FREE#12") == "NL" && ProtonServerNames.CountryOf("node") == "");
+        // Proton answers with the key wrapped as PEM/SPKI, exactly as its certificate API returns it.
+        var raw = Convert.FromBase64String(pair.PublicKey);
+        var newline = ((char)10).ToString();
+        var pem = "-----BEGIN PUBLIC KEY-----" + newline +
+            Convert.ToBase64String([0x30, 0x2a, 0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x70, 0x03, 0x21, 0x00, .. raw]) + newline + "-----END PUBLIC KEY-----";
+        Require(ProtonRoutes.SameKey(pem, pair.PublicKey) && ProtonRoutes.SameKey(pair.PublicKey, pair.PublicKey));
+        Require(!ProtonRoutes.SameKey(pem, ProtonKeyPair.Create().PublicKey) && !ProtonRoutes.SameKey(null, pair.PublicKey));
+    }),
     ("route latency requires five seconds of slow replies from the same live session", () =>
     {
         var latency = new RouteLatency();

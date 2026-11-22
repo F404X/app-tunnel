@@ -42,10 +42,17 @@ Um **perfil WireGuard** guarda o endereço do servidor e a chave necessária par
 
 Na primeira abertura, o **assistente de configuração** confere o WireSock e o WebView2, abre o login da Proton e pergunta quais aplicativos usam a VPN. Ao terminar, clique em **Conectar agora**. Para repetir o assistente, use **Configurações → Refazer configuração inicial**.
 
-### Criar um perfil pelo AppTunnel
+### Escolher uma rota sem abrir o navegador
 
-1. Abra **Servidores (Servers) → Adicionar outro país (Add another country) → Perfis da conta Proton…**. Se aparecer a janela de login da Proton, entre na sua conta e conclua a verificação solicitada. Volte ao AppTunnel e abra **Perfis da conta Proton…** novamente para ver o que já existe.
-2. Se precisar de um perfil novo, use **Adicionar outro país → Criar na Proton… (Create in Proton…)**. Dê um nome fácil de reconhecer, como `AppTunnel casa`.
+1. Abra **Servidores (Servers) → Escolher rota (Choose route)**. O AppTunnel lista os servidores que a sua conta Proton pode usar, com país, cidade, carga e ping. Contas gratuitas veem só os servidores gratuitos.
+2. Clique em um servidor. O AppTunnel cria a configuração WireGuard na sua conta Proton e a salva em **Servidores** em poucos segundos.
+
+A lista e a criação usam a sessão da Proton já salva no AppTunnel, em segundo plano e sem abrir janela. O AppTunnel nunca recebe a sua senha. Se a sessão tiver expirado, a janela de login da Proton abre uma vez; entre e escolha a rota de novo. A chave é gerada no seu PC e guardada antes do pedido à Proton, então uma rota criada nunca fica sem a chave, mesmo se a conexão cair no meio.
+
+### Criar um perfil pela janela da Proton
+
+1. Abra **Servidores (Servers) → Mais opções (More options) → Perfis da conta Proton…**. Se aparecer a janela de login da Proton, entre na sua conta e conclua a verificação solicitada. Volte ao AppTunnel e abra **Perfis da conta Proton…** novamente para ver o que já existe.
+2. Se precisar de um perfil novo, use **Mais opções → Criar na janela da Proton… (Create in the Proton window…)**. Dê um nome fácil de reconhecer, como `AppTunnel casa`.
 3. Clique em **Criar com servidor recomendado** para usar o servidor sugerido pela Proton. Para escolher a localização, clique em **Escolher outro servidor…** e depois em **Criar** ao lado do servidor na lista da Proton.
 4. Aguarde com a janela aberta até o perfil aparecer em **Servidores**. A configuração é importada automaticamente quando a Proton a exibe completa.
 
@@ -55,7 +62,7 @@ Os perfis com uma chave utilizável são importados automaticamente. Se aparecer
 
 ### Usar um arquivo `.conf` que você já tem
 
-1. Abra **Servidores → Adicionar outro país → Importar arquivo .conf… (Import a .conf file…)**.
+1. Abra **Servidores → Mais opções → Importar arquivo .conf… (Import a .conf file…)**.
 2. Escolha o arquivo original baixado da Proton e clique em **Abrir**.
 3. O servidor importado aparece na lista. Se preferir gerar o arquivo no seu navegador, acesse [Downloads da conta Proton](https://account.protonvpn.com/downloads#wireguard-configuration) e use **Configuração WireGuard**.
 
@@ -206,7 +213,7 @@ Se estiver na versão 0.4.0 ou anterior, baixe o instalador pela página de [Rel
 | --- | --- |
 | O executável pede o .NET | Baixe o instalador atual em Releases. Se preferir continuar com um ZIP antigo, instale o [.NET Desktop Runtime 10 x64](https://dotnet.microsoft.com/en-us/download/dotnet/10.0). |
 | A janela Proton fica indisponível | Instale ou atualize o **WebView2 Runtime**. Você também pode baixar o perfil pela página oficial da Proton e usar **Importar .conf**. |
-| O assistente não confirma a criação | Confira **Servidores → Adicionar outro país → Perfis da conta Proton…** antes de repetir. Se o formulário integrado estiver indisponível, use a página da Proton e importe o `.conf`. |
+| O assistente não confirma a criação | Confira **Servidores → Mais opções → Perfis da conta Proton…** antes de repetir. Se o formulário integrado estiver indisponível, use a página da Proton e importe o `.conf`. |
 | O WireSock aparece como ausente | Instale o pacote **WireSock Secure Connect CLI** pela página oficial ou pelo comando acima. Em **Diagnóstico (Diagnostics)**, use **Detectar novamente (Detect again)**. Se ainda precisar indicar o caminho manualmente, use **Localizar WireSock… (Locate WireSock…)** e procure `wiresock-client.exe`, normalmente em `C:\Program Files\WireSock Secure Connect\sdk\`. |
 | A importação diz que `PrivateKey` está vazia ou inválida | Use o `.conf` original que contém a chave privada ou gere um novo perfil na Proton. |
 | O servidor aparece em uso e a chamada continua falhando | Confira se ligou o executável certo em **Apps**, aplique as alterações, feche o cliente de chat por completo e reabra. Se necessário, teste outro servidor e confira os registros em **Diagnóstico**. |

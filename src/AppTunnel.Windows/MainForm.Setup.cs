@@ -153,8 +153,9 @@ internal sealed partial class MainForm
         {
             if (step == 1 && owner.settings.Profiles.Count == 0)
             {
-                // Proton creates the WireGuard connection in its own window; the profile arrives through MainForm.Poll.
-                owner.OpenProton(create: true);
+                // Lists Proton's servers here; only a missing sign-in opens the Proton window.
+                await owner.ChooseRoute(this);
+                Render(force: true);
                 return;
             }
             if (step < 2)
@@ -167,7 +168,6 @@ internal sealed partial class MainForm
             foreach (var (tile, targets) in tiles)
                 (tile.On ? Chosen : Declined).AddRange(targets);
             DialogResult = DialogResult.OK;
-            await Task.CompletedTask;
         }
 
         private void Go(int index)
@@ -187,10 +187,10 @@ internal sealed partial class MainForm
             signature = now;
 
             back.Visible = step > 0;
-            next.Enabled = step != 1 || LoggedIn;
+            next.Enabled = true;
             next.Text = step switch
             {
-                1 when owner.settings.Profiles.Count == 0 => T("Create connection", "Criar conexão", "Создать подключение"),
+                1 when owner.settings.Profiles.Count == 0 => T("Choose route", "Escolher rota", "Выбрать маршрут"),
                 2 => T("Connect now", "Conectar agora", "Подключиться"),
                 _ => T("Continue", "Continuar", "Продолжить")
             };
@@ -258,9 +258,9 @@ internal sealed partial class MainForm
                         ? T("Your connection is saved. You can add a second country later for a backup.",
                             "Sua conexão está salva. Depois você pode adicionar outro país como reserva.",
                             "Подключение сохранено. Позже можно добавить вторую страну как резерв.")
-                        : T("Now create the connection. Pick a server in the Proton window and AppTunnel saves it here.",
-                            "Agora é só criar a conexão. Escolha um servidor na janela da Proton e o AppTunnel salva aqui.",
-                            "Теперь создайте подключение. Выберите сервер в окне Proton, и AppTunnel сохранит его.")
+                        : T("Now choose a route. AppTunnel lists the Proton servers and creates the connection for you.",
+                            "Agora é só escolher a rota. O AppTunnel lista os servidores da Proton e cria a conexão para você.",
+                            "Теперь выберите маршрут. AppTunnel покажет серверы Proton и создаст подключение.")
                     : T("Proton's official page opens in its own window. AppTunnel never sees your password.",
                         "A página oficial da Proton abre em uma janela própria. O AppTunnel nunca vê sua senha.",
                         "Официальная страница Proton откроется в отдельном окне. AppTunnel не видит ваш пароль."),

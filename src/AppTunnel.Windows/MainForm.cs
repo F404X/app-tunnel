@@ -33,7 +33,7 @@ internal sealed partial class MainForm : Form
 
     [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
     public int CurrentPage { get; private set; }
-    public bool HasPendingOperation => busy || pingBusy || updateBusy;
+    public bool HasPendingOperation => busy || pingBusy || updateBusy || choosingRoute;
     public bool CanDisconnect => !busy && !updateBusy && activeSession is not null;
     public event Action<string>? LanguageRequested;
 
@@ -763,22 +763,8 @@ internal sealed partial class MainForm : Form
             if (session is not null) _ = MonitorRouteLatency(session);
             var note = proton.Poll(config =>
             {
-                var profile = store.ImportProton(config, settings.Profiles);
-                if (profile is null) return;
-                var selected = settings.SelectedProfile;
-                settings.Profiles.Add(profile);
-                if (SelectedRoute() is null) settings.SelectedProfile = profile.Id;
-                try { Save(); }
-                catch
-                {
-                    settings.Profiles.Remove(profile);
-                    settings.SelectedProfile = selected;
-                    store.Remove(profile.Id);
-                    throw;
-                }
-                DrawRoutes();
-                UpdateState();
-                footer.Text = T($"Saved {profile.Name} from Proton VPN.", $"Perfil {profile.Name} salvo pela Proton VPN.", $"Профиль {profile.Name} из Proton VPN сохранён.");
+                if (AddProtonProfile(config) is { } profile)
+                    footer.Text = T($"Saved {profile.Name} from Proton VPN.", $"Perfil {profile.Name} salvo pela Proton VPN.", $"Профиль {profile.Name} из Proton VPN сохранён.");
             });
             RenderProtonAccount();
             if (note is not null) footer.Text = note;
@@ -790,6 +776,27 @@ internal sealed partial class MainForm : Form
             monitorFailed = true;
             footer.Text = error.Message;
         }
+    }
+
+    // Saves a Proton profile unless the same key is already saved; returns the new profile.
+    private StoredProfile? AddProtonProfile(ProtonConfiguration config)
+    {
+        var profile = store.ImportProton(config, settings.Profiles);
+        if (profile is null) return null;
+        var selected = settings.SelectedProfile;
+        settings.Profiles.Add(profile);
+        if (SelectedRoute() is null) settings.SelectedProfile = profile.Id;
+        try { Save(); }
+        catch
+        {
+            settings.Profiles.Remove(profile);
+            settings.SelectedProfile = selected;
+            store.Remove(profile.Id);
+            throw;
+        }
+        DrawRoutes();
+        UpdateState();
+        return profile;
     }
 
     protected override void Dispose(bool disposing)

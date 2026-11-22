@@ -523,6 +523,10 @@ internal sealed class ServerRow : PaintedButton
     public bool Measured { get; set; }
     public event Action<Point>? MenuRequested;
 
+    // The route chooser lists servers to pick once, so it hides the radio and the menu.
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+    public bool Choice { get; init; }
+
     public ServerRow(bool automatic)
     {
         Automatic = automatic;
@@ -558,7 +562,7 @@ internal sealed class ServerRow : PaintedButton
     protected override void OnMouseMove(MouseEventArgs e)
     {
         base.OnMouseMove(e);
-        var over = !Automatic && MenuBounds.Contains(e.Location);
+        var over = !Automatic && !Choice && MenuBounds.Contains(e.Location);
         if (over == overMenu) return;
         overMenu = over;
         Invalidate();
@@ -573,13 +577,13 @@ internal sealed class ServerRow : PaintedButton
     protected override void OnMouseUp(MouseEventArgs mevent)
     {
         base.OnMouseUp(mevent);
-        if (!Automatic && mevent.Button == MouseButtons.Right) MenuRequested?.Invoke(mevent.Location);
+        if (!Automatic && !Choice && mevent.Button == MouseButtons.Right) MenuRequested?.Invoke(mevent.Location);
     }
 
     // The menu button sits inside the row, so its clicks open the menu instead of choosing the server.
     protected override void OnClick(EventArgs e)
     {
-        if (e is MouseEventArgs mouse && !Automatic && MenuBounds.Contains(mouse.Location))
+        if (e is MouseEventArgs mouse && !Automatic && !Choice && MenuBounds.Contains(mouse.Location))
         {
             MenuRequested?.Invoke(new Point(MenuBounds.Left, MenuBounds.Bottom));
             return;
@@ -590,7 +594,7 @@ internal sealed class ServerRow : PaintedButton
     protected override void OnKeyDown(KeyEventArgs kevent)
     {
         base.OnKeyDown(kevent);
-        if (Automatic || kevent.KeyCode != Keys.Apps && !(kevent.KeyCode == Keys.F10 && kevent.Shift)) return;
+        if (Automatic || Choice || kevent.KeyCode != Keys.Apps && !(kevent.KeyCode == Keys.F10 && kevent.Shift)) return;
         kevent.Handled = true;
         MenuRequested?.Invoke(new Point(MenuBounds.Left, MenuBounds.Bottom));
     }
@@ -605,9 +609,12 @@ internal sealed class ServerRow : PaintedButton
         PaintFocus(g, Rectangle.Inflate(bounds, -Px(3), -Px(3)), radius - Px(3));
         var left = Px(Automatic ? 20 : 18);
         var radio = new RectangleF(left, (Height - Px(22)) / 2f, Px(22), Px(22));
-        PaintCircle(g, radio, Color.Transparent, Picked ? Accent : InputBorder, Math.Max(1.5f, 2 * S));
-        if (Picked) PaintCircle(g, RectangleF.Inflate(radio, -Px(6), -Px(6)), Accent);
-        var x = (int)radio.Right + Px(Automatic ? 16 : 14);
+        if (!Choice)
+        {
+            PaintCircle(g, radio, Color.Transparent, Picked ? Accent : InputBorder, Math.Max(1.5f, 2 * S));
+            if (Picked) PaintCircle(g, RectangleF.Inflate(radio, -Px(6), -Px(6)), Accent);
+        }
+        var x = Choice ? left : (int)radio.Right + Px(Automatic ? 16 : 14);
 
         if (Automatic)
         {
@@ -632,8 +639,12 @@ internal sealed class ServerRow : PaintedButton
         PaintRounded(g, code, 8 * S, Raised, Border);
         PaintText(g, Code, Body(9.75f, bold: true), code, DesktopTheme.Text, StringAlignment.Center);
         var menu = MenuBounds;
-        if (overMenu) PaintRounded(g, menu, 8 * S, Raised);
-        PaintIcon(g, Glyph.More, Rectangle.Inflate(menu, -Px(6), -Px(6)), overMenu ? DesktopTheme.Text : Muted);
+        if (!Choice)
+        {
+            if (overMenu) PaintRounded(g, menu, 8 * S, Raised);
+            PaintIcon(g, Glyph.More, Rectangle.Inflate(menu, -Px(6), -Px(6)), overMenu ? DesktopTheme.Text : Muted);
+        }
+        else menu = new Rectangle(Width - Px(6), 0, 0, Height);
         var meter = new Rectangle(menu.X - Px(12) - Px(200), 0, Px(200), Height);
         var ms = new Rectangle(meter.Right - Px(96), 0, Px(96), Height);
         PaintText(g, LatencyText, Body(10.5f), ms, Measured && Latency is null ? Muted : DesktopTheme.Text, StringAlignment.Far);
