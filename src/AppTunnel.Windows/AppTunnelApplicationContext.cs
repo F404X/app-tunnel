@@ -92,7 +92,7 @@ internal sealed class AppTunnelApplicationContext : ApplicationContext
     {
         var menu = new ContextMenuStrip
         {
-            Font = DesktopTheme.Body(), Renderer = new ToolStripProfessionalRenderer(new ThemeMenuColors())
+            Font = DesktopTheme.Body(), Renderer = new ThemeMenuRenderer()
         };
         menu.Items.Add(T("Open AppTunnel", "Abrir AppTunnel", "Открыть AppTunnel"), null, (_, _) => ShowWindow());
         var disconnect = menu.Items.Add(T("Disconnect VPN", "Desconectar VPN", "Отключить VPN"));

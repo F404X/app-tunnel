@@ -6,32 +6,15 @@ namespace AppTunnel.Windows;
 
 internal sealed partial class MainForm
 {
-    private readonly CheckBox tunnelDns = MakeCheck(T("Use profile DNS (shared resolver)", "Usar DNS do perfil (resolvedor compartilhado)",
-        "DNS профиля (общий резолвер)"));
-    private readonly CheckBox guardIpv6 = MakeCheck(T("Block public IPv6 without an IPv6 route", "Bloquear IPv6 público sem rota IPv6",
-        "Блокировать публичный IPv6 без маршрута"));
-    private readonly ComboBox protocolMode = new()
-    {
-        DropDownStyle = ComboBoxStyle.DropDownList, FlatStyle = FlatStyle.Flat, Font = Body(),
-        BackColor = Raised, ForeColor = DesktopTheme.Text, Width = 245, Margin = new Padding(8, 2, 0, 0)
-    };
+    private readonly CheckBox tunnelDns = MakeCheck(T("Use the profile DNS", "Usar o DNS do perfil", "DNS из профиля"));
+    private readonly CheckBox guardIpv6 = MakeCheck(T("Block IPv6 without a route (prevents leaks)", "Bloquear IPv6 sem rota (evita vazamento)",
+        "Блокировать IPv6 без маршрута (против утечек)"));
+    private readonly ThemeCombo protocolMode = new() { Margin = new Padding(0) };
     private readonly Label healthDetails = MakeLabel("", muted: true);
     private TunnelHealth lastHealth;
     private bool recoveryUsed;
 
     private ProtocolPreference SelectedProtocol => (ProtocolPreference)Math.Max(0, protocolMode.SelectedIndex);
-
-    private Control BuildProtocolControl()
-    {
-        var caption = T("VPN protocol", "Protocolo VPN", "Протокол VPN");
-        var label = MakeLabel(caption, muted: true);
-        label.Dock = DockStyle.None;
-        label.AutoSize = true;
-        label.Margin = new Padding(0, 6, 2, 0);
-        protocolMode.AccessibleName = caption;
-        foreach (var protocol in Enum.GetValues<ProtocolPreference>()) protocolMode.Items.Add(VpnProtocols.Name(protocol));
-        return MakeBar(label, protocolMode);
-    }
 
     private TunnelHealth ReadActiveDiagnostics(TunnelSession session)
     {
@@ -49,6 +32,8 @@ internal sealed partial class MainForm
             _ => (TelemetryEvent?)null
         };
         if (ev is { } item) telemetry.RecordEvent(item);
+        // The Home health card reads lastHealth, so a new state redraws it.
+        if (!IsDisposed && !Disposing && !initializing) UpdateState();
         return state;
     }
 
@@ -61,18 +46,32 @@ internal sealed partial class MainForm
         try
         {
             var route = new VpnRoute<StoredProfile>(session.Profile, session.Profile.Endpoint, session.Protocol);
-            var plan = VpnProtocols.Plan(ProtocolPreference.Automatic, route, settings.Profiles.Select(profile =>
-                new VpnRoute<StoredProfile>(profile, profile.Endpoint, profile.Protocol))).Skip(1).ToArray();
+            // Automatic protocol tries other protocols; automatic server mode also moves to the other servers.
+            // A pinned server never leaves its endpoint.
+            var others = settings.Profiles.Where(profile => profile.Id != session.Profile.Id &&
+                    !profile.Endpoint.Equals(session.Profile.Endpoint, StringComparison.OrdinalIgnoreCase))
+                .Select(profile => new VpnRoute<StoredProfile>(profile, profile.Endpoint, profile.Protocol)).ToArray();
+            VpnRoute<StoredProfile>[] plan;
+            if (session.RequestedProtocol == ProtocolPreference.Automatic)
+            {
+                plan = VpnProtocols.Plan(ProtocolPreference.Automatic, route, settings.AutoServer ? others : []).Skip(1).ToArray();
+                if (settings.AutoServer && plan.Length == 0) plan = others.Take(3).ToArray();
+            }
+            // An explicit protocol (or the profile's own) is kept on every fallback server.
+            else plan = settings.AutoServer
+                ? others.Take(3).Select(other => VpnProtocols.Plan(session.RequestedProtocol, other, [])[0]).ToArray()
+                : [];
             if (plan.Length == 0) return;
             var routed = SessionApplications(session);
             if (routed.Length == 0) return;
             activeSession = await Task.Run(() => engine.Connect(plan, profile => store.Read(profile.Id), routed,
                 session.RequestedPrograms, session.Options, session.Diagnostics, session.EnginePath,
-                ProtocolPreference.Automatic, AddLog,
-                session.RequestedProfile == Guid.Empty ? session.Profile.Id : session.RequestedProfile));
+                session.RequestedProtocol, AddLog,
+                session.RequestedProfile == Guid.Empty ? session.Profile.Id : session.RequestedProfile,
+                tryEveryRoute: settings.AutoServer));
             ReadActiveDiagnostics(activeSession);
-            footer.Text = T("Fallback route applied. Reopen any affected calls.", "Rota alternativa aplicada. Reabra chamadas afetadas.",
-                "Резервный маршрут применён. Возобновите прерванные звонки.");
+            footer.Text = T("Moved to a backup server. Reopen any affected calls.", "Mudou para um servidor reserva. Reabra chamadas afetadas.",
+                "Переключено на резервный сервер. Возобновите прерванные звонки.");
         }
         catch (Exception error) when (Expected(error))
         {

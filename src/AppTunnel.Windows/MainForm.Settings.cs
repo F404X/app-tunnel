@@ -22,8 +22,13 @@ internal sealed partial class MainForm
 
     private Control BuildSettingsPage()
     {
-        var page = MakePage();
-        var content = Column(34, 29, 29, 28, 10, 34, 36, 10, 34, 29, 36, 10, 34, 40, 34, 40, 34, 12, 34, 29, 29, 29, 42, 34, 10, 42, 0);
+        var page = Column(84, 18, 0);
+        page.BackColor = Background;
+        page.Controls.Add(new PageHeader(T("Settings", "Configurações", "Настройки"),
+            T("Startup, appearance, updates and privacy.", "Inicialização, aparência, atualizações e privacidade.",
+                "Автозапуск, оформление, обновления и конфиденциальность.")) { Dock = DockStyle.Fill }, 0, 0);
+        var content = Column(34, 32, 32, 28, 14, 34, 44, 14, 34, 32, 44, 14, 34, 44, 34, 44, 34, 14, 34, 32, 32, 32, 46, 34, 14, 46, 0);
+        content.BackColor = Background;
         content.Controls.Add(SectionTitle(T("Startup", "Inicialização", "Автозапуск")), 0, 0);
         startup.AutoCheck = false;
         startup.Click += (_, _) => StartupRequested?.Invoke();
@@ -51,11 +56,9 @@ internal sealed partial class MainForm
                 "Автоматическая установка доступна в установленной версии."), muted: true), 0, 3);
 
         content.Controls.Add(SectionTitle(T("Appearance", "Aparência", "Оформление")), 0, 5);
-        var themes = new ComboBox
+        var themes = new ThemeCombo
         {
-            DropDownStyle = ComboBoxStyle.DropDownList, FlatStyle = FlatStyle.Flat, Font = Body(),
-            BackColor = Raised, ForeColor = DesktopTheme.Text, Width = 230, Margin = new Padding(0, 2, 0, 0),
-            AccessibleName = T("Color theme", "Tema de cores", "Цветовая тема")
+            Width = 240, Margin = new Padding(0, 2, 0, 0), AccessibleName = T("Color theme", "Tema de cores", "Цветовая тема")
         };
         themes.Items.AddRange([
             T("Follow Windows", "Seguir o Windows", "Как в Windows"),
@@ -71,19 +74,20 @@ internal sealed partial class MainForm
         var installed = MakeLabel($"AppTunnel {AppUpdater.CurrentVersion}", muted: true);
         installed.Dock = DockStyle.None;
         installed.AutoSize = true;
-        installed.Margin = new Padding(10, 7, 0, 0);
+        installed.Margin = new Padding(10, 11, 0, 0);
         content.Controls.Add(MakeBar(checkUpdates, installed), 0, 13);
         content.Controls.Add(updateStatus, 0, 14);
         updateWireSock.Click += async (_, _) => await CheckWireSockUpdate();
         content.Controls.Add(MakeBar(updateWireSock), 0, 15);
         content.Controls.Add(wireSockUpdateStatus, 0, 16);
         AddPrivacyControls(content, 18);
-        content.Controls.Add(MakeBar(ActionButton(TermsWindow.Caption, () => TermsWindow.Show(this))), 0, 25);
-        var scroll = new Panel { Dock = DockStyle.Fill, AutoScroll = true, Margin = new Padding(0) };
+        content.Controls.Add(MakeBar(ActionButton(TermsWindow.Caption, () => TermsWindow.Show(this)),
+            ActionButton(T("Run first-time setup", "Refazer configuração inicial", "Запустить первоначальную настройку"), RunSetup)), 0, 25);
+        var scroll = new Panel { Dock = DockStyle.Fill, AutoScroll = true, Margin = new Padding(0), BackColor = Background };
         content.Dock = DockStyle.Top;
-        content.Height = 786;
+        content.Height = 880;
         scroll.Controls.Add(content);
-        page.Controls.Add(scroll);
+        page.Controls.Add(scroll, 0, 2);
         return page;
     }
 

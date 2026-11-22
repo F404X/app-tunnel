@@ -11,18 +11,21 @@ internal sealed partial class MainForm
         var languages = new[] { ("en", "us", "English"), ("pt", "br", "Português"), ("ru", "ru", "Русский") };
         var (_, flag, _) = languages.First(language => language.Item1 == Language);
         var title = T("Language", "Idioma", "Язык");
-        var button = MakeButton(title + "  ▾", ButtonKind.Secondary);
+        var current = languages.First(language => language.Item1 == Language).Item3;
+        var button = MakeButton($"{current} · {title}", ButtonKind.Quiet);
+        button.Font = Body(9);
+        button.AutoSize = false;
         button.Dock = DockStyle.Fill;
-        button.Margin = new Padding(0, 2, 0, 3);
+        button.Margin = new Padding(0, 2, 0, 2);
+        button.Padding = new Padding(12, 0, 8, 0);
         button.AccessibleName = title;
         button.Image = LoadFlag(flag);
 
         var menuFont = new Font("Segoe UI", 10);
         var menu = new ContextMenuStrip
         {
-            Font = menuFont, BackColor = Surface, ForeColor = DesktopTheme.Text,
-            Renderer = new ToolStripProfessionalRenderer(new ThemeMenuColors()),
-            ShowImageMargin = true, ShowCheckMargin = true, ImageScalingSize = new Size(24, 18)
+            Font = menuFont, BackColor = Raised, ForeColor = DesktopTheme.Text, Renderer = new ThemeMenuRenderer(),
+            ShowImageMargin = true, ShowCheckMargin = true, ImageScalingSize = new Size(24, 18), Padding = new Padding(4)
         };
         foreach (var (code, country, name) in languages)
         {

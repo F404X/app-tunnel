@@ -56,7 +56,8 @@ internal sealed partial class MainForm
 
     private async Task MonitorRouteLatency(TunnelSession session)
     {
-        if (probingActiveRoute || settings.Profiles.Count < 2) return;
+        // A pinned server stays put; only automatic mode moves to a faster one.
+        if (probingActiveRoute || !settings.AutoServer || settings.Profiles.Count < 2) return;
         probingActiveRoute = true;
         var token = latencyLifetime.Token;
         try
@@ -92,7 +93,7 @@ internal sealed partial class MainForm
         finally { probingActiveRoute = false; }
     }
 
-    private bool CanSwitchRoute(TunnelSession session) => !IsDisposed && !Disposing && Enabled &&
+    private bool CanSwitchRoute(TunnelSession session) => !IsDisposed && !Disposing && Enabled && settings.AutoServer &&
         !HasPendingOperation && activeSession?.ConfigPath == session.ConfigPath;
 
     private async Task SwitchSlowRoute(TunnelSession session, StoredProfile next, long latency)

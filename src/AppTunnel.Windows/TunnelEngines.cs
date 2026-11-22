@@ -31,9 +31,11 @@ internal sealed class TunnelEngines
     public TunnelSession Connect(IReadOnlyList<VpnRoute<StoredProfile>> plan, Func<StoredProfile, WireGuardProfile> readProfile,
         ApplicationTarget[] routed, string[] requested, RouteOptions options, bool diagnostics,
         string preferredPath, ProtocolPreference preference, Action<string> output, Guid requestedProfile = default,
-        bool verifyHandshake = false)
+        bool verifyHandshake = false, bool tryEveryRoute = false)
     {
-        var automatic = preference == ProtocolPreference.Automatic;
+        // Automatic protocol, or a caller with several fallback routes, moves on to the next route when one fails
+        // and accepts a route only after its handshake is confirmed.
+        var automatic = preference == ProtocolPreference.Automatic || tryEveryRoute;
         var paths = routed.Select(target => target.Match).ToArray();
         var attempted = new HashSet<(string Endpoint, VpnProtocol Protocol)>();
         var failures = new List<string>();

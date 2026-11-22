@@ -37,13 +37,8 @@ internal sealed partial class MainForm
         var label = MakeLabel(caption, muted: true);
         label.Dock = DockStyle.None;
         label.AutoSize = true;
-        label.Margin = new Padding(0, 6, 8, 0);
-        var mode = new ComboBox
-        {
-            DropDownStyle = ComboBoxStyle.DropDownList, FlatStyle = FlatStyle.Flat, Font = Body(),
-            BackColor = Raised, ForeColor = DesktopTheme.Text, Width = 230, Margin = new Padding(0, 2, 0, 0),
-            AccessibleName = caption
-        };
+        label.Margin = new Padding(0, 9, 10, 0);
+        var mode = new ThemeCombo { Width = 240, Margin = new Padding(0, 2, 0, 0), AccessibleName = caption };
         mode.Items.AddRange([
             T("Ask every time", "Perguntar sempre", "Всегда спрашивать"),
             T("Restart automatically", "Reiniciar automaticamente", "Перезапускать автоматически"),
@@ -123,9 +118,17 @@ internal sealed partial class MainForm
             var results = await PingRoutesAsync(settings.Profiles.ToArray(), minimum: 1, latencyLifetime.Token);
             if (IsDisposed || Disposing || pingBusy) return;
             foreach (var result in results) latencies[result.profile.Id] = result.latency;
-            // While disconnected, Automatic keeps pointing at the fastest route so the Home page shows what will be used.
-            if (settings.AutoServer && activeSession is null && !busy && SelectFastestRoute()) Attempt(Save);
-            if (!busy) UpdateState();
+            // While disconnected, automatic mode follows the fastest server so the next connection starts there.
+            if (settings.AutoServer && activeSession is null && !busy && Fastest() is { } best && best.Profile.Id != settings.SelectedProfile)
+            {
+                settings.SelectedProfile = best.Profile.Id;
+                Attempt(Save);
+            }
+            if (!busy)
+            {
+                DrawRoutes();
+                UpdateState();
+            }
         }
         catch (OperationCanceledException) when (latencyLifetime.IsCancellationRequested) { }
         finally

@@ -38,24 +38,24 @@ Na primeira abertura, o aplicativo usa o idioma do Windows quando ele é portugu
 
 ## 3. Escolha o servidor da Proton
 
-Na primeira abertura, o **assistente de configuração** guia três etapas: confere o WireSock, abre a Proton para criar a conexão e mostra os aplicativos detectados. Ao final, **Conectar agora** liga a VPN. As seções abaixo explicam os mesmos passos feitos manualmente.
+Um **perfil WireGuard** guarda o endereço do servidor e a chave necessária para conectar. Você pode reaproveitar um perfil da sua conta Proton, criar um pelo assistente ou importar um arquivo que já tenha guardado. Adicione pelo menos dois servidores diferentes para permitir a troca automática. Um servidor já é suficiente para conectar.
 
-Um **perfil WireGuard** guarda o endereço do servidor e a chave necessária para conectar. Você pode reaproveitar um perfil da sua conta Proton, criar um pelo assistente ou importar um arquivo que já tenha guardado. Adicione pelo menos dois servidores diferentes para que o modo **Automático** escolha o mais rápido. Uma rota já é suficiente para conectar.
+Na primeira abertura, o **assistente de configuração** confere o WireSock e o WebView2, abre o login da Proton e pergunta quais aplicativos usam a VPN. Ao terminar, clique em **Conectar agora**. Para repetir o assistente, use **Configurações → Refazer configuração inicial**.
 
 ### Criar um perfil pelo AppTunnel
 
-1. Abra **Servidores (Servers) → Adicionar servidor (Add server) → Perfis da conta Proton… (Proton account profiles…)**. Se aparecer a janela de login da Proton, entre na sua conta e conclua a verificação solicitada. Volte ao AppTunnel e abra **Perfis da conta** novamente para ver o que já existe.
-2. Se precisar de um perfil novo, use **Adicionar servidor → Criar na Proton… (Create on Proton…)**. Dê um nome fácil de reconhecer, como `AppTunnel casa`.
+1. Abra **Servidores (Servers) → Adicionar outro país (Add another country) → Perfis da conta Proton…**. Se aparecer a janela de login da Proton, entre na sua conta e conclua a verificação solicitada. Volte ao AppTunnel e abra **Perfis da conta Proton…** novamente para ver o que já existe.
+2. Se precisar de um perfil novo, use **Adicionar outro país → Criar na Proton… (Create in Proton…)**. Dê um nome fácil de reconhecer, como `AppTunnel casa`.
 3. Clique em **Criar com servidor recomendado** para usar o servidor sugerido pela Proton. Para escolher a localização, clique em **Escolher outro servidor…** e depois em **Criar** ao lado do servidor na lista da Proton.
 4. Aguarde com a janela aberta até o perfil aparecer em **Servidores**. A configuração é importada automaticamente quando a Proton a exibe completa.
 
-Cada confirmação de criação adiciona um perfil persistente à sua conta Proton. Login, sincronização, conexão e troca de rota usam os perfis disponíveis. Se a criação ficar sem confirmação, confira **Perfis da conta** antes de tentar outra vez. Para revogar um perfil remoto, abra a conta na Proton.
+Cada confirmação de criação adiciona um perfil persistente à sua conta Proton. Login, sincronização, conexão e troca de rota usam os perfis disponíveis. Se a criação ficar sem confirmação, confira **Perfis da conta Proton…** antes de tentar outra vez. Para revogar um perfil remoto, abra a conta na Proton.
 
 Os perfis com uma chave utilizável são importados automaticamente. Se aparecer **Requer o .conf original**, importe o arquivo salvo na criação ou crie um novo perfil. A Proton usa uma chave privada gerada na criação do perfil. [Guia oficial da Proton](https://protonvpn.com/support/wireguard-configurations) · [Implementação da página de configuração](https://github.com/ProtonMail/WebClients/blob/main/packages/components/containers/vpn/WireGuardConfigurationSection/WireGuardConfigurationSection.tsx#L387-L404)
 
 ### Usar um arquivo `.conf` que você já tem
 
-1. Abra **Servidores → Adicionar servidor → Importar arquivo .conf… (Import a .conf file…)**.
+1. Abra **Servidores → Adicionar outro país → Importar arquivo .conf… (Import a .conf file…)**.
 2. Escolha o arquivo original baixado da Proton e clique em **Abrir**.
 3. O servidor importado aparece na lista. Se preferir gerar o arquivo no seu navegador, acesse [Downloads da conta Proton](https://account.protonvpn.com/downloads#wireguard-configuration) e use **Configuração WireGuard**.
 
@@ -63,12 +63,12 @@ Guarde os arquivos `.conf` em um local privado. Eles contêm a chave privada do 
 
 ## 4. Selecione os aplicativos e conecte
 
-1. Abra **Apps → Explorar aplicativos comuns (Explore common apps)**. Marque os aplicativos detectados e clique em **Aplicar seleção**. O catálogo lista Discord, PTB, Canary, Serein, Telegram, Signal e outros clientes. Os cartões escurecidos ficam indisponíveis.
-2. Cada app tem um botão de ligar e desligar e mostra **Pela VPN** ou **Direto**. Se o programa estiver fora da pasta padrão, use **Adicionar app (Add app)**, que oferece **De um app aberto**, **Procurar um .exe** e **Pasta inteira**. Ao usar **Pasta inteira**, escolha a pasta do próprio aplicativo, pois a regra abrange os executáveis nela.
-3. Em **Servidores**, deixe **Automático (recomendado)** para usar o servidor com menor latência ou clique em um servidor para fixá-lo.
-4. Em **Início (Home)**, clique no botão grande de ligar. Aguarde **Protegido (Protected)**. Se um Discord oficial, PTB ou Canary estiver aberto e incluído na rota, o AppTunnel pergunta se você quer reiniciá-lo. Escolha **Reiniciar agora** para recriar a conexão de voz e vídeo ou **Agora não** para reiniciar o Discord depois. Marque **Lembrar minha escolha** para não ver a pergunta de novo. A escolha pode ser alterada em **Configurações → Conexão**. Com o Serein, você pode seguir direto para o teste da chamada ou da transmissão.
+1. Abra **Apps → Adicionar app (Add app) → Explorar apps comuns… (Explore common apps…)**. Marque os aplicativos detectados e clique em **Aplicar seleção**. O catálogo lista Discord, PTB, Canary, Serein, Telegram, Signal e outros clientes. Os cartões escurecidos ficam indisponíveis. Para programas portáteis, use **Procurar no PC…**, **De um app aberto…** ou arraste o `.exe`, o atalho ou a pasta para a área tracejada.
+2. Ligue a chave de cada app que deve usar o túnel. A etiqueta mostra **Pela VPN** ou **Direto**. Para remover um app, clique no **×** da linha. Ao usar **Pasta inteira…**, escolha a pasta do próprio aplicativo, pois a regra abrange os executáveis nela.
+3. Em **Servidores**, deixe **Automático (Recomendado)** para usar o servidor mais rápido ou fixe um servidor da lista.
+4. Em **Início (Home)**, clique no botão redondo e aguarde **Conectado · Protegido (Connected · Protected)**. Se um Discord oficial, PTB ou Canary estiver aberto e incluído na rota, o AppTunnel pergunta se você quer reiniciá-lo. Escolha **Reiniciar agora** para recriar a conexão de voz e vídeo ou **Agora não** para reiniciar o Discord depois. Marque **Lembrar minha escolha** para não ver a pergunta de novo. A escolha pode ser alterada em **Configurações → Conexão**. Com o Serein, você pode seguir direto para o teste da chamada ou da transmissão.
 
-A tela **Início** mostra o servidor em uso, o estado do handshake e os apps como botões que ligam e desligam cada um. Para trocar de servidor, clique em outro na tela **Servidores** e depois em **Trocar para este servidor**. Se mudar os aplicativos, o protocolo ou os filtros durante a conexão, o AppTunnel aplica os ajustes sozinho cerca de 1,5 segundo depois da última mudança. Os campos de IP são aplicados quando você sai do campo. Para aplicar manualmente com **Aplicar ajustes (Apply settings)**, desmarque **Aplicar mudanças automaticamente durante a conexão** em **Configurações → Conexão**. A latência de cada servidor é atualizada sozinha ao abrir o **Início** ou **Servidores**, no máximo uma vez por minuto.
+O cartão **Servidor** da página **Início** mostra o servidor em uso, e o cartão **Conexão** mostra se o handshake foi confirmado. **Testar** mede o ping até o servidor. Para fixar outro servidor durante a conexão, escolha a linha em **Servidores** e clique em **Trocar servidor (Switch server)** em **Início**. No modo **Automático**, o AppTunnel escolhe o servidor mais rápido ao conectar e troca sozinho quando o atual fica lento ou falha. Se mudar os aplicativos, o protocolo ou os filtros durante a conexão, o AppTunnel aplica os ajustes sozinho cerca de 1,5 segundo depois da última mudança, e o aviso na parte de baixo oferece **Desfazer**. Os campos de IP são aplicados quando você sai do campo. Para aplicar manualmente com **Aplicar mudanças (Apply changes)**, desmarque **Aplicar mudanças automaticamente durante a conexão** em **Configurações → Conexão**. A latência de cada servidor é atualizada sozinha ao abrir o AppTunnel e a página **Servidores**, no máximo uma vez por minuto.
 
 ## Como o AppTunnel funciona por dentro
 
@@ -139,13 +139,13 @@ sequenceDiagram
     end
 ```
 
-- A aplicação automática, **Aplicar ajustes** e **Trocar servidor** substituem a configuração e reiniciam o serviço. Se a nova sessão falhar, o AppTunnel tenta restaurar a anterior e mostra **Aplicar ajustes** para tentar de novo. O indicador **Conectado** vem do estado `Running` do serviço. Para validar o caminho de ponta a ponta, gere tráfego em um aplicativo marcado. [Controle do serviço](https://github.com/F404X/app-tunnel/blob/main/src/AppTunnel.Windows/WireSockEngine.cs)
+- A aplicação automática, **Aplicar mudanças** e **Trocar servidor** substituem a configuração e reiniciam o serviço. Se a nova sessão falhar, o AppTunnel tenta restaurar a anterior e mostra **Aplicar mudanças** para tentar de novo. O indicador **Conectado · Protegido** vem do estado `Running` do serviço. Para validar o caminho de ponta a ponta, gere tráfego em um aplicativo marcado. [Controle do serviço](https://github.com/F404X/app-tunnel/blob/main/src/AppTunnel.Windows/WireSockEngine.cs)
 - **Discord, PTB e Canary** recebem a opção de reiniciar quando estão abertos e acabaram de entrar na rota, ou quando o servidor mudou. Clientes que já estavam na sessão anterior, no mesmo servidor, não são reiniciados. O reinício recria as conexões já abertas. O Serein fica fora desse fluxo. [Regras de reinício](https://github.com/F404X/app-tunnel/blob/main/src/AppTunnel.Windows/DiscordRestart.cs) · [Aplicação da rota](https://github.com/F404X/app-tunnel/blob/main/src/AppTunnel.Windows/MainForm.cs)
 - **Sair da interface** fecha o processo da bandeja. O serviço do WireSock continua ativo como processo independente. **Iniciar com o Windows** registra uma tarefa por usuário que abre a interface na bandeja ao fazer login. [Bandeja](https://github.com/F404X/app-tunnel/blob/main/src/AppTunnel.Windows/AppTunnelApplicationContext.cs) · [Inicialização do Windows](https://github.com/F404X/app-tunnel/blob/main/src/AppTunnel.Windows/WindowsStartup.cs)
 
 ## Redes com filtragem e DPI
 
-Selecione uma opção em **Servidores → Avançado → Protocolo VPN**. Depois de mudar a opção, clique em **Conectar**. Com a VPN conectada, a mudança é aplicada automaticamente.
+Selecione uma opção em **Servidores → Avançado → Protocolo**. Depois de mudar a opção, clique em **Conectar**. Com a VPN conectada, a mudança é aplicada automaticamente.
 
 | Opção | Motor e requisitos |
 | --- | --- |
@@ -206,10 +206,10 @@ Se estiver na versão 0.4.0 ou anterior, baixe o instalador pela página de [Rel
 | --- | --- |
 | O executável pede o .NET | Baixe o instalador atual em Releases. Se preferir continuar com um ZIP antigo, instale o [.NET Desktop Runtime 10 x64](https://dotnet.microsoft.com/en-us/download/dotnet/10.0). |
 | A janela Proton fica indisponível | Instale ou atualize o **WebView2 Runtime**. Você também pode baixar o perfil pela página oficial da Proton e usar **Importar .conf**. |
-| O assistente não confirma a criação | Confira **Servidores → Adicionar servidor → Perfis da conta Proton** antes de repetir. Se o formulário integrado estiver indisponível, use a página da Proton e importe o `.conf`. |
+| O assistente não confirma a criação | Confira **Servidores → Adicionar outro país → Perfis da conta Proton…** antes de repetir. Se o formulário integrado estiver indisponível, use a página da Proton e importe o `.conf`. |
 | O WireSock aparece como ausente | Instale o pacote **WireSock Secure Connect CLI** pela página oficial ou pelo comando acima. Em **Diagnóstico (Diagnostics)**, use **Detectar novamente (Detect again)**. Se ainda precisar indicar o caminho manualmente, use **Localizar WireSock… (Locate WireSock…)** e procure `wiresock-client.exe`, normalmente em `C:\Program Files\WireSock Secure Connect\sdk\`. |
 | A importação diz que `PrivateKey` está vazia ou inválida | Use o `.conf` original que contém a chave privada ou gere um novo perfil na Proton. |
-| O servidor aparece em uso e a chamada continua falhando | Confira se ligou o executável certo em **Apps**, feche o cliente de chat por completo e reabra. Se necessário, teste outro servidor e confira os registros em **Diagnóstico**. |
+| O servidor aparece em uso e a chamada continua falhando | Confira se ligou o executável certo em **Apps**, aplique as alterações, feche o cliente de chat por completo e reabra. Se necessário, teste outro servidor e confira os registros em **Diagnóstico**. |
 | Outro serviço WireSock já está em uso | Desconecte a sessão no aplicativo que a iniciou e tente conectar pelo AppTunnel. |
 
 Para enviar um problema, abra uma [issue](https://github.com/F404X/app-tunnel/issues/new) com a versão do AppTunnel, a versão do Windows e os passos para reproduzir. Copie a mensagem de erro ou os registros relevantes de **Diagnóstico**. Mantenha as chaves privadas e os arquivos `.conf` fora do relato.
