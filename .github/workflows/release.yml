@@ -169,7 +169,10 @@ jobs:
 
           Baixe **AppTunnel-Setup-x64.exe** em **Assets** e siga o instalador. O **AppTunnel-Windows-x64.zip** é a versão portátil. Veja o [guia de instalação](https://github.com/$env:GITHUB_REPOSITORY/blob/$env:GITHUB_SHA/README.md) para configurar a Proton e os aplicativos.
 
-          - O ícone da bandeja agora não tem fundo e ocupa todo o espaço, como nos outros aplicativos. Ele fica âmbar na barra de tarefas escura e azul-marinho na clara.
+          - Na primeira abertura, o AppTunnel usa o idioma do Windows (português, inglês ou russo).
+          - Com a VPN conectada, mudanças em aplicativos, protocolo e filtros são aplicadas sozinhas. Trocar de servidor continua sendo uma escolha manual. Para voltar ao botão **Aplicar ajustes**, use **Configurações → Conexão**.
+          - A pergunta para reiniciar o Discord tem a opção **Lembrar minha escolha** e só aparece quando o Discord entra na rota ou o servidor muda.
+          - A coluna **Latência** é atualizada sozinha, e o painel mostra **Protegido · VPN ativa** quando a VPN está ligada.
 
           SHA-256 do instalador: $setupChecksum
 
