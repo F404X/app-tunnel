@@ -78,6 +78,24 @@ var scenarios = new (string Name, Action Check)[]
         Require(CommonApps.Find("signal-desktop")?.Name == "Signal");
         Require(CommonApps.Find("Discord log viewer") is null);
     }),
+    ("common browsers are recognized by install folder, including ones that share an executable name", () =>
+    {
+        static string? ByPath(string path) => CommonApps.FindByPath(path)?.Name;
+        Require(ByPath(@"C:\Program Files\Google\Chrome\Application\chrome.exe") == "Google Chrome");
+        Require(ByPath(@"C:\Users\u\AppData\Local\Chromium\Application\chrome.exe") == "Chromium");
+        Require(ByPath(@"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe") == "Microsoft Edge");
+        Require(ByPath(@"C:\Program Files\BraveSoftware\Brave-Browser\Application\brave.exe") == "Brave");
+        Require(ByPath(@"C:\Program Files\Mozilla Firefox\firefox.exe") == "Firefox");
+        Require(ByPath(@"C:\Users\u\AppData\Local\Programs\Opera\120.0.1\opera.exe") == "Opera");
+        Require(ByPath(@"C:\Users\u\AppData\Local\Programs\Opera GX\120.0.1\opera.exe") == "Opera GX");
+        Require(ByPath(@"C:\Users\u\AppData\Local\Yandex\YandexBrowser\Application\browser.exe") == "Yandex Browser");
+        Require(ByPath(@"C:\Games\Launcher\browser.exe") is null && CommonApps.Find("browser") is null);
+        Require(CommonApps.Find("chrome")?.Name == "Google Chrome" && CommonApps.Find("msedge")?.Name == "Microsoft Edge");
+        Require(CommonApps.IsKnownExecutable("browser") && !CommonApps.IsKnownExecutable("notepad"));
+        // Browsers close the catalog as one group.
+        var browsers = CommonApps.Catalog.Where(app => app.Browser).ToArray();
+        Require(browsers.Length == 11 && CommonApps.Catalog.TakeLast(browsers.Length).SequenceEqual(browsers));
+    }),
     ("automatic protocol planning uses real profile variants, distinct endpoints and bounded retries", () =>
     {
         var selected = new VpnRoute<int>(1, "one:51820", VpnProtocol.WireGuard);

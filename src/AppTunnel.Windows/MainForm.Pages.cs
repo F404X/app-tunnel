@@ -160,7 +160,8 @@ internal sealed partial class MainForm
                 else
                 {
                     var exe = ApplicationTarget.Validate(path);
-                    var label = CommonApps.Find(Path.GetFileNameWithoutExtension(exe))?.Name ?? Path.GetFileNameWithoutExtension(exe);
+                    var label = (CommonApps.FindByPath(exe) ?? CommonApps.Find(Path.GetFileNameWithoutExtension(exe)))?.Name ??
+                        Path.GetFileNameWithoutExtension(exe);
                     AddTarget(new ApplicationTarget(label, exe));
                 }
                 added++;

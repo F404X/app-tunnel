@@ -19,7 +19,7 @@ internal static class ApplicationDiscovery
         var targets = new Dictionary<string, ApplicationTarget>(StringComparer.OrdinalIgnoreCase);
         foreach (var app in CommonApps.Catalog)
         {
-            foreach (var folder in roots.SelectMany(root => app.Names.Select(name => Path.Combine(root, name))))
+            foreach (var folder in roots.SelectMany(root => app.FolderNames.Select(name => Path.Combine(root, name))))
                 InspectFolder(app, folder, targets);
         }
 
@@ -30,7 +30,7 @@ internal static class ApplicationDiscovery
         {
             if (targets.Values.Any(existing => existing.Folder &&
                 target.Match.StartsWith(existing.Match, StringComparison.OrdinalIgnoreCase))) continue;
-            var app = CommonApps.Find(target.Label);
+            var app = CommonApps.FindByPath(target.Match) ?? CommonApps.Find(target.Label);
             if (app is not null) targets.TryAdd(target.Match, target with { Label = app.Name });
         }
 
@@ -46,7 +46,11 @@ internal static class ApplicationDiscovery
                 .Take(30).Prepend(folder).Append(Path.Combine(folder, "bin"));
             foreach (var subfolder in candidates)
             {
-                var executable = app.Names.Select(name => Path.Combine(subfolder, name + ".exe")).FirstOrDefault(File.Exists);
+                if (!Directory.Exists(subfolder)) continue;
+                // The file's own spelling, so the rule shows chrome.exe rather than the catalog's "Chrome.exe".
+                var executable = app.ExecutableNames
+                    .Select(name => new DirectoryInfo(subfolder).EnumerateFiles(name + ".exe").FirstOrDefault()?.FullName)
+                    .FirstOrDefault(path => path is not null);
                 if (executable is null) continue;
                 var ownFolder = CommonApps.Find(Path.GetFileName(Path.TrimEndingDirectorySeparator(folder))) == app;
                 var match = ApplicationTarget.Validate(ownFolder
@@ -89,7 +93,7 @@ internal static class ApplicationDiscovery
             {
                 try
                 {
-                    if (process.Id == Environment.ProcessId || (onlyCommon && CommonApps.Find(process.ProcessName) is null))
+                    if (process.Id == Environment.ProcessId || (onlyCommon && !CommonApps.IsKnownExecutable(process.ProcessName)))
                         continue;
                     var path = process.MainModule?.FileName;
                     if (path is null || !File.Exists(path)) continue;

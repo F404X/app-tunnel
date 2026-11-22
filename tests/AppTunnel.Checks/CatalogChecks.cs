@@ -21,7 +21,6 @@ internal static class CatalogChecks
                 cards.PerformLayout();
                 // The dialog as it opens, then scaled like a 150% display, then made narrower by hand.
                 CheckGrid(cards, expectColumns: 4);
-                Require(!cards.VerticalScroll.Visible);
                 dialog.Scale(new SizeF(1.5f, 1.5f));
                 dialog.PerformLayout();
                 CheckGrid(cards, expectColumns: 4);

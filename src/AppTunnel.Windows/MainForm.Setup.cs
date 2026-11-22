@@ -324,7 +324,7 @@ internal sealed partial class MainForm
                 return page;
             }
             var groups = found.ToLookup(target => target.Label, StringComparer.OrdinalIgnoreCase);
-            var detected = CommonApps.Catalog.Where(app => groups[app.Name].Any()).ToList();
+            var detected = CommonApps.Catalog.Where(app => !app.Browser && groups[app.Name].Any()).ToList();
             var missing = CommonApps.Catalog.Where(app => !groups[app.Name].Any())
                 .Where(app => app.Name is "Discord" or "Telegram" or "Signal" or "Steam" or "Spotify" or "WhatsApp")
                 .Take(Math.Max(0, 6 - detected.Count));
