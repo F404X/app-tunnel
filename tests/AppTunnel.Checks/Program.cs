@@ -92,6 +92,14 @@ var scenarios = new (string Name, Action Check)[]
         Require(ByPath(@"C:\Games\Launcher\browser.exe") is null && CommonApps.Find("browser") is null);
         Require(CommonApps.Find("chrome")?.Name == "Google Chrome" && CommonApps.Find("msedge")?.Name == "Microsoft Edge");
         Require(CommonApps.IsKnownExecutable("browser") && !CommonApps.IsKnownExecutable("notepad"));
+        // A browser found running from a version folder gets a rule for its install folder, which survives updates.
+        var opera = AppTunnel.Windows.ApplicationDiscovery.SurvivesUpdates(
+            new ApplicationTarget("Opera GX", @"D:\Browsers\Opera GX\120.0.5543.61\opera.exe"));
+        Require(opera.Folder && opera.Match == @"D:\Browsers\Opera GX\" && opera.Label == "Opera GX");
+        var chrome = new ApplicationTarget("Google Chrome", @"C:\Program Files\Google\Chrome\Application\chrome.exe");
+        Require(AppTunnel.Windows.ApplicationDiscovery.SurvivesUpdates(chrome) == chrome);
+        var rooted = new ApplicationTarget("Opera", @"D:\120.0\opera.exe");
+        Require(AppTunnel.Windows.ApplicationDiscovery.SurvivesUpdates(rooted) == rooted);
         // Browsers close the catalog as one group.
         var browsers = CommonApps.Catalog.Where(app => app.Browser).ToArray();
         Require(browsers.Length == 11 && CommonApps.Catalog.TakeLast(browsers.Length).SequenceEqual(browsers));

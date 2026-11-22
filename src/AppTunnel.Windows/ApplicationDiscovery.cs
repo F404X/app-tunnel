@@ -31,11 +31,31 @@ internal static class ApplicationDiscovery
             if (targets.Values.Any(existing => existing.Folder &&
                 target.Match.StartsWith(existing.Match, StringComparison.OrdinalIgnoreCase))) continue;
             var app = CommonApps.FindByPath(target.Match) ?? CommonApps.Find(target.Label);
-            if (app is not null) targets.TryAdd(target.Match, target with { Label = app.Name });
+            if (app is null) continue;
+            var rule = SurvivesUpdates(target with { Label = app.Name });
+            if (targets.Values.Any(existing => existing.Folder &&
+                rule.Match.StartsWith(existing.Match, StringComparison.OrdinalIgnoreCase))) continue;
+            targets.TryAdd(rule.Match, rule);
         }
 
         return targets.Values.ToArray();
     }
+
+    // Some apps, such as Opera and Opera GX, run from a folder named after their version (Opera\120.0.1\opera.exe),
+    // which the next update replaces. A rule for that path would stop matching, so the install folder above the
+    // version folder is routed instead.
+    internal static ApplicationTarget SurvivesUpdates(ApplicationTarget target)
+    {
+        if (target.Folder || Path.GetDirectoryName(target.Match) is not { } directory ||
+            !IsVersion(Path.GetFileName(directory)) || Path.GetDirectoryName(directory) is not { } install ||
+            Path.GetPathRoot(install) == install)
+            return target;
+        var folder = ApplicationTarget.Validate(Path.TrimEndingDirectorySeparator(install) + Path.DirectorySeparatorChar);
+        return target with { Match = folder, Folder = true };
+    }
+
+    private static bool IsVersion(string name) =>
+        System.Text.RegularExpressions.Regex.IsMatch(name, @"^\d+(\.\d+)+$");
 
     private static void InspectFolder(CommonApp app, string folder, Dictionary<string, ApplicationTarget> targets)
     {
