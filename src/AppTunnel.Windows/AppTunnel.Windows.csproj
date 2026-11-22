@@ -14,6 +14,7 @@
     <AssemblyMetadata Include="TelemetryEndpoint" Value="$(AppTunnelTelemetryEndpoint)" />
     <ProjectReference Include="../AppTunnel.Core/AppTunnel.Core.csproj" />
     <EmbeddedResource Include="Assets/Flags/*.png" LogicalName="AppTunnel.Flags.%(Filename)%(Extension)" />
+    <EmbeddedResource Include="Assets/Countries/*.png" LogicalName="AppTunnel.Countries.%(Filename)%(Extension)" />
     <EmbeddedResource Include="../../docs/telemetry-examples.txt" LogicalName="AppTunnel.TelemetryExamples" />
     <EmbeddedResource Include="../../docs/terms/*.txt" LogicalName="AppTunnel.Terms.%(Filename)" />
     <EmbeddedResource Include="Assets/Tray/*.ico" LogicalName="AppTunnel.Tray.%(Filename)%(Extension)" />

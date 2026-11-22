@@ -136,6 +136,46 @@ internal static class DesktopTheme
 
     public static float DpiScale(Control control) => control.DeviceDpi / 96f;
 
+    // Read-only text that wraps (never a horizontal bar) and shows a vertical bar only when the text does not fit.
+    public static RichTextBox ReadOnlyText(string text, Font font) => WithEditMenu(new RichTextBox
+    {
+        Text = text, ReadOnly = true, WordWrap = true, ScrollBars = RichTextBoxScrollBars.Vertical, DetectUrls = false,
+        BorderStyle = BorderStyle.None, BackColor = Field, ForeColor = Text, Font = font, Dock = DockStyle.Fill,
+        Margin = new Padding(0), ShortcutsEnabled = true, TabStop = true
+    });
+
+    // The native edit menu of a text field follows the Windows language; this one follows the AppTunnel language.
+    public static TBox WithEditMenu<TBox>(TBox box) where TBox : TextBoxBase
+    {
+        var menu = new ContextMenuStrip { Font = Body(), BackColor = Raised, ForeColor = Text, Renderer = new ThemeMenuRenderer(), ShowImageMargin = false };
+        var cut = new ToolStripMenuItem(AppTunnel.Core.Localized.T("Cut", "Recortar", "Вырезать"), null, (_, _) => box.Cut());
+        var copy = new ToolStripMenuItem(AppTunnel.Core.Localized.T("Copy", "Copiar", "Копировать"), null, (_, _) => box.Copy());
+        var paste = new ToolStripMenuItem(AppTunnel.Core.Localized.T("Paste", "Colar", "Вставить"), null, (_, _) => box.Paste());
+        var all = new ToolStripMenuItem(AppTunnel.Core.Localized.T("Select all", "Selecionar tudo", "Выделить всё"), null, (_, _) => box.SelectAll());
+        menu.Items.AddRange([cut, copy, paste, new ToolStripSeparator(), all]);
+        menu.Opening += (_, _) =>
+        {
+            cut.Enabled = !box.ReadOnly && box.SelectionLength > 0;
+            copy.Enabled = box.SelectionLength > 0;
+            paste.Enabled = !box.ReadOnly && Clipboard.ContainsText();
+            all.Enabled = box.TextLength > 0;
+        };
+        box.ContextMenuStrip = menu;
+        box.Disposed += (_, _) => menu.Dispose();
+        return box;
+    }
+
+    // Grows a dialog so its text fits without scrolling, up to most of the screen it opens on.
+    public static void FitToText(Form dialog, string text, Font font, int textWidth, int chrome)
+    {
+        var area = Screen.FromPoint(Cursor.Position).WorkingArea;
+        using var graphics = Graphics.FromHwnd(0);
+        var scale = graphics.DpiY / 96f;
+        var needed = MeasureText(graphics, text, font, (int)(textWidth * scale), wrap: true).Height / scale;
+        var height = (int)Math.Min(needed + chrome + 24, area.Height / scale * .85f);
+        dialog.ClientSize = new Size(dialog.ClientSize.Width, Math.Max(dialog.ClientSize.Height, height));
+    }
+
     public static GraphicsPath Rounded(RectangleF bounds, float radius)
     {
         var path = new GraphicsPath();

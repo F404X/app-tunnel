@@ -136,7 +136,7 @@ internal sealed partial class MainForm : Form
 
     private void AddExecutable()
     {
-        using var picker = new OpenFileDialog { Filter = T("Windows executables (*.exe)|*.exe", "Executáveis do Windows (*.exe)|*.exe", "Исполняемые файлы Windows (*.exe)|*.exe"), Multiselect = true };
+        using var picker = new OpenFileDialog { Title = T("Choose apps for the VPN", "Escolha apps para a VPN", "Выберите приложения для VPN"), Filter = T("Windows executables (*.exe)|*.exe", "Executáveis do Windows (*.exe)|*.exe", "Исполняемые файлы Windows (*.exe)|*.exe"), Multiselect = true };
         if (picker.ShowDialog(this) != DialogResult.OK) return;
         Attempt(() =>
         {
@@ -222,7 +222,7 @@ internal sealed partial class MainForm : Form
     private void ImportProfiles()
     {
         if (busy || pingBusy) return;
-        using var picker = new OpenFileDialog { Filter = T("VPN profiles (*.conf)|*.conf", "Perfis VPN (*.conf)|*.conf", "Профили VPN (*.conf)|*.conf"), Multiselect = true };
+        using var picker = new OpenFileDialog { Title = T("Import WireGuard profiles", "Importar perfis WireGuard", "Импорт профилей WireGuard"), Filter = T("VPN profiles (*.conf)|*.conf", "Perfis VPN (*.conf)|*.conf", "Профили VPN (*.conf)|*.conf"), Multiselect = true };
         if (picker.ShowDialog(this) != DialogResult.OK) return;
         var added = 0;
         foreach (var file in picker.FileNames)
@@ -334,6 +334,7 @@ internal sealed partial class MainForm : Form
         if (busy || activeSession is not null) return;
         using var picker = new OpenFileDialog
         {
+            Title = T("Locate WireSock", "Localizar o WireSock", "Найти WireSock"),
             Filter = "WireSock (wiresock-client.exe)|wiresock-client.exe",
             InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles)
         };
@@ -827,7 +828,7 @@ internal sealed partial class MainForm : Form
     {
         AddLog(e.Message);
         footer.Text = e.Message;
-        MessageBox.Show(this, e.Message, "AppTunnel", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+        ThemedMessage.Warn(this, e.Message);
     }
 
     private void Copy(string value)

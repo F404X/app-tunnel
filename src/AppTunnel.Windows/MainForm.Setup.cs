@@ -312,7 +312,7 @@ internal sealed partial class MainForm
                     "Через Proton пойдут только они. Браузер и остальное останутся напрямую."), out var rows, 0, 44);
             var grid = new TableLayoutPanel
             {
-                Dock = DockStyle.Fill, ColumnCount = 3, Margin = new Padding(0), BackColor = Background, AutoScroll = true,
+                Dock = DockStyle.Fill, ColumnCount = 3, Margin = new Padding(0), BackColor = Background,
                 ColumnStyles = { new ColumnStyle(SizeType.Percent, 33.3f), new ColumnStyle(SizeType.Percent, 33.3f), new ColumnStyle(SizeType.Percent, 33.4f) }
             };
             var previous = tiles.ToDictionary(item => item.Tile.Text, item => item.Tile.On, StringComparer.OrdinalIgnoreCase);
@@ -348,6 +348,18 @@ internal sealed partial class MainForm
                 index++;
             }
             for (var row = 0; row < grid.RowCount; row++) grid.RowStyles.Add(new RowStyle(SizeType.Absolute, 76));
+            // At its default size the assistant has about 260 px for the tiles; with more detected apps it grows taller
+            // instead of hiding rows. The grid still scrolls automatically, so a bar appears only if the rows really do
+            // not fit (a small screen, or a window made smaller by hand).
+            grid.AutoScroll = true;
+            var extra = Math.Max(0, grid.RowCount * 76 - 260);
+            if (extra > 0)
+            {
+                var limit = (int)(Screen.FromControl(this).WorkingArea.Height / DpiScale(this) * .9f);
+                var wanted = Math.Min(640 + extra, limit);
+                if (ClientSize.Height * 96 / DeviceDpi < wanted)
+                    ClientSize = new Size(ClientSize.Width, wanted * DeviceDpi / 96);
+            }
             // A filler row takes the leftover height so the tiles keep their size.
             grid.RowCount++;
             grid.RowStyles.Add(new RowStyle(SizeType.Percent, 100));

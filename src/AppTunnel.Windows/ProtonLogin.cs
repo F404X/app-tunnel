@@ -233,7 +233,8 @@ internal sealed class ProtonLogin(ProfileStore store)
                 try
                 {
                     var command = JsonSerializer.Deserialize(ReadVerified(Path.Combine(directory, "command.json"), 64 * 1024),
-                        ProtonRouteJson.Default.ProtonApiCommand) ?? throw new FormatException("command");
+                        ProtonRouteJson.Default.ProtonApiCommand) ?? throw new FormatException(T("The saved Proton request is damaged.",
+                        "O pedido salvo da Proton está danificado.", "Сохранённый запрос Proton повреждён."));
                     import(ReadRoute(directory, command));
                 }
                 catch (Exception error) when (error is FormatException or JsonException or IOException or UnauthorizedAccessException)

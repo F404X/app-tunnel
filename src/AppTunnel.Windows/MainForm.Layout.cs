@@ -222,14 +222,16 @@ internal sealed partial class MainForm
         addServer.Click += (_, _) => menu.Show(addServer, new Point(0, addServer.Height + 4));
         addServer.Disposed += (_, _) => menu.Dispose();
         addServer.Text = T("More options", "Mais opções", "Другие варианты");
-        var addBar = MakeBar(choose, addServer, protonAccount);
+        var addBar = MakeBar(choose, addServer);
         addBar.BackColor = Background;
         addBar.Dock = DockStyle.None;
         addBar.Height = 52;
+        // The account hint gets its own line, so it never pushes the buttons or gets cut off beside them.
         protonAccount.Dock = DockStyle.None;
-        protonAccount.AutoSize = true;
-        protonAccount.Margin = new Padding(8, 12, 0, 0);
+        protonAccount.Height = 22;
+        protonAccount.Padding = new Padding(4, 0, 0, 0);
         serverList.Controls.Add(addBar);
+        serverList.Controls.Add(protonAccount);
         serverList.Controls.Add(BuildAdvanced());
         page.Controls.Add(serverList, 0, 2);
         return page;
@@ -424,11 +426,11 @@ internal sealed partial class MainForm
         ForeColor = DesktopTheme.Text, Margin = new Padding(0), Cursor = Cursors.Hand
     };
 
-    private static TextBox MakeText(bool multiline = false, string placeholder = "") => new()
+    private static TextBox MakeText(bool multiline = false, string placeholder = "") => WithEditMenu(new TextBox
     {
         BackColor = Field, ForeColor = DesktopTheme.Text, BorderStyle = BorderStyle.None, Dock = DockStyle.Fill,
         Font = Body(), Multiline = multiline, PlaceholderText = placeholder, MaxLength = 16000, Margin = new Padding(0)
-    };
+    });
 
     protected override void OnHandleCreated(EventArgs e)
     {

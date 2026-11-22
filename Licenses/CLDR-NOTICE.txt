@@ -1,0 +1,4 @@
+src/AppTunnel.Core/CountryNames.txt is generated from the Unicode Common Locale Data Repository (CLDR),
+via the Babel library. Unicode data files are distributed under the Unicode License v3:
+https://www.unicode.org/license.txt
+Copyright © 1991-2025 Unicode, Inc.

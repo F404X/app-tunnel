@@ -117,10 +117,13 @@ internal sealed class ApiWindow : Form
     private ProtonApiCommand ReadCommand()
     {
         var path = Path.Combine(inbox, "command.json");
-        if (new FileInfo(path).Length > 64 * 1024) throw new FormatException("command");
+        if (new FileInfo(path).Length > 64 * 1024) throw new FormatException(InvalidRequest);
         return JsonSerializer.Deserialize(File.ReadAllBytes(path), ProtonRouteJson.Default.ProtonApiCommand)
-            ?? throw new FormatException("command");
+            ?? throw new FormatException(InvalidRequest);
     }
+
+    private static string InvalidRequest => T("AppTunnel sent an invalid request to the Proton helper.",
+        "O AppTunnel enviou um pedido inválido ao auxiliar da Proton.", "AppTunnel отправил помощнику Proton неверный запрос.");
 
     private async Task Open()
     {
@@ -282,7 +285,7 @@ internal sealed class ApiWindow : Form
             (() => {
                 window.__appTunnel = window.__appTunnel || {};
                 window.__appTunnel[{{Js(id)}}] = null;
-                const headers = { 'accept': 'application/vnd.protonmail.v1+json', 'x-pm-uid': {{Js(uid)}}, 'x-pm-appversion': {{Js(appVersion)}} };
+                const headers = { 'accept': 'application/vnd.protonmail.v1+json', 'x-pm-uid': {{Js(uid)}}, 'x-pm-appversion': {{Js(appVersion)}}, 'x-pm-locale': {{Js(ProtonLocale)}} };
                 const body = {{Js(body)}};
                 if (body !== null) headers['content-type'] = 'application/json';
                 fetch({{Js(apiBase + "/" + path)}}, { method: {{Js(method)}}, credentials: 'include', headers, body: body ?? undefined })

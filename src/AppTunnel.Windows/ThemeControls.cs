@@ -523,6 +523,14 @@ internal sealed class ServerRow : PaintedButton
     public bool Measured { get; set; }
     public event Action<Point>? MenuRequested;
 
+    // Country flag shown instead of the country code; the chooser and the Servers page set it.
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+    public Image? Flag { get; set; }
+
+    // Server load in percent, shown as "Load 45%" beside the ping bar when set.
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+    public int? Load { get; set; }
+
     // The route chooser lists servers to pick once, so it hides the radio and the menu.
     [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
     public bool Choice { get; init; }
@@ -635,9 +643,25 @@ internal sealed class ServerRow : PaintedButton
             return;
         }
 
-        var code = new Rectangle(x, (Height - Px(32)) / 2, Px(40), Px(32));
-        PaintRounded(g, code, 8 * S, Raised, Border);
-        PaintText(g, Code, Body(9.75f, bold: true), code, DesktopTheme.Text, StringAlignment.Center);
+        int loadLeft;
+        var code = new Rectangle(x, (Height - Px(30)) / 2, Px(40), Px(30));
+        if (Flag is { } flag)
+        {
+            // The flag is clipped to the same rounded badge the country code used.
+            var saved = g.Save();
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+            g.InterpolationMode = InterpolationMode.HighQualityBicubic;
+            g.PixelOffsetMode = PixelOffsetMode.HighQuality;
+            using (var clip = Rounded(code, 6 * S)) g.SetClip(clip);
+            g.DrawImage(flag, code);
+            g.Restore(saved);
+            PaintRounded(g, code, 6 * S, Color.Transparent, Border);
+        }
+        else
+        {
+            PaintRounded(g, code, 8 * S, Raised, Border);
+            PaintText(g, Code, Body(9.75f, bold: true), code, DesktopTheme.Text, StringAlignment.Center);
+        }
         var menu = MenuBounds;
         if (!Choice)
         {
@@ -646,6 +670,22 @@ internal sealed class ServerRow : PaintedButton
         }
         else menu = new Rectangle(Width - Px(6), 0, 0, Height);
         var meter = new Rectangle(menu.X - Px(12) - Px(200), 0, Px(200), Height);
+        if (Load is { } load)
+        {
+            // Server load, spelled out and colored, just left of the ping bar.
+            var label = T("Load", "Carga", "Нагрузка") + " ";
+            var loadValue = $"{load}%";
+            var labelFont = Body(10.5f);
+            var valueFont = Body(10.5f, bold: true);
+            var valueWidth = MeasureText(g, loadValue, valueFont).Width;
+            var labelWidth = MeasureText(g, label, labelFont).Width;
+            var right = meter.X - Px(14);
+            PaintText(g, loadValue, valueFont, new Rectangle(right - valueWidth, 0, valueWidth, Height),
+                load < 60 ? Green : load < 85 ? Amber : Danger);
+            PaintText(g, label, labelFont, new Rectangle(right - valueWidth - labelWidth, 0, labelWidth, Height), Muted);
+            loadLeft = right - valueWidth - labelWidth;
+        }
+        else loadLeft = meter.X;
         var ms = new Rectangle(meter.Right - Px(96), 0, Px(96), Height);
         PaintText(g, LatencyText, Body(10.5f), ms, Measured && Latency is null ? Muted : DesktopTheme.Text, StringAlignment.Far);
         var bar = new Rectangle(meter.X, (Height - Px(6)) / 2, meter.Width - ms.Width - Px(10), Px(6));
@@ -659,7 +699,7 @@ internal sealed class ServerRow : PaintedButton
         var nameLeft = code.Right + Px(14);
         var nameFont = Body(12, bold: true);
         var statusWidth = Status.Length == 0 ? 0 : MeasureText(g, Status, Body(9.75f, bold: true)).Width + Px(12);
-        var nameWidth = Math.Max(0, meter.X - Px(16) - nameLeft - statusWidth);
+        var nameWidth = Math.Max(0, loadLeft - Px(16) - nameLeft - statusWidth);
         var titleSize = Math.Min(nameWidth, MeasureText(g, Title, nameFont).Width);
         var detailFont = Body(9.75f);
         var hasDetail = Detail.Length > 0;
@@ -668,7 +708,7 @@ internal sealed class ServerRow : PaintedButton
         if (Status.Length > 0)
             PaintText(g, Status, Body(9.75f, bold: true), new Rectangle(nameLeft + titleSize + Px(10), top, statusWidth, nameFont.LineHeight(this)), Green);
         if (hasDetail)
-            PaintText(g, Detail, detailFont, new Rectangle(nameLeft, top + nameFont.LineHeight(this), meter.X - Px(16) - nameLeft, detailFont.LineHeight(this) + Px(2)), Muted);
+            PaintText(g, Detail, detailFont, new Rectangle(nameLeft, top + nameFont.LineHeight(this), loadLeft - Px(16) - nameLeft, detailFont.LineHeight(this) + Px(2)), Muted);
     }
 }
 
@@ -820,6 +860,8 @@ internal sealed class StackPanel : Panel
         SetStyle(ControlStyles.OptimizedDoubleBuffer | ControlStyles.AllPaintingInWmPaint, true);
     }
 
+    // Children are sized to the width left after the vertical bar (when one is needed), so a horizontal bar
+    // never appears; only a list that is taller than the panel scrolls, and only vertically.
     protected override void OnLayout(LayoutEventArgs levent)
     {
         if (arranging) return;
@@ -827,24 +869,20 @@ internal sealed class StackPanel : Panel
         try
         {
             var gap = Gap * DeviceDpi / 96;
+            var visible = Controls.Cast<Control>().Where(child => child.Visible).ToArray();
+            var total = visible.Sum(child => child.Height) + Math.Max(0, visible.Length - 1) * gap;
+            var bar = total > Height ? SystemInformation.GetVerticalScrollBarWidthForDpi(DeviceDpi) : 0;
+            var width = Math.Max(0, Width - bar);
             var y = AutoScrollPosition.Y;
-            var width = ClientSize.Width;
-            var total = 0;
-            foreach (Control child in Controls)
+            foreach (var child in visible)
             {
-                if (!child.Visible) continue;
                 child.SetBounds(0, y, width, child.Height);
                 y += child.Height + gap;
-                total += child.Height + gap;
             }
-            AutoScrollMinSize = new Size(0, Math.Max(0, total - gap));
-            // The base layout updates the scrollbars; children have no dock or anchor, so it does not move them.
+            AutoScrollMinSize = new Size(0, total);
             base.OnLayout(levent);
         }
         finally { arranging = false; }
-        // Showing the scrollbar narrows the client area, so lay out once more at the final width.
-        if (Controls.Cast<Control>().Any(child => child.Visible && child.Width != ClientSize.Width))
-            PerformLayout();
     }
 }
 
@@ -928,64 +966,109 @@ internal sealed class ExpanderHeader : PaintedButton
     }
 }
 
-// Drop-down list drawn with the theme colors and font smoothing.
-internal sealed class ThemeCombo : ComboBox
+// Selection field drawn entirely by AppTunnel: a rounded field with a chevron that opens a themed menu. It keeps
+// the ComboBox members the app uses (Items, SelectedIndex, SelectedItem, SelectedIndexChanged), so it replaces the
+// native combo box, whose system border and arrow could not be fully themed.
+internal sealed class ThemeCombo : PaintedButton
 {
+    private int selected = -1;
+    private ContextMenuStrip? open;
+    public event EventHandler? SelectedIndexChanged;
+
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+    public List<object> Items { get; } = [];
+
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+    public int SelectedIndex
+    {
+        get => selected;
+        set
+        {
+            var next = value >= 0 && value < Items.Count ? value : -1;
+            if (next == selected) return;
+            selected = next;
+            AccessibleDescription = SelectedText;
+            Invalidate();
+            SelectedIndexChanged?.Invoke(this, EventArgs.Empty);
+        }
+    }
+
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+    public object? SelectedItem => selected >= 0 && selected < Items.Count ? Items[selected] : null;
+
+    private string SelectedText => SelectedItem?.ToString() ?? "";
+
     public ThemeCombo()
     {
-        DropDownStyle = ComboBoxStyle.DropDownList;
-        DrawMode = DrawMode.OwnerDrawFixed;
-        FlatStyle = FlatStyle.Flat;
         Font = Body();
-        BackColor = Raised;
-        ForeColor = DesktopTheme.Text;
-        ItemHeight = 30;
-        IntegralHeight = false;
+        Size = new Size(240, 40);
+        AccessibleRole = AccessibleRole.ComboBox;
     }
 
-    protected override void OnDpiChangedAfterParent(EventArgs e)
+    protected override void OnClick(EventArgs e)
     {
-        base.OnDpiChangedAfterParent(e);
-        ItemHeight = 30 * DeviceDpi / 96;
+        base.OnClick(e);
+        ShowList();
     }
 
-    protected override void OnHandleCreated(EventArgs e)
+    protected override bool IsInputKey(Keys keyData) => keyData is Keys.Up or Keys.Down || base.IsInputKey(keyData);
+
+    protected override void OnKeyDown(KeyEventArgs kevent)
     {
-        base.OnHandleCreated(e);
-        ItemHeight = 30 * DeviceDpi / 96;
+        base.OnKeyDown(kevent);
+        if (Items.Count == 0) return;
+        if (kevent.KeyCode == Keys.Down && kevent.Alt) ShowList();
+        else if (kevent.KeyCode == Keys.Down) SelectedIndex = Math.Min(Items.Count - 1, selected + 1);
+        else if (kevent.KeyCode == Keys.Up) SelectedIndex = Math.Max(0, selected - 1);
+        else return;
+        kevent.Handled = true;
     }
 
-    // The flat combo box draws a light system border and arrow; repaint both in the theme colors.
-    protected override void WndProc(ref Message m)
+    private void ShowList()
     {
-        base.WndProc(ref m);
-        if (m.Msg != 0x000F || !IsHandleCreated) return;
-        using var graphics = CreateGraphics();
-        var s = DpiScale(this);
-        using (var edge = new Pen(Focused || DroppedDown ? Accent : InputBorder))
-        using (var inner = new Pen(Raised))
+        if (!Enabled || Items.Count == 0 || open is not null) return;
+        var menu = new ContextMenuStrip
         {
-            graphics.DrawRectangle(edge, 0, 0, Width - 1, Height - 1);
-            graphics.DrawRectangle(inner, 1, 1, Width - 3, Height - 3);
+            Font = Font, BackColor = Raised, ForeColor = DesktopTheme.Text, Renderer = new ThemeMenuRenderer(),
+            ShowImageMargin = false, ShowCheckMargin = true, Padding = new Padding(2), MaximumSize = new Size(0, Screen.FromControl(this).WorkingArea.Height / 2)
+        };
+        for (var i = 0; i < Items.Count; i++)
+        {
+            var index = i;
+            var item = new ToolStripMenuItem(Items[i].ToString()) { Checked = i == selected, Padding = new Padding(0, 4, 0, 4) };
+            item.Click += (_, _) => SelectedIndex = index;
+            menu.Items.Add(item);
         }
-        var arrow = new Rectangle(Width - (int)(28 * s), 2, (int)(28 * s) - 2, Height - 4);
-        using (var fill = new SolidBrush(Raised)) graphics.FillRectangle(fill, arrow);
-        PaintIcon(graphics, Glyph.Chevron, Rectangle.Inflate(arrow, -(int)(6 * s), -(int)(6 * s)), Enabled ? Muted : Disabled, 2f);
+        menu.MinimumSize = new Size(Width, 0);
+        menu.Closed += (_, _) =>
+        {
+            open = null;
+            Invalidate();
+            BeginInvoke(menu.Dispose);
+        };
+        open = menu;
+        Invalidate();
+        menu.Show(this, new Point(0, Height + Px(4)));
     }
 
-    protected override void OnDropDownClosed(EventArgs e) { base.OnDropDownClosed(e); Invalidate(); }
-    protected override void OnGotFocus(EventArgs e) { base.OnGotFocus(e); Invalidate(); }
-    protected override void OnLostFocus(EventArgs e) { base.OnLostFocus(e); Invalidate(); }
-
-    protected override void OnDrawItem(DrawItemEventArgs e)
+    protected override void OnPaint(PaintEventArgs e)
     {
-        var selected = (e.State & DrawItemState.Selected) != 0 && (e.State & DrawItemState.ComboBoxEdit) == 0;
-        using var fill = new SolidBrush(selected ? Hover : Raised);
-        e.Graphics.FillRectangle(fill, e.Bounds);
-        if (e.Index < 0) return;
-        var text = GetItemText(Items[e.Index]) ?? "";
-        var inset = 8 * DeviceDpi / 96;
-        PaintText(e.Graphics, text, Font, new Rectangle(e.Bounds.X + inset, e.Bounds.Y, e.Bounds.Width - inset * 2, e.Bounds.Height),
+        var g = e.Graphics;
+        PaintCanvas(g);
+        var bounds = ClientRectangle;
+        var active = Focused || open is not null;
+        PaintRounded(g, bounds, 8 * S, !Enabled ? Raised : Hovering || open is not null ? Hover : Raised,
+            active && Enabled ? Accent : InputBorder, Math.Max(1, S * (active ? 1.5f : 1)));
+        var chevron = Px(16);
+        var right = Width - Px(12) - chevron;
+        PaintIcon(g, Glyph.Chevron, new Rectangle(right, (Height - chevron) / 2, chevron, chevron), Enabled ? Muted : Disabled, 2f);
+        PaintText(g, SelectedText, Font, new Rectangle(Px(12), 0, Math.Max(0, right - Px(20)), Height),
             Enabled ? DesktopTheme.Text : Disabled);
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing) open?.Dispose();
+        base.Dispose(disposing);
     }
 }

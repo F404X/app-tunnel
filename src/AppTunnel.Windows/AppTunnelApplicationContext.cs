@@ -165,6 +165,8 @@ internal sealed class AppTunnelApplicationContext : ApplicationContext
     private void ChangeLanguage(string language)
     {
         if (window.HasPendingOperation || !window.TrySaveLanguage(language)) return;
+        // An open Proton window is not closed here: it may be saving a new profile. It restarts in the new language
+        // the next time it is opened (ProtonLogin.OpenAsync compares the language it was started with).
         SetLanguage(language);
         RecreateWindow();
     }

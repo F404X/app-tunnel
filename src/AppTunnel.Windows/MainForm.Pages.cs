@@ -256,6 +256,7 @@ internal sealed partial class MainForm
                 }
                 if (row.Tag is not Guid id || settings.Profiles.Find(x => x.Id == id) is not { } profile) continue;
                 row.Code = CountryCode(profile);
+                row.Flag = CountryFlags.Get(row.Code);
                 row.Title = profile.Name;
                 row.Detail = $"{profile.Endpoint} · {VpnProtocols.Name(profile.Protocol)}" + (profile.HasIpv6 ? " · IPv6" : "");
                 row.Status = id == live ? T("● In use", "● Em uso", "● Активен") : "";

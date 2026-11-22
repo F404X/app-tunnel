@@ -64,7 +64,10 @@ internal sealed class ProfileStore
     public Preferences Load()
     {
         if (!File.Exists(SettingsFile)) return new Preferences();
-        return JsonSerializer.Deserialize(File.ReadAllBytes(SettingsFile), PreferencesJson.Default.Preferences)
+        // A settings file saved by a text editor can start with a UTF-8 byte order mark, which the JSON reader rejects.
+        var bytes = File.ReadAllBytes(SettingsFile);
+        var json = bytes.AsSpan().StartsWith((ReadOnlySpan<byte>)[0xEF, 0xBB, 0xBF]) ? bytes.AsSpan(3) : bytes;
+        return JsonSerializer.Deserialize(json, PreferencesJson.Default.Preferences)
             ?? throw new FormatException(T("AppTunnel settings are empty.", "As configurações do AppTunnel estão vazias.", "Файл настроек AppTunnel пуст."));
     }
 

@@ -25,12 +25,10 @@ internal static class TelemetryWindow
                 "Os exemplos mostram o esquema completo. O histórico exibe o JSON UTF-8 exato de cada tentativa.",
                 "Примеры описывают полную схему. В истории показывается точное тело JSON каждой попытки.")
         };
-        var body = new TextBox
-        {
-            Dock = DockStyle.Fill, Multiline = true, ReadOnly = true, BackColor = Field, ForeColor = DesktopTheme.Text,
-            Font = Mono, ScrollBars = ScrollBars.Both, WordWrap = false, AccessibleName = Caption,
-            BorderStyle = BorderStyle.FixedSingle
-        };
+        var body = ReadOnlyText("", Mono);
+        body.AccessibleName = Caption;
+        var frame = new ThemeCard(Field) { Dock = DockStyle.Fill, Padding = new Padding(14, 12, 6, 12), Radius = 10 };
+        frame.Controls.Add(body);
         var actions = new FlowLayoutPanel
         {
             Dock = DockStyle.Bottom, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, Padding = new Padding(0, 8, 0, 0)
@@ -68,15 +66,14 @@ internal static class TelemetryWindow
         var clear = new ThemeButton { Text = T("Clear local data", "Apagar dados locais", "Удалить локальные данные") };
         clear.Click += (_, _) =>
         {
-            if (MessageBox.Show(dialog, T("Delete the local history and unsent data?", "Apagar o histórico local e os dados ainda não enviados?",
-                "Удалить локальную историю и неотправленные данные?"), Caption, MessageBoxButtons.YesNo,
-                MessageBoxIcon.Question, MessageBoxDefaultButton.Button2) != DialogResult.Yes) return;
+            if (!ThemedMessage.Ask(dialog, T("Delete the local history and unsent data?", "Apagar o histórico local e os dados ainda não enviados?",
+                "Удалить локальную историю и неотправленные данные?"))) return;
             if (telemetry.ClearLocalData()) Render();
         };
         var close = new ThemeButton { Text = T("Close", "Fechar", "Закрыть"), DialogResult = DialogResult.Cancel };
         if (allowChanges) actions.Controls.Add(clear);
         actions.Controls.Add(close);
-        dialog.Controls.Add(body);
+        dialog.Controls.Add(frame);
         dialog.Controls.Add(actions);
         dialog.Controls.Add(summary);
         dialog.CancelButton = close;
@@ -102,12 +99,10 @@ internal static class TelemetryWindow
             Text = T("Approve transmission of this exact report?", "Autorizar o envio deste relatório exato?",
                 "Разрешить отправку именно этого отчёта?")
         };
-        var body = new TextBox
-        {
-            Text = preview.Json, ReadOnly = true, Multiline = true, Dock = DockStyle.Fill,
-            ScrollBars = ScrollBars.Vertical, BackColor = Field, ForeColor = DesktopTheme.Text, Font = Mono,
-            BorderStyle = BorderStyle.FixedSingle
-        };
+        var body = ReadOnlyText(preview.Json, Mono);
+        var frame = new ThemeCard(Field) { Dock = DockStyle.Fill, Padding = new Padding(14, 12, 6, 12), Radius = 10 };
+        frame.Controls.Add(body);
+        FitToText(dialog, preview.Json, Mono, 675 - 28 - 20 - 20, 14 * 2 + 46 + 56);
         var actions = new FlowLayoutPanel
         {
             Dock = DockStyle.Bottom, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink,
@@ -116,7 +111,7 @@ internal static class TelemetryWindow
         var approve = new ThemeButton { Text = T("Approve and send", "Autorizar e enviar", "Разрешить отправку"), DialogResult = DialogResult.OK, Kind = ButtonKind.Primary };
         var cancel = new ThemeButton { Text = T("Cancel", "Cancelar", "Отмена"), DialogResult = DialogResult.Cancel };
         actions.Controls.AddRange([approve, cancel]);
-        dialog.Controls.Add(body);
+        dialog.Controls.Add(frame);
         dialog.Controls.Add(actions);
         dialog.Controls.Add(explanation);
         dialog.CancelButton = cancel;

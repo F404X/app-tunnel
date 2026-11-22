@@ -27,8 +27,13 @@ internal sealed partial class MainForm
         page.Controls.Add(new PageHeader(T("Settings", "Configurações", "Настройки"),
             T("Startup, appearance, updates and privacy.", "Inicialização, aparência, atualizações e privacidade.",
                 "Автозапуск, оформление, обновления и конфиденциальность.")) { Dock = DockStyle.Fill }, 0, 0);
-        var content = Column(34, 32, 32, 28, 14, 34, 44, 14, 34, 32, 44, 14, 34, 44, 34, 44, 34, 14, 34, 32, 32, 32, 46, 34, 14, 46, 0);
+        // Two columns so every setting fits the window without scrolling.
+        var content = Column(34, 32, 32, 40, 14, 34, 44, 14, 34, 32, 44, 14, 46, 0);
         content.BackColor = Background;
+        content.Margin = new Padding(0, 0, 24, 0);
+        var side = Column(34, 46, 28, 28, 10, 34, 32, 32, 32, 46, 28, 0);
+        side.BackColor = Background;
+        side.Margin = new Padding(24, 0, 0, 0);
         content.Controls.Add(SectionTitle(T("Startup", "Inicialização", "Автозапуск")), 0, 0);
         startup.AutoCheck = false;
         startup.Click += (_, _) => StartupRequested?.Invoke();
@@ -54,6 +59,11 @@ internal sealed partial class MainForm
             : T("Automatic installation is available in the installed edition.",
                 "A atualização automática está disponível na edição instalada.",
                 "Автоматическая установка доступна в установленной версии."), muted: true), 0, 3);
+        if (content.GetControlFromPosition(0, 3) is Label note)
+        {
+            note.AutoEllipsis = false;
+            note.TextAlign = ContentAlignment.TopLeft;
+        }
 
         content.Controls.Add(SectionTitle(T("Appearance", "Aparência", "Оформление")), 0, 5);
         var themes = new ThemeCombo
@@ -69,26 +79,42 @@ internal sealed partial class MainForm
         content.Controls.Add(MakeBar(themes), 0, 6);
         AddConnectionBehavior(content, 8);
 
-        content.Controls.Add(SectionTitle(T("Updates", "Atualizações", "Обновления")), 0, 12);
+        side.Controls.Add(SectionTitle(T("Updates", "Atualizações", "Обновления")), 0, 0);
         checkUpdates.Click += async (_, _) => await CheckForUpdates();
         var installed = MakeLabel($"AppTunnel {AppUpdater.CurrentVersion}", muted: true);
         installed.Dock = DockStyle.None;
         installed.AutoSize = true;
         installed.Margin = new Padding(10, 11, 0, 0);
-        content.Controls.Add(MakeBar(checkUpdates, installed), 0, 13);
-        content.Controls.Add(updateStatus, 0, 14);
         updateWireSock.Click += async (_, _) => await CheckWireSockUpdate();
-        content.Controls.Add(MakeBar(updateWireSock), 0, 15);
-        content.Controls.Add(wireSockUpdateStatus, 0, 16);
-        AddPrivacyControls(content, 18);
+        side.Controls.Add(MakeBar(checkUpdates, updateWireSock, installed), 0, 1);
+        side.Controls.Add(updateStatus, 0, 2);
+        side.Controls.Add(wireSockUpdateStatus, 0, 3);
+        AddPrivacyControls(side, 5);
         content.Controls.Add(MakeBar(ActionButton(TermsWindow.Caption, () => TermsWindow.Show(this)),
-            ActionButton(T("Run first-time setup", "Refazer configuração inicial", "Запустить первоначальную настройку"), RunSetup)), 0, 25);
-        var scroll = new Panel { Dock = DockStyle.Fill, AutoScroll = true, Margin = new Padding(0), BackColor = Background };
-        content.Dock = DockStyle.Top;
-        content.Height = 880;
-        scroll.Controls.Add(content);
-        page.Controls.Add(scroll, 0, 2);
+            ActionButton(T("Run first-time setup", "Refazer configuração inicial", "Запустить первоначальную настройку"), RunSetup)), 0, 12);
+        WrapBars(content);
+        WrapBars(side);
+        var columns = Pair(50);
+        columns.BackColor = Background;
+        columns.Controls.Add(content, 0, 0);
+        columns.Controls.Add(side, 1, 0);
+        page.Controls.Add(columns, 0, 2);
         return page;
+    }
+
+    // Button rows wrap onto a second line in a narrow window instead of being cut off; their rows grow to fit.
+    private static void WrapBars(TableLayoutPanel table)
+    {
+        foreach (var bar in table.Controls.OfType<FlowLayoutPanel>().ToArray())
+        {
+            var row = table.GetRow(bar);
+            bar.WrapContents = true;
+            bar.AutoSize = true;
+            bar.AutoSizeMode = AutoSizeMode.GrowAndShrink;
+            bar.Dock = DockStyle.None;
+            bar.Anchor = AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Top;
+            table.RowStyles[row] = new RowStyle(SizeType.AutoSize);
+        }
     }
 
     private async Task CheckWireSockUpdate()
@@ -216,10 +242,9 @@ internal sealed partial class MainForm
                 var prompt = T($"Install AppTunnel {version} now? The setup will close the AppTunnel interface and Proton sign-in window.",
                     $"Instalar o AppTunnel {version} agora? O instalador fechará a interface do AppTunnel e a janela de login da Proton.",
                     $"Установить AppTunnel {version}? Установщик закроет интерфейс AppTunnel и окно входа в Proton.");
-                if (MessageBox.Show(this, prompt, "AppTunnel", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
-                    return;
+                if (!ThemedMessage.Ask(this, prompt)) return;
             }
-            var arguments = automatic ? "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /REOPENAPPTUNNEL=1" : "";
+            var arguments = $"/LANG={InstallerLanguage}" + (automatic ? " /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /REOPENAPPTUNNEL=1" : "");
             using var setup = Process.Start(new ProcessStartInfo(installer, arguments) { WorkingDirectory = Path.GetDirectoryName(installer)! });
             if (setup is null)
                 throw new InvalidOperationException(T("The AppTunnel installer did not open.", "O instalador do AppTunnel não abriu.", "Не удалось открыть установщик AppTunnel."));

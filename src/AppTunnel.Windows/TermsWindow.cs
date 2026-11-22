@@ -21,13 +21,12 @@ internal static class TermsWindow
             Padding = new Padding(14)
         };
         PrepareDialog(dialog);
-        var body = new TextBox
-        {
-            Text = reader.ReadToEnd().ReplaceLineEndings("\r\n"), Dock = DockStyle.Fill,
-            ReadOnly = true, Multiline = true, ScrollBars = ScrollBars.Vertical,
-            AccessibleName = Caption, BackColor = Field, ForeColor = DesktopTheme.Text,
-            BorderStyle = BorderStyle.FixedSingle
-        };
+        var text = reader.ReadToEnd().ReplaceLineEndings("\n");
+        var body = ReadOnlyText(text, Body());
+        body.AccessibleName = Caption;
+        var frame = new ThemeCard(Field) { Dock = DockStyle.Fill, Padding = new Padding(14, 12, 6, 12), Radius = 10 };
+        frame.Controls.Add(body);
+        FitToText(dialog, text, Body(), 690 - 28 - 20 - 20, 14 * 2 + 24 + 56);
         var close = new ThemeButton { Text = T("Close", "Fechar", "Закрыть"), DialogResult = DialogResult.Cancel };
         var actions = new FlowLayoutPanel
         {
@@ -35,7 +34,7 @@ internal static class TermsWindow
             FlowDirection = FlowDirection.RightToLeft, Padding = new Padding(0, 8, 0, 0)
         };
         actions.Controls.Add(close);
-        dialog.Controls.Add(body);
+        dialog.Controls.Add(frame);
         dialog.Controls.Add(actions);
         dialog.CancelButton = close;
         // Read-only text should open unselected, with the caret at the top.

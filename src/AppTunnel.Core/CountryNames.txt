@@ -1,0 +1,252 @@
+AD|Andorra|Andorra|Андорра
+AE|United Arab Emirates|Emirados Árabes Unidos|ОАЭ
+AF|Afghanistan|Afeganistão|Афганистан
+AG|Antigua & Barbuda|Antígua e Barbuda|Антигуа и Барбуда
+AI|Anguilla|Anguila|Ангилья
+AL|Albania|Albânia|Албания
+AM|Armenia|Armênia|Армения
+AO|Angola|Angola|Ангола
+AQ|Antarctica|Antártida|Антарктида
+AR|Argentina|Argentina|Аргентина
+AS|American Samoa|Samoa Americana|Американское Самоа
+AT|Austria|Áustria|Австрия
+AU|Australia|Austrália|Австралия
+AW|Aruba|Aruba|Аруба
+AX|Åland Islands|Ilhas Aland|Аландские о-ва
+AZ|Azerbaijan|Azerbaijão|Азербайджан
+BA|Bosnia & Herzegovina|Bósnia e Herzegovina|Босния и Герцеговина
+BB|Barbados|Barbados|Барбадос
+BD|Bangladesh|Bangladesh|Бангладеш
+BE|Belgium|Bélgica|Бельгия
+BF|Burkina Faso|Burquina Faso|Буркина-Фасо
+BG|Bulgaria|Bulgária|Болгария
+BH|Bahrain|Barein|Бахрейн
+BI|Burundi|Burundi|Бурунди
+BJ|Benin|Benin|Бенин
+BL|St. Barthélemy|São Bartolomeu|Сен-Бартелеми
+BM|Bermuda|Bermudas|Бермудские о-ва
+BN|Brunei|Brunei|Бруней
+BO|Bolivia|Bolívia|Боливия
+BQ|Caribbean Netherlands|Países Baixos Caribenhos|Бонэйр, Синт-Эстатиус и Саба
+BR|Brazil|Brasil|Бразилия
+BS|Bahamas|Bahamas|Багамы
+BT|Bhutan|Butão|Бутан
+BV|Bouvet Island|Ilha Bouvet|о-в Буве
+BW|Botswana|Botsuana|Ботсвана
+BY|Belarus|Bielorrússia|Беларусь
+BZ|Belize|Belize|Белиз
+CA|Canada|Canadá|Канада
+CC|Cocos (Keeling) Islands|Ilhas Cocos (Keeling)|Кокосовые о-ва
+CD|Congo - Kinshasa|Congo - Kinshasa|Конго - Киншаса
+CF|Central African Republic|República Centro-Africana|Центрально-Африканская Республика
+CG|Congo - Brazzaville|República do Congo|Конго - Браззавиль
+CH|Switzerland|Suíça|Швейцария
+CI|Côte d’Ivoire|Costa do Marfim|Кот-д’Ивуар
+CK|Cook Islands|Ilhas Cook|о-ва Кука
+CL|Chile|Chile|Чили
+CM|Cameroon|Camarões|Камерун
+CN|China|China|Китай
+CO|Colombia|Colômbia|Колумбия
+CR|Costa Rica|Costa Rica|Коста-Рика
+CU|Cuba|Cuba|Куба
+CV|Cape Verde|Cabo Verde|Кабо-Верде
+CW|Curaçao|Curaçao|Кюрасао
+CX|Christmas Island|Ilha Christmas|о-в Рождества
+CY|Cyprus|Chipre|Кипр
+CZ|Czechia|Tchéquia|Чехия
+DE|Germany|Alemanha|Германия
+DJ|Djibouti|Djibuti|Джибути
+DK|Denmark|Dinamarca|Дания
+DM|Dominica|Dominica|Доминика
+DO|Dominican Republic|República Dominicana|Доминиканская Республика
+DZ|Algeria|Argélia|Алжир
+EC|Ecuador|Equador|Эквадор
+EE|Estonia|Estônia|Эстония
+EG|Egypt|Egito|Египет
+EH|Western Sahara|Saara Ocidental|Западная Сахара
+ER|Eritrea|Eritreia|Эритрея
+ES|Spain|Espanha|Испания
+ET|Ethiopia|Etiópia|Эфиопия
+EU|European Union|União Europeia|Европейский союз
+FI|Finland|Finlândia|Финляндия
+FJ|Fiji|Fiji|Фиджи
+FK|Falkland Islands|Ilhas Malvinas|Фолклендские о-ва
+FM|Micronesia|Micronésia|Федеративные Штаты Микронезии
+FO|Faroe Islands|Ilhas Faroé|Фарерские о-ва
+FR|France|França|Франция
+GA|Gabon|Gabão|Габон
+GB|United Kingdom|Reino Unido|Великобритания
+GD|Grenada|Granada|Гренада
+GE|Georgia|Geórgia|Грузия
+GF|French Guiana|Guiana Francesa|Французская Гвиана
+GG|Guernsey|Guernsey|Гернси
+GH|Ghana|Gana|Гана
+GI|Gibraltar|Gibraltar|Гибралтар
+GL|Greenland|Groenlândia|Гренландия
+GM|Gambia|Gâmbia|Гамбия
+GN|Guinea|Guiné|Гвинея
+GP|Guadeloupe|Guadalupe|Гваделупа
+GQ|Equatorial Guinea|Guiné Equatorial|Экваториальная Гвинея
+GR|Greece|Grécia|Греция
+GS|South Georgia & South Sandwich Islands|Ilhas Geórgia do Sul e Sandwich do Sul|Южная Георгия и Южные Сандвичевы о-ва
+GT|Guatemala|Guatemala|Гватемала
+GU|Guam|Guam|Гуам
+GW|Guinea-Bissau|Guiné-Bissau|Гвинея-Бисау
+GY|Guyana|Guiana|Гайана
+HK|Hong Kong SAR China|Hong Kong, RAE da China|Гонконг (САР)
+HM|Heard & McDonald Islands|Ilhas Heard e McDonald|о-ва Херд и Макдональд
+HN|Honduras|Honduras|Гондурас
+HR|Croatia|Croácia|Хорватия
+HT|Haiti|Haiti|Гаити
+HU|Hungary|Hungria|Венгрия
+ID|Indonesia|Indonésia|Индонезия
+IE|Ireland|Irlanda|Ирландия
+IL|Israel|Israel|Израиль
+IM|Isle of Man|Ilha de Man|о-в Мэн
+IN|India|Índia|Индия
+IO|British Indian Ocean Territory|Território Britânico do Oceano Índico|Британская территория в Индийском океане
+IQ|Iraq|Iraque|Ирак
+IR|Iran|Irã|Иран
+IS|Iceland|Islândia|Исландия
+IT|Italy|Itália|Италия
+JE|Jersey|Jersey|Джерси
+JM|Jamaica|Jamaica|Ямайка
+JO|Jordan|Jordânia|Иордания
+JP|Japan|Japão|Япония
+KE|Kenya|Quênia|Кения
+KG|Kyrgyzstan|Quirguistão|Киргизия
+KH|Cambodia|Camboja|Камбоджа
+KI|Kiribati|Quiribati|Кирибати
+KM|Comoros|Comores|Коморы
+KN|St. Kitts & Nevis|São Cristóvão e Névis|Сент-Китс и Невис
+KP|North Korea|Coreia do Norte|КНДР
+KR|South Korea|Coreia do Sul|Республика Корея
+KW|Kuwait|Kuwait|Кувейт
+KY|Cayman Islands|Ilhas Cayman|о-ва Кайман
+KZ|Kazakhstan|Cazaquistão|Казахстан
+LA|Laos|Laos|Лаос
+LB|Lebanon|Líbano|Ливан
+LC|St. Lucia|Santa Lúcia|Сент-Люсия
+LI|Liechtenstein|Liechtenstein|Лихтенштейн
+LK|Sri Lanka|Sri Lanka|Шри-Ланка
+LR|Liberia|Libéria|Либерия
+LS|Lesotho|Lesoto|Лесото
+LT|Lithuania|Lituânia|Литва
+LU|Luxembourg|Luxemburgo|Люксембург
+LV|Latvia|Letônia|Латвия
+LY|Libya|Líbia|Ливия
+MA|Morocco|Marrocos|Марокко
+MC|Monaco|Mônaco|Монако
+MD|Moldova|Moldávia|Молдова
+ME|Montenegro|Montenegro|Черногория
+MF|St. Martin|São Martinho|Сен-Мартен
+MG|Madagascar|Madagascar|Мадагаскар
+MH|Marshall Islands|Ilhas Marshall|Маршалловы о-ва
+MK|North Macedonia|Macedônia do Norte|Северная Македония
+ML|Mali|Mali|Мали
+MM|Myanmar (Burma)|Mianmar (Birmânia)|Мьянма (Бирма)
+MN|Mongolia|Mongólia|Монголия
+MO|Macao SAR China|Macau, RAE da China|Макао (САР)
+MP|Northern Mariana Islands|Ilhas Marianas do Norte|Северные Марианские о-ва
+MQ|Martinique|Martinica|Мартиника
+MR|Mauritania|Mauritânia|Мавритания
+MS|Montserrat|Montserrat|Монтсеррат
+MT|Malta|Malta|Мальта
+MU|Mauritius|Maurício|Маврикий
+MV|Maldives|Maldivas|Мальдивы
+MW|Malawi|Malaui|Малави
+MX|Mexico|México|Мексика
+MY|Malaysia|Malásia|Малайзия
+MZ|Mozambique|Moçambique|Мозамбик
+NA|Namibia|Namíbia|Намибия
+NC|New Caledonia|Nova Caledônia|Новая Каледония
+NE|Niger|Níger|Нигер
+NF|Norfolk Island|Ilha Norfolk|о-в Норфолк
+NG|Nigeria|Nigéria|Нигерия
+NI|Nicaragua|Nicarágua|Никарагуа
+NL|Netherlands|Países Baixos|Нидерланды
+NO|Norway|Noruega|Норвегия
+NP|Nepal|Nepal|Непал
+NR|Nauru|Nauru|Науру
+NU|Niue|Niue|Ниуэ
+NZ|New Zealand|Nova Zelândia|Новая Зеландия
+OM|Oman|Omã|Оман
+PA|Panama|Panamá|Панама
+PE|Peru|Peru|Перу
+PF|French Polynesia|Polinésia Francesa|Французская Полинезия
+PG|Papua New Guinea|Papua-Nova Guiné|Папуа — Новая Гвинея
+PH|Philippines|Filipinas|Филиппины
+PK|Pakistan|Paquistão|Пакистан
+PL|Poland|Polônia|Польша
+PM|St. Pierre & Miquelon|São Pedro e Miquelão|Сен-Пьер и Микелон
+PN|Pitcairn Islands|Ilhas Pitcairn|о-ва Питкэрн
+PR|Puerto Rico|Porto Rico|Пуэрто-Рико
+PS|Palestinian Territories|Territórios palestinos|Палестинские территории
+PT|Portugal|Portugal|Португалия
+PW|Palau|Palau|Палау
+PY|Paraguay|Paraguai|Парагвай
+QA|Qatar|Catar|Катар
+RE|Réunion|Reunião|Реюньон
+RO|Romania|Romênia|Румыния
+RS|Serbia|Sérvia|Сербия
+RU|Russia|Rússia|Россия
+RW|Rwanda|Ruanda|Руанда
+SA|Saudi Arabia|Arábia Saudita|Саудовская Аравия
+SB|Solomon Islands|Ilhas Salomão|Соломоновы о-ва
+SC|Seychelles|Seicheles|Сейшельские о-ва
+SD|Sudan|Sudão|Судан
+SE|Sweden|Suécia|Швеция
+SG|Singapore|Singapura|Сингапур
+SH|St. Helena|Santa Helena|о-в Св. Елены
+SI|Slovenia|Eslovênia|Словения
+SJ|Svalbard & Jan Mayen|Svalbard e Jan Mayen|Шпицберген и Ян-Майен
+SK|Slovakia|Eslováquia|Словакия
+SL|Sierra Leone|Serra Leoa|Сьерра-Леоне
+SM|San Marino|San Marino|Сан-Марино
+SN|Senegal|Senegal|Сенегал
+SO|Somalia|Somália|Сомали
+SR|Suriname|Suriname|Суринам
+SS|South Sudan|Sudão do Sul|Южный Судан
+ST|São Tomé & Príncipe|São Tomé e Príncipe|Сан-Томе и Принсипи
+SV|El Salvador|El Salvador|Сальвадор
+SX|Sint Maarten|Sint Maarten|Синт-Мартен
+SY|Syria|Síria|Сирия
+SZ|Eswatini|Essuatíni|Эсватини
+TC|Turks & Caicos Islands|Ilhas Turcas e Caicos|Тёркс и Кайкос
+TD|Chad|Chade|Чад
+TF|French Southern Territories|Territórios Franceses do Sul|Французские Южные территории
+TG|Togo|Togo|Того
+TH|Thailand|Tailândia|Таиланд
+TJ|Tajikistan|Tadjiquistão|Таджикистан
+TK|Tokelau|Tokelau|Токелау
+TL|Timor-Leste|Timor-Leste|Восточный Тимор
+TM|Turkmenistan|Turcomenistão|Туркменистан
+TN|Tunisia|Tunísia|Тунис
+TO|Tonga|Tonga|Тонга
+TR|Türkiye|Turquia|Турция
+TT|Trinidad & Tobago|Trinidad e Tobago|Тринидад и Тобаго
+TV|Tuvalu|Tuvalu|Тувалу
+TW|Taiwan|Taiwan|Тайвань
+TZ|Tanzania|Tanzânia|Танзания
+UA|Ukraine|Ucrânia|Украина
+UG|Uganda|Uganda|Уганда
+UM|U.S. Outlying Islands|Ilhas Menores Distantes dos EUA|Внешние малые о-ва (США)
+UN|United Nations|Nações Unidas|Организация Объединенных Наций
+US|United States|Estados Unidos|Соединенные Штаты
+UY|Uruguay|Uruguai|Уругвай
+UZ|Uzbekistan|Uzbequistão|Узбекистан
+VA|Vatican City|Cidade do Vaticano|Ватикан
+VC|St. Vincent & Grenadines|São Vicente e Granadinas|Сент-Винсент и Гренадины
+VE|Venezuela|Venezuela|Венесуэла
+VG|British Virgin Islands|Ilhas Virgens Britânicas|Виргинские о-ва (Великобритания)
+VI|U.S. Virgin Islands|Ilhas Virgens Americanas|Виргинские о-ва (США)
+VN|Vietnam|Vietnã|Вьетнам
+VU|Vanuatu|Vanuatu|Вануату
+WF|Wallis & Futuna|Wallis e Futuna|Уоллис и Футуна
+WS|Samoa|Samoa|Самоа
+XK|Kosovo|Kosovo|Косово
+YE|Yemen|Iêmen|Йемен
+YT|Mayotte|Mayotte|Майотта
+ZA|South Africa|África do Sul|Южно-Африканская Республика
+ZM|Zambia|Zâmbia|Замбия
+ZW|Zimbabwe|Zimbábue|Зимбабве

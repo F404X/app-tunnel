@@ -186,9 +186,26 @@ public static class ProtonServerNames
         name.Length >= 2 && char.IsAsciiLetter(name[0]) && char.IsAsciiLetter(name[1]) && (name.Length == 2 || !char.IsAsciiLetter(name[2]))
             ? name[..2].ToUpperInvariant() : "";
 
+    private static readonly Lazy<Dictionary<string, string[]>> Names = new(LoadNames);
+
+    // Country names follow the AppTunnel language, not the Windows display language.
     public static string CountryName(string code)
     {
-        try { return new RegionInfo(code).DisplayName; }
-        catch (ArgumentException) { return code; }
+        if (!Names.Value.TryGetValue(code, out var names)) return code;
+        return Localized.Language switch { "pt" => names[1], "ru" => names[2], _ => names[0] };
+    }
+
+    private static Dictionary<string, string[]> LoadNames()
+    {
+        var names = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
+        using var stream = typeof(ProtonServerNames).Assembly.GetManifestResourceStream("AppTunnel.Core.CountryNames");
+        if (stream is null) return names;
+        using var reader = new StreamReader(stream, Encoding.UTF8);
+        for (var line = reader.ReadLine(); line is not null; line = reader.ReadLine())
+        {
+            var parts = line.Split('|');
+            if (parts.Length == 4) names[parts[0]] = parts[1..];
+        }
+        return names;
     }
 }

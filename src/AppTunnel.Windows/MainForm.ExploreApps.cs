@@ -48,10 +48,10 @@ internal sealed partial class MainForm
                 (CoversTarget(existing, match) || CoversTarget(match, existing))));
             var card = new ThemeCard(installed ? Surface : Field)
             {
-                Size = new Size(228, 68), Margin = new Padding(0, 0, 9, 9), Padding = new Padding(11, 6, 10, 7)
+                Size = new Size(228, 60), Margin = new Padding(0, 0, 9, 9), Padding = new Padding(11, 5, 10, 5)
             };
             var label = installed ? T("Installed", "Instalado", "Установлено") : T("Not detected", "Não detectado", "Не найдено");
-            var cardLayout = Column(30, 19);
+            var cardLayout = Column(28, 18);
             var check = MakeCheck(app.Name);
             check.Enabled = installed;
             check.Checked = selected;
@@ -70,6 +70,14 @@ internal sealed partial class MainForm
             cards.Controls.Add(card);
         }
         layout.Controls.Add(cards, 0, 2);
+        // Four columns, tall enough for every card, so the list only scrolls on a very small screen.
+        var rows = (cards.Controls.Count + 3) / 4;
+        var area = Screen.FromPoint(Cursor.Position).WorkingArea;
+        var scale = dialog.DeviceDpi / 96f;
+        var needed = 32 + 35 + 36 + rows * 69 + 44 + 24;
+        var limit = (int)(area.Height / scale * .9f);
+        // Sized to fit, so no bar shows; scrolling stays on for a dialog made narrower or shorter by hand.
+        dialog.ClientSize = new Size(4 * (228 + 9) + 32 + (needed > limit ? 24 : 4), Math.Min(needed, limit));
         var save = MakeButton(T("Apply selection", "Aplicar seleção", "Применить выбор"), ButtonKind.Primary);
         save.DialogResult = DialogResult.OK;
         var cancel = MakeButton(T("Cancel", "Cancelar", "Отмена"), ButtonKind.Quiet);

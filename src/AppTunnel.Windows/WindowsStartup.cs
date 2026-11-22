@@ -55,7 +55,9 @@ internal static class WindowsStartup
             }
 
             dynamic task = scheduler.NewTask(0);
-            task.RegistrationInfo.Description = "Open AppTunnel in the system tray when this user signs in.";
+            task.RegistrationInfo.Description = AppTunnel.Core.Localized.T("Open AppTunnel in the system tray when this user signs in.",
+                "Abre o AppTunnel na bandeja do sistema quando este usuário entra no Windows.",
+                "Открывает AppTunnel в области уведомлений при входе этого пользователя.");
             task.Principal.UserId = sid;
             task.Principal.LogonType = InteractiveToken;
             task.Principal.RunLevel = 1; // TASK_RUNLEVEL_HIGHEST

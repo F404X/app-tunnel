@@ -67,7 +67,7 @@ internal static class Program
             FormatException or InvalidOperationException or JsonException)
         {
             _ = telemetry.ReportErrorAsync(TelemetryStage.Startup, error);
-            MessageBox.Show(error.Message, "AppTunnel", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            ThemedMessage.Warn(null, error.Message);
             return 1;
         }
         finally

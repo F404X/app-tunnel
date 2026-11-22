@@ -160,9 +160,10 @@ internal sealed partial class MainForm
                 var row = new ServerRow(automatic: false)
                 {
                     Choice = true, Code = server.Country.Length == 2 ? server.Country : ProtonServerNames.CountryOf(server.Name),
-                    Title = server.Name, Tag = server,
-                    Detail = string.Join(" · ", new[] { server.City, T($"{server.Load}% load", $"{server.Load}% de carga", $"нагрузка {server.Load}%") }
-                        .Where(part => !string.IsNullOrEmpty(part))),
+                    Flag = CountryFlags.Get(server.Country.Length == 2 ? server.Country : ProtonServerNames.CountryOf(server.Name)),
+                    Title = server.Name, Tag = server, Load = Math.Clamp(server.Load, 0, 100),
+                    Detail = string.Join(" · ", new[] { server.City, ProtonServerNames.CountryName(server.Country) }
+                        .Where(part => !string.IsNullOrEmpty(part)).Distinct()),
                     Measured = pings.ContainsKey(server.EntryIp), Latency = pings.GetValueOrDefault(server.EntryIp)
                 };
                 row.Click += async (_, _) => await Create(server);

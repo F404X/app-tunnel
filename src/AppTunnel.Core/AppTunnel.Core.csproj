@@ -2,4 +2,8 @@
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
   </PropertyGroup>
+  <ItemGroup>
+    <!-- Country names in English, Portuguese and Russian, from Unicode CLDR (see Licenses/CLDR-NOTICE.txt). -->
+    <EmbeddedResource Include="CountryNames.txt" LogicalName="AppTunnel.Core.CountryNames" />
+  </ItemGroup>
 </Project>

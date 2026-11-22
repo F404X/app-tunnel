@@ -7,7 +7,7 @@ internal sealed partial class MainForm
 {
     private readonly CheckBox autoApplyChanges = MakeCheck(T("Apply changes automatically while connected",
         "Aplicar mudanças automaticamente durante a conexão", "Автоматически применять изменения при подключении"));
-    private ComboBox? discordMode;
+    private ThemeCombo? discordMode;
     private bool quietPingBusy;
     private DateTime lastQuietPing = DateTime.MinValue;
 
