@@ -368,7 +368,8 @@ var scenarios = new (string Name, Action Check)[]
             sample.Replace("MTU = 1380", "MTU = 1380\nMTU = 1420") };
         foreach (var invalid in variants) Throws<FormatException>(() => WireGuardProfile.Parse(invalid));
     }),
-    ("dialogs, including the update confirmation, build without errors", DialogChecks.Run)
+    ("dialogs, including the update confirmation, build without errors", DialogChecks.Run),
+    ("themed menus and selection fields paint in both themes", MenuChecks.Run)
 };
 foreach (var scenario in scenarios)
 {

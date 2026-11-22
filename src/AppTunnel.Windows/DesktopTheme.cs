@@ -147,12 +147,12 @@ internal static class DesktopTheme
     // The native edit menu of a text field follows the Windows language; this one follows the AppTunnel language.
     public static TBox WithEditMenu<TBox>(TBox box) where TBox : TextBoxBase
     {
-        var menu = new ContextMenuStrip { Font = Body(), BackColor = Raised, ForeColor = Text, Renderer = new ThemeMenuRenderer(), ShowImageMargin = false };
-        var cut = new ToolStripMenuItem(AppTunnel.Core.Localized.T("Cut", "Recortar", "Вырезать"), null, (_, _) => box.Cut());
-        var copy = new ToolStripMenuItem(AppTunnel.Core.Localized.T("Copy", "Copiar", "Копировать"), null, (_, _) => box.Copy());
-        var paste = new ToolStripMenuItem(AppTunnel.Core.Localized.T("Paste", "Colar", "Вставить"), null, (_, _) => box.Paste());
-        var all = new ToolStripMenuItem(AppTunnel.Core.Localized.T("Select all", "Selecionar tudo", "Выделить всё"), null, (_, _) => box.SelectAll());
-        menu.Items.AddRange([cut, copy, paste, new ToolStripSeparator(), all]);
+        var menu = new ThemeMenu();
+        var cut = menu.Add(AppTunnel.Core.Localized.T("Cut", "Recortar", "Вырезать"), Glyph.Scissors, (_, _) => box.Cut());
+        var copy = menu.Add(AppTunnel.Core.Localized.T("Copy", "Copiar", "Копировать"), Glyph.Copy, (_, _) => box.Copy());
+        var paste = menu.Add(AppTunnel.Core.Localized.T("Paste", "Colar", "Вставить"), Glyph.Clipboard, (_, _) => box.Paste());
+        menu.AddSeparator();
+        var all = menu.Add(AppTunnel.Core.Localized.T("Select all", "Selecionar tudo", "Выделить всё"), Glyph.SelectAll, (_, _) => box.SelectAll());
         menu.Opening += (_, _) =>
         {
             cut.Enabled = !box.ReadOnly && box.SelectionLength > 0;
@@ -386,9 +386,150 @@ internal static class DesktopTheme
                     graphics.DrawBezier(pen, 9, 18, 9, 14.5f, 10.4f, 12, 12, 12);
                     graphics.DrawBezier(pen, 12, 12, 13.6f, 12, 15, 14.5f, 15, 18);
                     break;
+                case Glyph.Window:
+                    DrawRounded(graphics, pen, 3, 4.5f, 18, 15, 2.5f);
+                    graphics.DrawLine(pen, 3, 9, 21, 9);
+                    break;
+                case Glyph.File:
+                    graphics.DrawPolygon(pen, new PointF[] { new(6, 3), new(14, 3), new(19, 8), new(19, 21), new(6, 21) });
+                    graphics.DrawLines(pen, new PointF[] { new(14, 3), new(14, 8), new(19, 8) });
+                    break;
+                case Glyph.Folder:
+                    graphics.DrawPolygon(pen, new PointF[] { new(3, 5.5f), new(9.5f, 5.5f), new(11.5f, 8), new(21, 8), new(21, 19), new(3, 19) });
+                    break;
+                case Glyph.Compass:
+                    graphics.DrawEllipse(pen, 3, 3, 18, 18);
+                    graphics.DrawPolygon(pen, new PointF[] { new(15.5f, 8.5f), new(13.5f, 13.5f), new(8.5f, 15.5f), new(10.5f, 10.5f) });
+                    break;
+                case Glyph.External:
+                    graphics.DrawLines(pen, new PointF[] { new(18, 13.5f), new(18, 19.5f), new(4.5f, 19.5f), new(4.5f, 6), new(10.5f, 6) });
+                    graphics.DrawLines(pen, new PointF[] { new(14.5f, 3.5f), new(20.5f, 3.5f), new(20.5f, 9.5f) });
+                    graphics.DrawLine(pen, 20.5f, 3.5f, 11, 13);
+                    break;
+                case Glyph.User:
+                    graphics.DrawEllipse(pen, 8, 3.5f, 8, 8);
+                    graphics.DrawBezier(pen, 4.5f, 20.5f, 4.5f, 13.5f, 19.5f, 13.5f, 19.5f, 20.5f);
+                    break;
+                case Glyph.Import:
+                    graphics.DrawLine(pen, 12, 3.5f, 12, 14.5f);
+                    graphics.DrawLines(pen, new PointF[] { new(7.5f, 10), new(12, 14.5f), new(16.5f, 10) });
+                    graphics.DrawLines(pen, new PointF[] { new(4, 15), new(4, 20), new(20, 20), new(20, 15) });
+                    break;
+                case Glyph.Pencil:
+                    graphics.DrawPolygon(pen, new PointF[] { new(16, 4), new(20, 8), new(8.5f, 19.5f), new(4, 20), new(4.5f, 15.5f) });
+                    graphics.DrawLine(pen, 13.5f, 6.5f, 17.5f, 10.5f);
+                    break;
+                case Glyph.Trash:
+                    graphics.DrawLine(pen, 4, 6.5f, 20, 6.5f);
+                    graphics.DrawLines(pen, new PointF[] { new(9, 6.5f), new(9, 3.5f), new(15, 3.5f), new(15, 6.5f) });
+                    graphics.DrawLines(pen, new PointF[] { new(6, 6.5f), new(7, 20.5f), new(17, 20.5f), new(18, 6.5f) });
+                    graphics.DrawLine(pen, 10, 10.5f, 10, 16.5f);
+                    graphics.DrawLine(pen, 14, 10.5f, 14, 16.5f);
+                    break;
+                case Glyph.Scissors:
+                    graphics.DrawEllipse(pen, 3, 3, 6, 6);
+                    graphics.DrawEllipse(pen, 3, 15, 6, 6);
+                    graphics.DrawLine(pen, 20, 4, 8.1f, 15.9f);
+                    graphics.DrawLine(pen, 14.5f, 14.5f, 20, 20);
+                    graphics.DrawLine(pen, 8.1f, 8.1f, 12, 12);
+                    break;
+                case Glyph.Copy:
+                    DrawRounded(graphics, pen, 8.5f, 8.5f, 12.5f, 12.5f, 2);
+                    graphics.DrawLines(pen, new PointF[] { new(5, 15.5f), new(3.5f, 15.5f), new(3.5f, 3.5f), new(15.5f, 3.5f), new(15.5f, 5) });
+                    break;
+                case Glyph.Clipboard:
+                    DrawRounded(graphics, pen, 5, 4.5f, 14, 16.5f, 2);
+                    DrawRounded(graphics, pen, 9, 2.5f, 6, 4, 1);
+                    break;
+                case Glyph.SelectAll:
+                    using (var dashed = new Pen(color, stroke) { DashPattern = [1.4f, 1.6f], DashCap = DashCap.Round })
+                        DrawRounded(graphics, dashed, 3.5f, 3.5f, 17, 17, 2.5f);
+                    graphics.DrawLines(pen, new PointF[] { new(8, 12.5f), new(10.8f, 15.3f), new(16.3f, 9.3f) });
+                    break;
+                case Glyph.Monitor:
+                    DrawRounded(graphics, pen, 3, 4, 18, 12.5f, 2);
+                    graphics.DrawLine(pen, 12, 16.5f, 12, 20);
+                    graphics.DrawLine(pen, 8, 20, 16, 20);
+                    break;
+                case Glyph.Sun:
+                    graphics.DrawEllipse(pen, 8, 8, 8, 8);
+                    for (var ray = 0; ray < 8; ray++)
+                    {
+                        var angle = ray * Math.PI / 4;
+                        var (dx, dy) = ((float)Math.Cos(angle), (float)Math.Sin(angle));
+                        graphics.DrawLine(pen, 12 + dx * 6.8f, 12 + dy * 6.8f, 12 + dx * 9, 12 + dy * 9);
+                    }
+                    break;
+                case Glyph.Moon:
+                    // A circle with a smaller one bitten out of its upper right edge.
+                    using (var moon = new GraphicsPath())
+                    {
+                        moon.AddArc(3, 3, 18, 18, -5, 280);
+                        moon.AddArc(12, 0, 12, 12, 209.6f, -149.2f);
+                        moon.CloseFigure();
+                        graphics.DrawPath(pen, moon);
+                    }
+                    break;
+                case Glyph.Flask:
+                    graphics.DrawLine(pen, 8.5f, 3, 15.5f, 3);
+                    graphics.DrawLines(pen, new PointF[] { new(10, 3), new(10, 9), new(4.6f, 18.2f), new(5.8f, 20.5f), new(18.2f, 20.5f), new(19.4f, 18.2f), new(14, 9), new(14, 3) });
+                    graphics.DrawLine(pen, 7.2f, 14.5f, 16.8f, 14.5f);
+                    break;
+                case Glyph.Question:
+                    graphics.DrawEllipse(pen, 3, 3, 18, 18);
+                    graphics.DrawArc(pen, 9.2f, 6.8f, 5.6f, 5.6f, 190, 225);
+                    graphics.DrawLine(pen, 13.8f, 11.4f, 12, 13.2f);
+                    graphics.DrawLine(pen, 12, 17, 12, 17.1f);
+                    break;
+                case Glyph.Refresh:
+                    graphics.DrawArc(pen, 4, 4, 16, 16, 135, 270);
+                    graphics.DrawLines(pen, new PointF[] { new(17.7f, 12.6f), new(17.7f, 17.7f), new(22.2f, 17.7f) });
+                    break;
+                case Glyph.Ban:
+                    graphics.DrawEllipse(pen, 3, 3, 18, 18);
+                    graphics.DrawLine(pen, 5.7f, 5.7f, 18.3f, 18.3f);
+                    break;
+                case Glyph.EyeOff:
+                    using (var eye = new GraphicsPath())
+                    {
+                        eye.AddBezier(2.5f, 12, 6, 5.5f, 18, 5.5f, 21.5f, 12);
+                        eye.AddBezier(21.5f, 12, 18, 18.5f, 6, 18.5f, 2.5f, 12);
+                        graphics.DrawPath(pen, eye);
+                    }
+                    graphics.DrawEllipse(pen, 9.5f, 9.5f, 5, 5);
+                    graphics.DrawLine(pen, 4, 3.5f, 20, 20.5f);
+                    break;
+                case Glyph.Exit:
+                    graphics.DrawLines(pen, new PointF[] { new(9.5f, 4), new(5, 4), new(5, 20), new(9.5f, 20) });
+                    graphics.DrawLine(pen, 10, 12, 20.5f, 12);
+                    graphics.DrawLines(pen, new PointF[] { new(16.5f, 8), new(20.5f, 12), new(16.5f, 16) });
+                    break;
+                case Glyph.Bolt:
+                    graphics.DrawPolygon(pen, new PointF[] { new(13.5f, 2.5f), new(4.5f, 13.5f), new(11.5f, 13.5f), new(10.5f, 21.5f), new(19.5f, 10.5f), new(12.5f, 10.5f) });
+                    break;
+                case Glyph.Sparkle:
+                    graphics.DrawPolygon(pen, new PointF[] { new(10, 3), new(11.9f, 9.1f), new(18, 11), new(11.9f, 12.9f), new(10, 19), new(8.1f, 12.9f), new(2, 11), new(8.1f, 9.1f) });
+                    graphics.DrawLine(pen, 18.5f, 15, 18.5f, 21);
+                    graphics.DrawLine(pen, 15.5f, 18, 21.5f, 18);
+                    break;
+                case Glyph.Layers:
+                    graphics.DrawPolygon(pen, new PointF[] { new(12, 3.5f), new(21, 8.5f), new(12, 13.5f), new(3, 8.5f) });
+                    graphics.DrawLines(pen, new PointF[] { new(3, 12.5f), new(12, 17.5f), new(21, 12.5f) });
+                    graphics.DrawLines(pen, new PointF[] { new(3, 16.5f), new(12, 21.5f), new(21, 16.5f) });
+                    break;
+                case Glyph.CheckCircle:
+                    graphics.DrawEllipse(pen, 3, 3, 18, 18);
+                    graphics.DrawLines(pen, new PointF[] { new(8, 12.3f), new(10.9f, 15.2f), new(16.2f, 9.4f) });
+                    break;
             }
         }
         finally { graphics.Restore(state); }
+    }
+
+    private static void DrawRounded(Graphics graphics, Pen pen, float x, float y, float width, float height, float radius)
+    {
+        using var shape = Rounded(new RectangleF(x, y, width, height), radius);
+        graphics.DrawPath(pen, shape);
     }
 
     private sealed class FontResources
@@ -440,7 +581,12 @@ internal static class DesktopTheme
     }
 }
 
-internal enum Glyph { None, Power, Apps, Globe, Sliders, Pulse, Plus, Check, Close, Alert, Shield, More, Chevron, Tunnel }
+internal enum Glyph
+{
+    None, Power, Apps, Globe, Sliders, Pulse, Plus, Check, Close, Alert, Shield, More, Chevron, Tunnel,
+    Window, File, Folder, Compass, External, User, Import, Pencil, Trash, Scissors, Copy, Clipboard, SelectAll,
+    Monitor, Sun, Moon, Flask, Question, Refresh, Ban, EyeOff, Exit, Bolt, Sparkle, Layers, CheckCircle
+}
 
 internal enum ButtonKind { Secondary, Primary, Quiet, Navigation, Link }
 
@@ -675,32 +821,4 @@ internal sealed class ThemeCheckBox : CheckBox
 
     protected override void OnCheckedChanged(EventArgs e) { base.OnCheckedChanged(e); Invalidate(); }
     protected override void OnEnabledChanged(EventArgs e) { base.OnEnabledChanged(e); Invalidate(); }
-}
-
-// Menu colors read the live palette, so open menus follow the current light/dark theme.
-internal sealed class ThemeMenuColors : ProfessionalColorTable
-{
-    public override Color MenuBorder => DesktopTheme.Border;
-    public override Color MenuItemBorder => DesktopTheme.Hover;
-    public override Color MenuItemSelected => DesktopTheme.Hover;
-    public override Color MenuItemSelectedGradientBegin => DesktopTheme.Hover;
-    public override Color MenuItemSelectedGradientEnd => DesktopTheme.Hover;
-    public override Color ToolStripDropDownBackground => DesktopTheme.Raised;
-    public override Color ImageMarginGradientBegin => DesktopTheme.Raised;
-    public override Color ImageMarginGradientMiddle => DesktopTheme.Raised;
-    public override Color ImageMarginGradientEnd => DesktopTheme.Raised;
-    public override Color SeparatorDark => DesktopTheme.Border;
-    public override Color SeparatorLight => DesktopTheme.Raised;
-    public override Color CheckBackground => DesktopTheme.Accent;
-    public override Color CheckSelectedBackground => DesktopTheme.Accent;
-}
-
-// Menu text uses the same smoothing as the rest of the interface.
-internal sealed class ThemeMenuRenderer() : ToolStripProfessionalRenderer(new ThemeMenuColors())
-{
-    protected override void OnRenderItemText(ToolStripItemTextRenderEventArgs e)
-    {
-        var color = e.Item.Enabled ? DesktopTheme.Text : DesktopTheme.Disabled;
-        DesktopTheme.PaintText(e.Graphics, e.Text ?? "", e.TextFont ?? DesktopTheme.Body(), e.TextRectangle, color);
-    }
 }

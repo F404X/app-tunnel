@@ -989,11 +989,17 @@ internal sealed class ExpanderHeader : PaintedButton
 internal sealed class ThemeCombo : PaintedButton
 {
     private int selected = -1;
-    private ContextMenuStrip? open;
+    private ThemeMenu? open;
     public event EventHandler? SelectedIndexChanged;
 
     [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
     public List<object> Items { get; } = [];
+
+    // Optional icon per item, by index, shown in the list and beside the chosen item.
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+    public List<Glyph> Glyphs { get; } = [];
+
+    private Glyph GlyphAt(int index) => index >= 0 && index < Glyphs.Count ? Glyphs[index] : Glyph.None;
 
     [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
     public int SelectedIndex
@@ -1044,19 +1050,14 @@ internal sealed class ThemeCombo : PaintedButton
     private void ShowList()
     {
         if (!Enabled || Items.Count == 0 || open is not null) return;
-        var menu = new ContextMenuStrip
-        {
-            Font = Font, BackColor = Raised, ForeColor = DesktopTheme.Text, Renderer = new ThemeMenuRenderer(),
-            ShowImageMargin = false, ShowCheckMargin = true, Padding = new Padding(2), MaximumSize = new Size(0, Screen.FromControl(this).WorkingArea.Height / 2)
-        };
+        var menu = new ThemeMenu { MaximumSize = new Size(0, Screen.FromControl(this).WorkingArea.Height / 2) };
         for (var i = 0; i < Items.Count; i++)
         {
             var index = i;
-            var item = new ToolStripMenuItem(Items[i].ToString()) { Checked = i == selected, Padding = new Padding(0, 4, 0, 4) };
-            item.Click += (_, _) => SelectedIndex = index;
-            menu.Items.Add(item);
+            var item = menu.Add(Items[i].ToString() ?? "", GlyphAt(i), (_, _) => SelectedIndex = index);
+            item.Checked = i == selected;
         }
-        menu.MinimumSize = new Size(Width, 0);
+        menu.MinimumWidth = Width;
         menu.Closed += (_, _) =>
         {
             open = null;
@@ -1079,7 +1080,14 @@ internal sealed class ThemeCombo : PaintedButton
         var chevron = Px(16);
         var right = Width - Px(12) - chevron;
         PaintIcon(g, Glyph.Chevron, new Rectangle(right, (Height - chevron) / 2, chevron, chevron), Enabled ? Muted : Disabled, 2f);
-        PaintText(g, SelectedText, Font, new Rectangle(Px(12), 0, Math.Max(0, right - Px(20)), Height),
+        var left = Px(12);
+        if (GlyphAt(selected) is var glyph and not Glyph.None)
+        {
+            var size = Px(18);
+            PaintIcon(g, glyph, new Rectangle(left, (Height - size) / 2, size, size), Enabled ? Muted : Disabled, 1.9f);
+            left += size + Px(10);
+        }
+        PaintText(g, SelectedText, Font, new Rectangle(left, 0, Math.Max(0, right - left - Px(8)), Height),
             Enabled ? DesktopTheme.Text : Disabled);
     }
 

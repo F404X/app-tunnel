@@ -43,6 +43,7 @@ internal sealed partial class MainForm
             T("Ask every time", "Perguntar sempre", "Всегда спрашивать"),
             T("Restart automatically", "Reiniciar automaticamente", "Перезапускать автоматически"),
             T("Don't restart", "Não reiniciar", "Не перезапускать")]);
+        mode.Glyphs.AddRange([Glyph.Question, Glyph.Refresh, Glyph.Ban]);
         mode.SelectedIndex = Enum.IsDefined(settings.DiscordRestart) ? (int)settings.DiscordRestart : 0;
         mode.SelectedIndexChanged += (_, _) => SaveDiscordChoice((DiscordRestartChoice)Math.Max(0, mode.SelectedIndex));
         discordMode = mode;

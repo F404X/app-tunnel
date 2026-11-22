@@ -133,11 +133,11 @@ internal sealed partial class MainForm
         add.MinimumSize = new Size(0, 46);
         add.Margin = new Padding(16, 0, 0, 4);
         var menu = MakeMenu();
-        menu.Items.Add(T("From a running app…", "De um app aberto…", "Из запущенных…"), null, (_, _) => AddRunning());
-        menu.Items.Add(T("Browse for an .exe…", "Procurar no PC…", "Выбрать файл .exe…"), null, (_, _) => AddExecutable());
-        menu.Items.Add(T("Whole folder…", "Pasta inteira…", "Папка целиком…"), null, (_, _) => AddFolder());
-        menu.Items.Add(new ToolStripSeparator());
-        menu.Items.Add(T("Explore common apps…", "Explorar apps comuns…", "Часто используемые приложения…"), null,
+        menu.Add(T("From a running app…", "De um app aberto…", "Из запущенных…"), Glyph.Window, (_, _) => AddRunning());
+        menu.Add(T("Browse for an .exe…", "Procurar no PC…", "Выбрать файл .exe…"), Glyph.File, (_, _) => AddExecutable());
+        menu.Add(T("Whole folder…", "Pasta inteira…", "Папка целиком…"), Glyph.Folder, (_, _) => AddFolder());
+        menu.AddSeparator();
+        menu.Add(T("Explore common apps…", "Explorar apps comuns…", "Часто используемые приложения…"), Glyph.Compass,
             async (_, _) => await ExploreCommonApps());
         add.Click += (_, _) => menu.Show(add, new Point(add.Width - menu.GetPreferredSize(Size.Empty).Width, add.Height + 4));
         add.Disposed += (_, _) => menu.Dispose();
@@ -220,12 +220,12 @@ internal sealed partial class MainForm
         choose.Margin = new Padding(0, 2, 12, 2);
         choose.Click += async (_, _) => await ChooseRoute();
         var menu = MakeMenu();
-        menu.Items.Add(T("Choose route…", "Escolher rota…", "Выбрать маршрут…"), null, async (_, _) => await ChooseRoute());
-        menu.Items.Add(T("Create in the Proton window…", "Criar na janela da Proton…", "Создать в окне Proton…"), null, (_, _) => OpenProton(create: true));
-        menu.Items.Add(T("Proton account profiles…", "Perfis da conta Proton…", "Профили учётной записи Proton…"), null, (_, _) => ShowProtonProfiles());
-        menu.Items.Add(T("Import a .conf file…", "Importar arquivo .conf…", "Импортировать файл .conf…"), null, (_, _) => ImportProfiles());
-        menu.Items.Add(new ToolStripSeparator());
-        menu.Items.Add(T("Open Proton account", "Abrir conta Proton", "Открыть учётную запись Proton"), null, (_, _) => OpenProton());
+        menu.Add(T("Choose route…", "Escolher rota…", "Выбрать маршрут…"), Glyph.Globe, async (_, _) => await ChooseRoute());
+        menu.Add(T("Create in the Proton window…", "Criar na janela da Proton…", "Создать в окне Proton…"), Glyph.Plus, (_, _) => OpenProton(create: true));
+        menu.Add(T("Proton account profiles…", "Perfis da conta Proton…", "Профили учётной записи Proton…"), Glyph.User, (_, _) => ShowProtonProfiles());
+        menu.Add(T("Import a .conf file…", "Importar arquivo .conf…", "Импортировать файл .conf…"), Glyph.Import, (_, _) => ImportProfiles());
+        menu.AddSeparator();
+        menu.Add(T("Open Proton account", "Abrir conta Proton", "Открыть учётную запись Proton"), Glyph.External, (_, _) => OpenProton());
         addServer.Click += (_, _) => menu.Show(addServer, new Point(0, addServer.Height + 4));
         addServer.Disposed += (_, _) => menu.Dispose();
         addServer.Text = T("More options", "Mais opções", "Другие варианты");
@@ -284,7 +284,18 @@ internal sealed partial class MainForm
         exclude.AccessibleDescription = include.AccessibleDescription;
         ipv6.AccessibleDescription = T("Available if the selected profile supports IPv6.", "Disponível quando o perfil selecionado inclui IPv6.", "Доступно, если выбранный профиль поддерживает IPv6.");
         protocolMode.AccessibleName = T("VPN protocol", "Protocolo VPN", "Протокол VPN");
-        foreach (var protocol in Enum.GetValues<Core.ProtocolPreference>()) protocolMode.Items.Add(Core.VpnProtocols.Name(protocol));
+        foreach (var protocol in Enum.GetValues<Core.ProtocolPreference>())
+        {
+            protocolMode.Items.Add(Core.VpnProtocols.Name(protocol));
+            protocolMode.Glyphs.Add(protocol switch
+            {
+                Core.ProtocolPreference.Profile => Glyph.File,
+                Core.ProtocolPreference.Automatic => Glyph.Sparkle,
+                Core.ProtocolPreference.WireGuardPadding => Glyph.Layers,
+                Core.ProtocolPreference.AmneziaWG => Glyph.Shield,
+                _ => Glyph.Tunnel
+            });
+        }
 
         // The options scroll inside the card when the window leaves too little room for all of them.
         var scroller = new Panel { AutoScroll = true, BackColor = Surface, Margin = new Padding(0) };
@@ -390,11 +401,7 @@ internal sealed partial class MainForm
         Dock = DockStyle.Fill, Margin = new Padding(0), BackColor = Background, ColumnCount = 1, RowCount = 1
     };
 
-    private static ContextMenuStrip MakeMenu() => new()
-    {
-        Font = Body(), BackColor = Raised, ForeColor = DesktopTheme.Text, Renderer = new ThemeMenuRenderer(),
-        ShowImageMargin = false, Padding = new Padding(4)
-    };
+    private static ThemeMenu MakeMenu() => new();
 
     private static Control InputFrame(TextBox textBox)
     {

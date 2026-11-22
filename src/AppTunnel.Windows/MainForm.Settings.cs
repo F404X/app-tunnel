@@ -75,6 +75,7 @@ internal sealed partial class MainForm
             T("Follow Windows", "Seguir o Windows", "Как в Windows"),
             T("Light", "Claro", "Светлая"),
             T("Dark", "Escuro", "Тёмная")]);
+        themes.Glyphs.AddRange([Glyph.Monitor, Glyph.Sun, Glyph.Moon]);
         themes.SelectedIndex = Enum.IsDefined(settings.Theme) ? (int)settings.Theme : 0;
         themes.SelectedIndexChanged += (_, _) => BeginInvoke(() => ThemeRequested?.Invoke((ThemeMode)themes.SelectedIndex));
         content.Controls.Add(MakeBar(themes), 0, 6);
@@ -243,6 +244,7 @@ internal sealed partial class MainForm
             T("Stable", "Estável", "Стабильный"),
             T("Beta · previews of the next version", "Beta · prévias da próxima versão", "Бета · предварительные версии"),
             T("Nightly · every change, experimental", "Nightly · cada mudança, experimental", "Ночная · каждое изменение, экспериментально")]);
+        mode.Glyphs.AddRange([Glyph.CheckCircle, Glyph.Flask, Glyph.Moon]);
         mode.SelectedIndex = (int)Channel;
         mode.SelectedIndexChanged += async (_, _) =>
         {

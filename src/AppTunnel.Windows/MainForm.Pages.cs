@@ -313,8 +313,9 @@ internal sealed partial class MainForm
     {
         if (busy || pingBusy) return;
         var menu = MakeMenu();
-        menu.Items.Add(T("Rename…", "Renomear…", "Переименовать…"), null, (_, _) => RenameRoute(id));
-        menu.Items.Add(T("Remove", "Remover", "Удалить"), null, (_, _) => RemoveRoute(id));
+        menu.Add(T("Rename…", "Renomear…", "Переименовать…"), Glyph.Pencil, (_, _) => RenameRoute(id));
+        menu.AddSeparator();
+        menu.Add(T("Remove", "Remover", "Удалить"), Glyph.Trash, (_, _) => RemoveRoute(id)).Destructive = true;
         menu.Closed += (_, _) => BeginInvoke(menu.Dispose);
         menu.Show(row, point);
     }

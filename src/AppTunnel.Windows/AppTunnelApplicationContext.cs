@@ -91,28 +91,22 @@ internal sealed class AppTunnelApplicationContext : ApplicationContext
 
     private void BuildTrayMenu()
     {
-        var menu = new ContextMenuStrip
-        {
-            Font = DesktopTheme.Body(), Renderer = new ThemeMenuRenderer()
-        };
-        menu.Items.Add(T("Open AppTunnel", "Abrir AppTunnel", "Открыть AppTunnel"), null, (_, _) => ShowWindow());
-        var disconnect = menu.Items.Add(T("Disconnect VPN", "Desconectar VPN", "Отключить VPN"));
+        var menu = new ThemeMenu();
+        menu.Add(T("Open AppTunnel", "Abrir AppTunnel", "Открыть AppTunnel"), Glyph.Window, (_, _) => ShowWindow());
+        var disconnect = menu.Add(T("Disconnect VPN", "Desconectar VPN", "Отключить VPN"), Glyph.Power);
         disconnect.Click += async (_, _) => await window.Disconnect();
-        var startup = new ToolStripMenuItem(T("Start with Windows", "Iniciar com o Windows", "Запускать вместе с Windows"));
+        var startup = menu.Add(T("Start with Windows", "Iniciar com o Windows", "Запускать вместе с Windows"), Glyph.Bolt);
         startup.Click += (_, _) => SetStartup(!startup.Checked);
-        menu.Items.Add(startup);
         menu.Opening += (_, _) =>
         {
-            menu.BackColor = DesktopTheme.Surface;
-            menu.ForeColor = DesktopTheme.Text;
             disconnect.Enabled = window.CanDisconnect && !preparingSetup;
             startup.Enabled = !preparingSetup;
             window.RefreshStartup();
             startup.Checked = window.StartsWithWindows;
         };
-        menu.Items.Add(new ToolStripSeparator());
-        menu.Items.Add(T("Hide Tray", "Ocultar ícone", "Скрыть значок в трее"), null, (_, _) => tray.Visible = false);
-        menu.Items.Add(T("Exit interface", "Sair da interface", "Закрыть интерфейс"), null, (_, _) => Quit());
+        menu.AddSeparator();
+        menu.Add(T("Hide Tray", "Ocultar ícone", "Скрыть значок в трее"), Glyph.EyeOff, (_, _) => tray.Visible = false);
+        menu.Add(T("Exit interface", "Sair da interface", "Закрыть интерфейс"), Glyph.Exit, (_, _) => Quit());
         var oldMenu = tray.ContextMenuStrip;
         tray.ContextMenuStrip = menu;
         oldMenu?.Dispose();
