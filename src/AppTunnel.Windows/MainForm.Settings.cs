@@ -23,7 +23,7 @@ internal sealed partial class MainForm
 
     private Control BuildSettingsPage()
     {
-        var page = Column(84, 18, 0);
+        var page = Column(84, 18, 0, 40);
         page.BackColor = Background;
         page.Controls.Add(new PageHeader(T("Settings", "Configurações", "Настройки"),
             T("Startup, appearance, updates and privacy.", "Inicialização, aparência, atualizações e privacidade.",
@@ -83,13 +83,9 @@ internal sealed partial class MainForm
 
         side.Controls.Add(SectionTitle(T("Updates", "Atualizações", "Обновления")), 0, 0);
         checkUpdates.Click += async (_, _) => await CheckForUpdates();
-        var installed = MakeLabel($"AppTunnel {AppUpdater.CurrentRelease}", muted: true);
-        installed.Dock = DockStyle.None;
-        installed.AutoSize = true;
-        installed.Margin = new Padding(10, 11, 0, 0);
         updateWireSock.Click += async (_, _) => await CheckWireSockUpdate();
         side.Controls.Add(BuildChannelSelector(), 0, 1);
-        var updateButtons = MakeBar(checkUpdates, updateWireSock, installed);
+        var updateButtons = MakeBar(checkUpdates, updateWireSock);
         // Keeps the buttons clear of the channel selector once both rows shrink to fit their content.
         updateButtons.Margin = new Padding(0, 14, 0, 0);
         side.Controls.Add(updateButtons, 0, 2);
@@ -105,7 +101,26 @@ internal sealed partial class MainForm
         columns.Controls.Add(content, 0, 0);
         columns.Controls.Add(side, 1, 0);
         page.Controls.Add(columns, 0, 2);
+        page.Controls.Add(BuildVersionFooter(), 0, 3);
         return page;
+    }
+
+    // The installed version under a divider at the bottom of Settings, including a beta or nightly suffix.
+    private static Control BuildVersionFooter()
+    {
+        var release = AppUpdater.CurrentRelease;
+        var version = MakeLabel($"AppTunnel {release} · {ChannelName(release.Channel)}", muted: true);
+        version.Font = Body(9);
+        version.Dock = DockStyle.Fill;
+        version.AccessibleName = T("Installed version", "Versão instalada", "Установленная версия");
+        var footer = new Panel { Dock = DockStyle.Fill, Margin = new Padding(0), Padding = new Padding(0, 10, 0, 0), BackColor = Background };
+        footer.Paint += (_, e) =>
+        {
+            using var pen = new Pen(Divider, Math.Max(1, footer.DeviceDpi / 96));
+            e.Graphics.DrawLine(pen, 0, 0, footer.Width, 0);
+        };
+        footer.Controls.Add(version);
+        return footer;
     }
 
     // Button rows wrap onto a second line in a narrow window instead of being cut off; their rows grow to fit.

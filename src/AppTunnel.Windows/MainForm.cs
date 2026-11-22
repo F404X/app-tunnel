@@ -81,7 +81,8 @@ internal sealed partial class MainForm : Form
         hero = new HeroCard(apply);
         serverCard = new InfoCard(T("Server", "Servidor", "Сервер"), MakeButton(T("Change", "Trocar", "Сменить")));
         healthCard = new InfoCard(T("Connection", "Conexão", "Подключение"), MakeButton(T("Test", "Testar", "Проверить")));
-        Text = "AppTunnel";
+        // The version in the title, including a beta or nightly suffix, says which build is running at a glance.
+        Text = $"AppTunnel {AppUpdater.CurrentRelease}";
         StartPosition = FormStartPosition.CenterScreen;
         AutoScaleDimensions = new SizeF(96, 96);
         AutoScaleMode = AutoScaleMode.Dpi;
