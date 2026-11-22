@@ -47,6 +47,27 @@ internal static class DialogChecks
         thread.Start();
         thread.Join();
         if (failure is not null) throw new InvalidOperationException("A dialog failed to build: " + failure.Message, failure);
+
+        // A language picked from the language menu is applied in a BeginInvoke callback; windows opened afterwards,
+        // such as Choose route, must use it although .NET restores the thread culture when the callback ends.
+        thread = new Thread(() =>
+        {
+            try
+            {
+                AppTunnel.Core.Localized.SetLanguage("en");
+                using var form = new Form();
+                _ = form.Handle;
+                form.BeginInvoke(() => AppTunnel.Core.Localized.SetLanguage("pt"));
+                Application.DoEvents();
+                Require(AppTunnel.Core.Localized.T("Choose route", "Escolher rota", "Выбор маршрута") == "Escolher rota");
+            }
+            catch (Exception error) { failure = error; }
+            finally { AppTunnel.Core.Localized.SetLanguage("en"); }
+        });
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        thread.Join();
+        if (failure is not null) throw new InvalidOperationException("A dialog failed to build: " + failure.Message, failure);
     }
 
     private static void Require(bool value)

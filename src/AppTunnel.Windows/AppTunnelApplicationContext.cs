@@ -163,6 +163,16 @@ internal sealed class AppTunnelApplicationContext : ApplicationContext
         // An open Proton window is not closed here: it may be saving a new profile. It restarts in the new language
         // the next time it is opened (ProtonLogin.OpenAsync compares the language it was started with).
         SetLanguage(language);
+        // This runs inside a BeginInvoke callback, after which .NET restores the UI thread's culture. The idle event
+        // is raised straight from the message loop, so setting it again there keeps formatting and sorting in the
+        // new language too (the texts already follow it through Localized).
+        EventHandler? reapply = null;
+        reapply = (_, _) =>
+        {
+            Application.Idle -= reapply;
+            SetLanguage(language);
+        };
+        Application.Idle += reapply;
         RecreateWindow();
     }
 

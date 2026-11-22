@@ -4,7 +4,15 @@ namespace AppTunnel.Core;
 
 public static class Localized
 {
-    public static string Language => CultureInfo.CurrentUICulture.TwoLetterISOLanguageName switch
+    // The chosen language is kept for the whole process. The thread culture alone is not enough: Windows Forms runs
+    // BeginInvoke callbacks in a captured execution context and .NET restores the culture when one ends, so a
+    // language picked from a menu reverted on the UI thread and every window opened afterwards, such as Choose
+    // route, came up in the old language.
+    private static volatile string? chosen;
+
+    public static string Language => chosen ?? Normalize(CultureInfo.CurrentUICulture.TwoLetterISOLanguageName);
+
+    private static string Normalize(string? language) => language?.Split('-', '_')[0].ToLowerInvariant() switch
     {
         "pt" => "pt",
         "ru" => "ru",
@@ -13,7 +21,8 @@ public static class Localized
 
     public static void SetLanguage(string? language)
     {
-        var culture = CultureInfo.GetCultureInfo(language switch
+        chosen = Normalize(language);
+        var culture = CultureInfo.GetCultureInfo(chosen switch
         {
             "pt" => "pt-BR",
             "ru" => "ru-RU",
