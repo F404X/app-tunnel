@@ -171,11 +171,9 @@ jobs:
 
           Download **AppTunnel-Setup-x64.exe** from **Assets** and run the installer. **AppTunnel-Windows-x64.zip** is the portable version. See the [installation guide](https://github.com/$env:GITHUB_REPOSITORY/blob/$env:GITHUB_SHA/README.md) to set up Proton and your apps.
 
-          - Refreshed interface that follows the new design: dark sidebar with icons, a round power button on **Home**, **Server** and **Connection** cards, and app chips with **Undo** (also Ctrl+Z).
-          - **Apps**: one row per app with a switch, **Via VPN**/**Direct** label and remove button. Drag an .exe, a shortcut or a folder onto the page to add it already switched on.
-          - **Servers**: **Automatic** uses the fastest server and moves to another one if it fails or slows down; a pinned server never leaves its endpoint. Recovery tries each backup and keeps one only after the handshake is confirmed.
-          - Smoother text: the bundled DM Sans (now with a Medium weight) and Bricolage fonts are hinted, and all text is drawn with grayscale anti-aliasing at each monitor's DPI.
-          - The first-run assistant can be run again from **Settings**.
+          - **Choose route** (Servers page and setup assistant): pick a Proton server from a list inside AppTunnel, with country, city, load and ping, and AppTunnel creates the WireGuard route in your Proton account. No browser window opens; AppTunnel uses the Proton sign-in it already saved and never sees your password. The Proton window only appears if the session has expired.
+          - Keys are created on your PC and saved before Proton registers them, so a route is never left without its key, even if the connection drops mid-request.
+          - Free accounts see only the free servers their plan allows.
 
           Installer SHA-256: $setupChecksum
 
