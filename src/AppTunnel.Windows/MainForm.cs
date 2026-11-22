@@ -118,8 +118,13 @@ internal sealed partial class MainForm : Form
             UpdateState();
             _ = RefreshLatencyQuietly();
             if (NeedsSetup) BeginInvoke(RunSetup);
-            // Runs during a first-time setup too, where it only records the installed version.
             BeginInvoke(() => _ = ShowWhatsNew());
+        };
+        // Every time the window opens, not only the first: closing it only hides it in the tray, and notes that could
+        // not be read (offline) are tried again on the next open. During a first-time setup it only records the version.
+        VisibleChanged += (_, _) =>
+        {
+            if (Visible && IsHandleCreated) BeginInvoke(() => _ = ShowWhatsNew());
         };
     }
 

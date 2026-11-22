@@ -307,10 +307,19 @@ internal sealed partial class MainForm
     // After an update, the first time the window opens: the complete notes of every release since the last version
     // this user ran, with Read more for the entire changelog. A fresh install only records its version. The window
     // never opens by itself for this, so an automatic update that restarts AppTunnel in the tray stays silent.
+    private bool checkingWhatsNew;
+
     private async Task ShowWhatsNew()
     {
         var current = AppUpdater.CurrentRelease;
-        if (settings.LastVersion == current.ToString()) return;
+        if (checkingWhatsNew || settings.LastVersion == current.ToString()) return;
+        checkingWhatsNew = true;
+        try { await ShowWhatsNewOnce(current); }
+        finally { checkingWhatsNew = false; }
+    }
+
+    private async Task ShowWhatsNewOnce(SemVersion current)
+    {
         var last = SemVersion.Parse(settings.LastVersion);
         if (NeedsSetup || last is not null && last >= current)
         {
