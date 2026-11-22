@@ -19,7 +19,10 @@ $projects = @(
     "src/AppTunnel.Windows/AppTunnel.Windows.csproj"
 )
 foreach ($project in $projects) {
-    $versionArgs = if ($Version) { @("-p:Version=$Version") } else { @() }
+    # Built with += so it stays an array: a one-item array returned from "if" unwraps into a string, and splatting a
+    # string passes it one character at a time.
+    $versionArgs = @()
+    if ($Version) { $versionArgs += "-p:Version=$Version" }
     dotnet publish (Join-Path $PSScriptRoot $project) -c Release -r $Architecture --self-contained $includeRuntime -p:DebugType=None @versionArgs -o $staging
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 }
