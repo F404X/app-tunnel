@@ -1,4 +1,4 @@
-# AppTunnel 0.12.1
+# AppTunnel 0.13.0
 
 O AppTunnel conecta o Serein e outros clientes Discord à Proton VPN por meio de perfis WireGuard. A interface abre no idioma do Windows (português, inglês ou russo; inglês nos demais casos). Em **Idioma (Language)**, escolha **English**, **Português** ou **Русский**.
 

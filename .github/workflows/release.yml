@@ -171,8 +171,11 @@ jobs:
 
           Download **AppTunnel-Setup-x64.exe** from **Assets** and run the installer. **AppTunnel-Windows-x64.zip** is the portable version. See the [installation guide](https://github.com/$env:GITHUB_REPOSITORY/blob/$env:GITHUB_SHA/README.md) to set up Proton and your apps.
 
-          - **Create another connection** in the setup assistant and **New WireGuard…** in the Proton account profiles dialog now open the built-in **Choose route** list instead of the Proton browser window.
-          - **Servers → More options → Create in the Proton window…** remains as the browser fallback.
+          - Windows fit their content: no more horizontal scroll bars, and only long lists (servers, diagnostics) scroll. Settings uses two columns.
+          - **Choose route** shows each country's flag and an explicit, colored **Load** next to the ping bar; server rows show flags too.
+          - Selection fields are redrawn to match the rest of the app.
+          - The interface follows the chosen language more closely: country names, confirmation dialogs, text-field menus, file-picker titles, number formatting, Proton messages and the update installer.
+          - A settings.json edited in Notepad no longer stops AppTunnel from starting.
 
           Installer SHA-256: $setupChecksum
 

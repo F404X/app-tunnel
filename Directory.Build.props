@@ -3,7 +3,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-    <Version>0.12.1</Version>
+    <Version>0.13.0</Version>
     <Company>F404X</Company>
     <SatelliteResourceLanguages>en-US;pt-BR;ru;ru-RU</SatelliteResourceLanguages>
   </PropertyGroup>
