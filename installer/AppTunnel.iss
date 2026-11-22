@@ -1,6 +1,10 @@
 #ifndef AppVersion
   #error Specify AppVersion with /DAppVersion.
 #endif
+#ifndef NumericVersion
+  ; Windows file versions are numeric; beta and nightly suffixes stay in AppVersion.
+  #define NumericVersion AppVersion
+#endif
 #ifndef PackageDir
   #define PackageDir "..\dist\win-x64"
 #endif
@@ -9,6 +13,8 @@
 AppId={{B7F7801F-C8D0-4C2F-AB67-8A346771F195}
 AppName=AppTunnel
 AppVersion={#AppVersion}
+VersionInfoVersion={#NumericVersion}.0
+VersionInfoTextVersion={#AppVersion}
 AppPublisher=F404X
 AppPublisherURL=https://github.com/F404X/app-tunnel
 AppUpdatesURL=https://github.com/F404X/app-tunnel/releases

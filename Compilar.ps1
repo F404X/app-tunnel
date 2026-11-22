@@ -3,7 +3,9 @@ param(
     [Alias("Arquitetura")]
     [ValidateSet("win-x64", "win-arm64")]
     [string]$Architecture = "win-x64",
-    [switch]$SelfContained
+    [switch]$SelfContained,
+    # Full version to build, for example 0.13.1-nightly.20261122.57; Directory.Build.props is used when empty.
+    [string]$Version = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -17,7 +19,8 @@ $projects = @(
     "src/AppTunnel.Windows/AppTunnel.Windows.csproj"
 )
 foreach ($project in $projects) {
-    dotnet publish (Join-Path $PSScriptRoot $project) -c Release -r $Architecture --self-contained $includeRuntime -p:DebugType=None -o $staging
+    $versionArgs = if ($Version) { @("-p:Version=$Version") } else { @() }
+    dotnet publish (Join-Path $PSScriptRoot $project) -c Release -r $Architecture --self-contained $includeRuntime -p:DebugType=None @versionArgs -o $staging
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 }
 

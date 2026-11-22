@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Net.Http;
+using AppTunnel.Core;
 using static AppTunnel.Windows.DesktopTheme;
 using static AppTunnel.Core.Localized;
 
@@ -31,7 +32,7 @@ internal sealed partial class MainForm
         var content = Column(34, 32, 32, 40, 14, 34, 44, 14, 34, 32, 44, 14, 46, 0);
         content.BackColor = Background;
         content.Margin = new Padding(0, 0, 24, 0);
-        var side = Column(34, 46, 28, 28, 10, 34, 32, 32, 32, 46, 28, 0);
+        var side = Column(34, 44, 46, 28, 28, 10, 34, 32, 32, 32, 46, 28, 0);
         side.BackColor = Background;
         side.Margin = new Padding(24, 0, 0, 0);
         content.Controls.Add(SectionTitle(T("Startup", "Inicialização", "Автозапуск")), 0, 0);
@@ -81,15 +82,16 @@ internal sealed partial class MainForm
 
         side.Controls.Add(SectionTitle(T("Updates", "Atualizações", "Обновления")), 0, 0);
         checkUpdates.Click += async (_, _) => await CheckForUpdates();
-        var installed = MakeLabel($"AppTunnel {AppUpdater.CurrentVersion}", muted: true);
+        var installed = MakeLabel($"AppTunnel {AppUpdater.CurrentRelease}", muted: true);
         installed.Dock = DockStyle.None;
         installed.AutoSize = true;
         installed.Margin = new Padding(10, 11, 0, 0);
         updateWireSock.Click += async (_, _) => await CheckWireSockUpdate();
-        side.Controls.Add(MakeBar(checkUpdates, updateWireSock, installed), 0, 1);
-        side.Controls.Add(updateStatus, 0, 2);
-        side.Controls.Add(wireSockUpdateStatus, 0, 3);
-        AddPrivacyControls(side, 5);
+        side.Controls.Add(BuildChannelSelector(), 0, 1);
+        side.Controls.Add(MakeBar(checkUpdates, updateWireSock, installed), 0, 2);
+        side.Controls.Add(updateStatus, 0, 3);
+        side.Controls.Add(wireSockUpdateStatus, 0, 4);
+        AddPrivacyControls(side, 6);
         content.Controls.Add(MakeBar(ActionButton(TermsWindow.Caption, () => TermsWindow.Show(this)),
             ActionButton(T("Run first-time setup", "Refazer configuração inicial", "Запустить первоначальную настройку"), RunSetup)), 0, 12);
         WrapBars(content);
@@ -129,6 +131,7 @@ internal sealed partial class MainForm
         updateBusy = true;
         updateWireSock.Enabled = false;
         checkUpdates.Enabled = false;
+        if (channelMode is not null) channelMode.Enabled = false;
         wireSockUpdateStatus.Text = T("Checking and installing WireSock updates via WinGet…",
             "Verificando e instalando atualizações do WireSock pelo WinGet…", "Проверка и установка обновлений WireSock через WinGet…");
         UpdateState();
@@ -165,6 +168,7 @@ internal sealed partial class MainForm
             {
                 updateWireSock.Enabled = true;
                 checkUpdates.Enabled = true;
+                if (channelMode is not null) channelMode.Enabled = true;
                 UpdateState();
             }
         }
@@ -202,6 +206,62 @@ internal sealed partial class MainForm
         }
     }
 
+    private ThemeCombo? channelMode;
+
+    private UpdateChannel Channel => Enum.IsDefined(settings.UpdateChannel) ? settings.UpdateChannel : UpdateChannel.Stable;
+
+    private static string ChannelName(UpdateChannel channel) => channel switch
+    {
+        UpdateChannel.Beta => T("Beta", "Beta", "Бета"),
+        UpdateChannel.Nightly => T("Nightly", "Nightly", "Ночная сборка"),
+        _ => T("Stable", "Estável", "Стабильный")
+    };
+
+    private Control BuildChannelSelector()
+    {
+        var caption = T("Update channel", "Canal de atualização", "Канал обновлений");
+        var label = MakeLabel(caption, muted: true);
+        label.Dock = DockStyle.None;
+        label.AutoSize = true;
+        label.Margin = new Padding(0, 11, 10, 0);
+        var mode = new ThemeCombo { Width = 260, Margin = new Padding(0, 2, 0, 0), AccessibleName = caption };
+        mode.Items.AddRange([
+            T("Stable", "Estável", "Стабильный"),
+            T("Beta · previews of the next version", "Beta · prévias da próxima versão", "Бета · предварительные версии"),
+            T("Nightly · every change, experimental", "Nightly · cada mudança, experimental", "Ночная · каждое изменение, экспериментально")]);
+        mode.SelectedIndex = (int)Channel;
+        mode.SelectedIndexChanged += async (_, _) =>
+        {
+            var chosen = (UpdateChannel)Math.Max(0, mode.SelectedIndex);
+            if (chosen == Channel) return;
+            var previous = settings.UpdateChannel;
+            var lastCheck = settings.LastAutoUpdateCheck;
+            settings.UpdateChannel = chosen;
+            // The next automatic check runs on the new channel instead of waiting a day.
+            settings.LastAutoUpdateCheck = null;
+            try { Save(); }
+            catch (Exception error) when (Expected(error))
+            {
+                settings.UpdateChannel = previous;
+                settings.LastAutoUpdateCheck = lastCheck;
+                mode.SelectedIndex = (int)previous;
+                Failure(error);
+                return;
+            }
+            // Changing the channel only looks; installing stays a separate, confirmed step.
+            if (HasPendingOperation)
+            {
+                updateStatus.Text = T($"Channel set to {ChannelName(chosen)}. Check for updates when the current task finishes.",
+                    $"Canal alterado para {ChannelName(chosen)}. Verifique atualizações quando a tarefa atual terminar.",
+                    $"Выбран канал «{ChannelName(chosen)}». Проверьте обновления, когда текущая задача завершится.");
+                return;
+            }
+            await CheckForUpdates(checkOnly: true);
+        };
+        channelMode = mode;
+        return MakeBar(label, mode);
+    }
+
     public async Task CheckForAutomaticUpdate()
     {
         var now = DateTimeOffset.UtcNow;
@@ -213,20 +273,45 @@ internal sealed partial class MainForm
         await CheckForUpdates(automatic: true);
     }
 
-    private async Task CheckForUpdates(bool automatic = false)
+    private async Task CheckForUpdates(bool automatic = false, bool checkOnly = false)
     {
         if (HasPendingOperation) return;
         updateBusy = true;
         checkUpdates.Enabled = false;
+        if (channelMode is not null) channelMode.Enabled = false;
         UpdateState();
         using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(5));
         try
         {
             updateStatus.Text = T("Checking GitHub for an update…", "Buscando atualização no GitHub…", "Проверка обновлений на GitHub…");
-            var update = await AppUpdater.CheckAsync(timeout.Token);
+            var channel = Channel;
+            var installed = AppUpdater.CurrentRelease;
+            var update = await AppUpdater.FindBestAsync(channel, timeout.Token);
+            var name = ChannelName(channel);
             if (update is null)
             {
-                updateStatus.Text = T("You're using the latest available version.", "Você está usando a versão mais recente disponível.", "Установлена последняя доступная версия.");
+                updateStatus.Text = T($"No {name} release is available yet.", $"Ainda não há versão no canal {name}.", $"В канале «{name}» пока нет выпусков.");
+                return;
+            }
+            // AppTunnel never installs a lower version: after leaving a faster channel it waits for this one to catch up.
+            if (update.Version < installed)
+            {
+                updateStatus.Text = T($"Installed {installed} is ahead of {name} ({update.Version}); updates resume when {name} catches up.",
+                    $"A versão instalada {installed} está à frente do canal {name} ({update.Version}); as atualizações voltam quando ele alcançar.",
+                    $"Установленная {installed} новее канала «{name}» ({update.Version}); обновления возобновятся, когда канал догонит.");
+                return;
+            }
+            if (update.Version <= installed)
+            {
+                updateStatus.Text = T($"You're using the latest {name} version.", $"Você está usando a versão mais recente do canal {name}.",
+                    $"Установлена последняя версия канала «{name}».");
+                return;
+            }
+            if (checkOnly)
+            {
+                updateStatus.Text = T($"AppTunnel {update.Version} is available on {name}. Use Check for updates to install it.",
+                    $"O AppTunnel {update.Version} está disponível no canal {name}. Use Verificar atualizações para instalar.",
+                    $"AppTunnel {update.Version} доступен в канале «{name}». Нажмите «Проверить обновления», чтобы установить.");
                 return;
             }
 
@@ -236,7 +321,8 @@ internal sealed partial class MainForm
                 T($"Downloading AppTunnel {version} · {percent}%", $"Baixando AppTunnel {version} · {percent}%", $"Скачивание AppTunnel {version} · {percent}%"));
             var installer = await AppUpdater.DownloadAsync(update, progress, timeout.Token);
             updateStatus.Text = T($"AppTunnel {version} downloaded and verified.", $"AppTunnel {version} foi baixado e verificado.", $"AppTunnel {version} скачан и проверен.");
-            if (automatic && !settings.AutoUpdate) return;
+            // The channel cannot change during the update, but the choice is checked again before Setup starts.
+            if (automatic && !settings.AutoUpdate || !ReleaseUpdate.Includes(Channel, update.Version)) return;
             if (!automatic)
             {
                 var prompt = T($"Install AppTunnel {version} now? The setup will close the AppTunnel interface and Proton sign-in window.",
@@ -258,6 +344,7 @@ internal sealed partial class MainForm
         {
             updateBusy = false;
             checkUpdates.Enabled = true;
+            if (channelMode is not null) channelMode.Enabled = true;
             UpdateState();
         }
     }

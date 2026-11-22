@@ -3,7 +3,14 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <!-- Version is the release being built: X.Y.Z (stable) or X.Y.Z-beta.N. Every other push to main is published
+         as a nightly, NightlyBaseVersion-nightly.YYYYMMDD.RUN, passed in by CI. -->
     <Version>0.13.0</Version>
+    <NightlyBaseVersion>0.13.1</NightlyBaseVersion>
+    <!-- File and assembly versions stay numeric; the full version, with its suffix, is the informational version. -->
+    <AppTunnelNumericVersion>$(Version.Split('+')[0].Split('-')[0])</AppTunnelNumericVersion>
+    <AssemblyVersion>$(AppTunnelNumericVersion).0</AssemblyVersion>
+    <FileVersion>$(AppTunnelNumericVersion).0</FileVersion>
     <Company>F404X</Company>
     <SatelliteResourceLanguages>en-US;pt-BR;ru;ru-RU</SatelliteResourceLanguages>
   </PropertyGroup>

@@ -31,6 +31,8 @@ internal sealed class Preferences
     // Automatic server choice: connect to the fastest measured server and let latency monitoring move between them.
     public bool AutoServer { get; set; }
     public bool SetupDone { get; set; }
+    // Which releases the updater follows; missing or unknown values mean Stable.
+    public UpdateChannel UpdateChannel { get; set; }
 }
 
 internal enum DiscordRestartChoice

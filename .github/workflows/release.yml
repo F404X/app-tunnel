@@ -1,5 +1,10 @@
 name: Build and publish Windows release
 
+# Every push to main builds and tests AppTunnel. What gets published depends on the head commit:
+# - "Release AppTunnel vX.Y.Z" publishes a stable release (the Latest one on GitHub).
+# - "Release AppTunnel vX.Y.Z-beta.N" publishes a beta (a prerelease).
+# - Any other push that changes the app publishes a nightly, NightlyBaseVersion-nightly.YYYYMMDD.RUN (a prerelease).
+# The version in the release subject must match Directory.Build.props.
 on:
   push:
     branches: [main]
@@ -10,41 +15,34 @@ on:
       - 'telemetry/**'
       - 'docs/telemetry-examples.txt'
       - 'docs/terms/**'
+      - 'docs/release-notes.md'
       - 'installer/**'
       - 'Directory.Build.props'
       - 'Compilar.ps1'
+  # A manual run plans the current head of main exactly as its push would have.
   workflow_dispatch:
-    inputs:
-      tag:
-        description: Version tag from Directory.Build.props (for example v0.9.1)
-        required: true
-        type: string
-      prerelease:
-        description: Mark the release as a preview
-        required: true
-        default: false
-        type: boolean
-
-      publish:
-        description: Publish GitHub release
-        required: true
-        default: true
-        type: boolean
 
 permissions:
   contents: read
+
+# Publishing runs one at a time so tags, the Latest badge and nightly cleanup never race.
+concurrency:
+  group: release-main
+  cancel-in-progress: false
 
 jobs:
   release:
     if: github.ref == 'refs/heads/main'
     runs-on: windows-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v6
         with:
           persist-credentials: false
+          # History and tags decide whether a push changed the app and what a nightly's notes list.
+          fetch-depth: 0
 
       - uses: actions/setup-dotnet@v5
         with:
@@ -54,29 +52,52 @@ jobs:
         with:
           node-version: '24'
 
-      - name: Verify release version and test source
-        id: version
+      - name: Plan the release and test the source
+        id: plan
         shell: pwsh
         env:
-          REQUESTED_TAG: ${{ inputs.tag }}
-          PUBLISH_REQUESTED: ${{ inputs.publish }}
-          HEAD_COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+          BEFORE: ${{ github.event.before }}
         run: |
           [xml]$props = Get-Content -Raw Directory.Build.props
           $version = $props.Project.PropertyGroup.Version
-          if ($version -notmatch '^\d+\.\d+\.\d+$') { throw "Expected a numeric x.y.z version." }
-          $tag = "v$version"
-          if ($env:GITHUB_EVENT_NAME -eq 'workflow_dispatch') {
-            if ($env:REQUESTED_TAG -cne $tag) { throw "The tag must match $tag." }
-            $publish = $env:PUBLISH_REQUESTED -eq 'true'
+          $base = $props.Project.PropertyGroup.NightlyBaseVersion
+          if ($base -notmatch '^\d+\.\d+\.\d+$') { throw "NightlyBaseVersion must be x.y.z." }
+          $subject = (git log -1 --format=%s HEAD).Trim()
+          if ($subject -cmatch '^Release AppTunnel v(.+)$') {
+            if ($Matches[1] -cne $version) { throw "The release subject asks for v$($Matches[1]) but Directory.Build.props has $version." }
+            if ($version -cmatch '^\d+\.\d+\.\d+$') { $channel = 'stable' }
+            elseif ($version -cmatch '^\d+\.\d+\.\d+-beta\.[1-9]\d*$') { $channel = 'beta' }
+            else { throw "Release versions are x.y.z or x.y.z-beta.N, not $version." }
+            $full = $version
+          } elseif ($subject -cmatch '^Release AppTunnel') {
+            throw "Malformed release subject: $subject"
           } else {
-            # Only the subject line counts, so trailers such as Co-Authored-By do not block a release.
-            $subject = ($env:HEAD_COMMIT_MESSAGE -split "`r?`n", 2)[0].Trim()
-            $publish = $env:GITHUB_EVENT_NAME -eq 'push' -and $subject -ceq "Release AppTunnel $tag"
+            if ($env:GITHUB_EVENT_NAME -eq 'push' -and $env:BEFORE -and $env:BEFORE -notmatch '^0+$') {
+              git cat-file -e "$($env:BEFORE)^{commit}"
+              if ($LASTEXITCODE -ne 0) { throw "Cannot compare with the previous head $($env:BEFORE)." }
+              $files = git diff --name-only $env:BEFORE HEAD
+            } else {
+              $files = git diff --name-only HEAD~1 HEAD
+            }
+            if ($LASTEXITCODE -ne 0) { throw "Could not list the changed files." }
+            # Only changes to what ships in the app make a nightly; docs, tests and workflow edits just build and test.
+            $app = @($files | Where-Object { $_ -match '^(src/|installer/|Directory\.Build\.props$|Compilar\.ps1$)' -and $_ -notmatch '\.md$' })
+            if ($app.Count -eq 0) {
+              $channel = 'none'
+              $full = $version
+            } else {
+              $channel = 'nightly'
+              # The commit's own UTC date keeps the version identical when a run is retried.
+              $date = [DateTimeOffset]::FromUnixTimeSeconds([long](git log -1 --format=%ct HEAD)).UtcDateTime.ToString('yyyyMMdd')
+              $full = "$base-nightly.$date.$($env:GITHUB_RUN_NUMBER)"
+            }
           }
-          "APPTUNNEL_VERSION=$version" >> $env:GITHUB_ENV
-          "tag=$tag" >> $env:GITHUB_OUTPUT
-          "publish=$($publish.ToString().ToLowerInvariant())" >> $env:GITHUB_OUTPUT
+          $numeric = $full.Split('-')[0]
+          "APPTUNNEL_VERSION=$full" >> $env:GITHUB_ENV
+          "APPTUNNEL_NUMERIC_VERSION=$numeric" >> $env:GITHUB_ENV
+          "channel=$channel" >> $env:GITHUB_OUTPUT
+          "tag=v$full" >> $env:GITHUB_OUTPUT
+          Write-Host "Channel: $channel, version $full"
           dotnet run --project tests/AppTunnel.Checks -c Release
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           node tests/proton-portal.test.cjs
@@ -89,7 +110,7 @@ jobs:
         env:
           AppTunnelTelemetryEndpoint: ${{ vars.APPTUNNEL_TELEMETRY_ENDPOINT }}
         run: |
-          .\Compilar.ps1 -Architecture win-x64 -SelfContained
+          .\Compilar.ps1 -Architecture win-x64 -SelfContained -Version $env:APPTUNNEL_VERSION
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           $package = Join-Path $env:RUNNER_TEMP AppTunnel
           Copy-Item dist/win-x64 $package -Recurse
@@ -98,6 +119,8 @@ jobs:
               ($cultures | Where-Object { $_ -notin @('pt-BR', 'ru', 'ru-RU', 'en-US') })) {
             throw "Unexpected runtime languages: $cultures"
           }
+          $product = (Get-Item (Join-Path $package AppTunnel.dll)).VersionInfo.ProductVersion
+          if (!$product.StartsWith($env:APPTUNNEL_VERSION)) { throw "The app reports $product instead of $env:APPTUNNEL_VERSION." }
           $asset = Join-Path $env:RUNNER_TEMP AppTunnel-Windows-x64.zip
           Compress-Archive -Path $package -DestinationPath $asset -CompressionLevel Optimal
           Get-FileHash $asset -Algorithm SHA256
@@ -111,7 +134,7 @@ jobs:
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           }
           $package = Join-Path $env:RUNNER_TEMP AppTunnel
-          & $iscc "/DAppVersion=$env:APPTUNNEL_VERSION" "/DPackageDir=$package" "/O$env:RUNNER_TEMP" installer/AppTunnel.iss
+          & $iscc "/DAppVersion=$env:APPTUNNEL_VERSION" "/DNumericVersion=$env:APPTUNNEL_NUMERIC_VERSION" "/DPackageDir=$package" "/O$env:RUNNER_TEMP" installer/AppTunnel.iss
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Smoke test installer on Windows
@@ -153,39 +176,75 @@ jobs:
           }
           if (Test-Path $consent) { throw "AppTunnel uninstall left telemetry consent behind." }
 
-      - name: Publish GitHub release, installer and ZIP
-        if: steps.version.outputs.publish == 'true'
+
+      - name: Publish the release, installer and ZIP
+        if: steps.plan.outputs.channel != 'none'
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ steps.version.outputs.tag }}
-          # Releases are betas published as regular releases; a manual run can still mark one as a preview.
-          RELEASE_PRERELEASE: ${{ github.event_name == 'workflow_dispatch' && inputs.prerelease }}
+          RELEASE_TAG: ${{ steps.plan.outputs.tag }}
+          RELEASE_CHANNEL: ${{ steps.plan.outputs.channel }}
         run: |
+          $tag = $env:RELEASE_TAG
+          # A retried run leaves a published release as it is, and finishes a draft an earlier attempt left behind.
+          $draft = gh release view $tag --repo $env:GITHUB_REPOSITORY --json isDraft --jq '.isDraft' 2> $null
+          $exists = $LASTEXITCODE -eq 0
+          $global:LASTEXITCODE = 0
+          if ($exists -and $draft -eq 'false') { Write-Host "$tag is already published."; exit 0 }
           $asset = Join-Path $env:RUNNER_TEMP AppTunnel-Windows-x64.zip
           $setup = Join-Path $env:RUNNER_TEMP AppTunnel-Setup-x64.exe
           $zipChecksum = (Get-FileHash $asset -Algorithm SHA256).Hash.ToLowerInvariant()
           $setupChecksum = (Get-FileHash $setup -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($env:RELEASE_CHANNEL -eq 'nightly') {
+            $previous = git tag --merged HEAD~1 --sort=-creatordate --list 'v*' | Select-Object -First 1
+            $range = if ($previous) { "$previous..HEAD" } else { "HEAD~20..HEAD" }
+            $changes = (git log --no-merges --format='- %s' $range | Select-Object -First 40) -join "`n"
+            $body = "Automatic nightly build of $($env:GITHUB_SHA.Substring(0, 7)). Nightly builds are experimental; choose the **Nightly** channel in **Settings → Updates** to receive them.`n`n### Changes`n`n$changes"
+          } else {
+            # Stable and beta notes come from docs/release-notes.md, edited in the release commit.
+            $body = ((Get-Content -Raw docs/release-notes.md) -replace '(?s)<!--.*?-->', '').Trim()
+          }
           $notes = Join-Path $env:RUNNER_TEMP release-notes.md
           @"
-          ## AppTunnel $env:RELEASE_TAG
+          ## AppTunnel $tag
 
           Download **AppTunnel-Setup-x64.exe** from **Assets** and run the installer. **AppTunnel-Windows-x64.zip** is the portable version. See the [installation guide](https://github.com/$env:GITHUB_REPOSITORY/blob/$env:GITHUB_SHA/README.md) to set up Proton and your apps.
 
-          - Windows fit their content: no more horizontal scroll bars, and only long lists (servers, diagnostics) scroll. Settings uses two columns.
-          - **Choose route** shows each country's flag and an explicit, colored **Load** next to the ping bar; server rows show flags too.
-          - Selection fields are redrawn to match the rest of the app.
-          - The interface follows the chosen language more closely: country names, confirmation dialogs, text-field menus, file-picker titles, number formatting, Proton messages and the update installer.
-          - A settings.json edited in Notepad no longer stops AppTunnel from starting.
+          $body
 
           Installer SHA-256: $setupChecksum
 
           ZIP SHA-256: $zipChecksum
           "@ | Set-Content -Encoding utf8 $notes
 
-          $releaseArgs = @('release', 'create', $env:RELEASE_TAG, $setup, $asset,
-            '--repo', $env:GITHUB_REPOSITORY, '--target', $env:GITHUB_SHA,
-            '--title', "AppTunnel $env:RELEASE_TAG Beta", '--notes-file', $notes)
-          if ($env:RELEASE_PRERELEASE -eq 'true') { $releaseArgs += '--prerelease' }
-          gh @releaseArgs
+          # Created as a draft, checked, then published, so a half-uploaded release is never offered to updaters.
+          if ($exists) {
+            gh release upload $tag $setup $asset --repo $env:GITHUB_REPOSITORY --clobber
+          } else {
+            gh release create $tag $setup $asset --repo $env:GITHUB_REPOSITORY --target $env:GITHUB_SHA --title "AppTunnel $tag" --notes-file $notes --draft
+          }
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $names = gh release view $tag --repo $env:GITHUB_REPOSITORY --json assets --jq '.assets[].name'
+          if ('AppTunnel-Setup-x64.exe' -notin $names -or 'AppTunnel-Windows-x64.zip' -notin $names) { throw "The release assets did not upload." }
+          if ($env:RELEASE_CHANNEL -eq 'stable') {
+            gh release edit $tag --repo $env:GITHUB_REPOSITORY --draft=false --prerelease=false --latest
+          } else {
+            gh release edit $tag --repo $env:GITHUB_REPOSITORY --draft=false --prerelease --latest=false
+          }
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Keep the last 30 nightly builds
+        if: steps.plan.outputs.channel == 'nightly'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $releases = gh release list --repo $env:GITHUB_REPOSITORY --limit 300 --json tagName --jq '.[].tagName'
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          # Newest first by build date, then run number; stable, beta and older releases are never touched.
+          $nightlies = @($releases | Where-Object { $_ -cmatch '^v\d+\.\d+\.\d+-nightly\.\d{8}\.\d+$' } |
+            Sort-Object -Descending -Property { [long]($_ -replace '^.*-nightly\.(\d{8})\.\d+$', '$1') }, { [long]($_ -replace '^.*\.(\d+)$', '$1') })
+          foreach ($old in $nightlies | Select-Object -Skip 30) {
+            gh release delete $old --repo $env:GITHUB_REPOSITORY --cleanup-tag --yes
+            if ($LASTEXITCODE -ne 0) { Write-Warning "Could not delete $old." }
+          }

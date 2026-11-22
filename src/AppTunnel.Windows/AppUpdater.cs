@@ -23,16 +23,34 @@ internal static class AppUpdater
         }
     }
 
-    public static async Task<ReleaseUpdate?> CheckAsync(CancellationToken cancellation)
+    // The full installed version, including a beta or nightly suffix (InformationalVersion, without "+commit").
+    public static SemVersion CurrentRelease
     {
-        using var request = NewRequest(new Uri(ReleaseUpdate.ReleasesApi));
-        request.Headers.Accept.ParseAdd("application/vnd.github+json");
-        request.Headers.Add("X-GitHub-Api-Version", "2022-11-28");
-        using var response = await Client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellation);
-        response.EnsureSuccessStatusCode();
-        await using var body = await response.Content.ReadAsStreamAsync(cancellation);
-        using var releases = await JsonDocument.ParseAsync(body, cancellationToken: cancellation);
-        return ReleaseUpdate.FindNewest(releases.RootElement, CurrentVersion);
+        get
+        {
+            var informational = Assembly.GetExecutingAssembly().GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
+            return SemVersion.Parse(informational) ?? new SemVersion(CurrentVersion.Major, CurrentVersion.Minor, CurrentVersion.Build, []);
+        }
+    }
+
+    // The highest release on the channel (newer or not than the installed version), reading every page of the list.
+    public static async Task<ReleaseUpdate?> FindBestAsync(UpdateChannel channel, CancellationToken cancellation)
+    {
+        ReleaseUpdate? best = null;
+        // Reads until a page comes back short; the cap only guards against a misbehaving API.
+        for (var page = 1; page <= 1000; page++)
+        {
+            using var request = NewRequest(new Uri(ReleaseUpdate.ReleasesPage(page)));
+            request.Headers.Accept.ParseAdd("application/vnd.github+json");
+            request.Headers.Add("X-GitHub-Api-Version", "2022-11-28");
+            using var response = await Client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellation);
+            response.EnsureSuccessStatusCode();
+            await using var body = await response.Content.ReadAsStreamAsync(cancellation);
+            using var releases = await JsonDocument.ParseAsync(body, cancellationToken: cancellation);
+            best = ReleaseUpdate.FindBest(releases.RootElement, channel, best);
+            if (releases.RootElement.ValueKind != JsonValueKind.Array || releases.RootElement.GetArrayLength() < 100) break;
+        }
+        return best;
     }
 
     public static async Task<string> DownloadAsync(ReleaseUpdate update, IProgress<int> progress, CancellationToken cancellation)

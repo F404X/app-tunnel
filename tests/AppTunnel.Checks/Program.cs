@@ -157,14 +157,14 @@ var scenarios = new (string Name, Action Check)[]
         Require(!DiscordClients.IsRouted(@"C:\App\DiscordPTB\DiscordPTB.exe", rules));
         Require(!DiscordClients.IsRouted(@"C:\Other\DiscordCanary\DiscordCanary.exe", rules));
     }),
-    ("updates choose the newest verified Windows installer by version", () =>
+    ("updates follow the chosen channel, order SemVer releases and never downgrade", () =>
     {
         var digest = new string('b', 64);
-        object Release(string tag, bool draft = false, string host = "https://github.com", string? hash = null) => new
+        object Release(string tag, bool prerelease, bool draft = false, string host = "https://github.com", string? hash = null) => new
         {
             tag_name = tag,
             draft,
-            prerelease = true,
+            prerelease,
             assets = new[]
             {
                 new
@@ -176,15 +176,34 @@ var scenarios = new (string Name, Action Check)[]
                 }
             }
         };
+        SemVersion V(string text) => SemVersion.Parse(text) ?? throw new InvalidOperationException(text);
 
-        var listing = JsonSerializer.SerializeToElement(new[]
+        Require(V("0.13.0") < V("0.13.1-nightly.20261122.123") && V("0.13.1-nightly.20261122.123") < V("0.13.1"));
+        Require(V("0.14.0-beta.2") < V("0.14.0-beta.10") && V("0.14.0-beta.10") < V("0.14.0-nightly.20261122.124"));
+        Require(V("0.14.0-nightly.20261122.9") < V("0.14.0-nightly.20261123.1") && V("0.14.0-nightly.20261123.1") < V("0.14.0"));
+        Require(SemVersion.Parse("0.13.1-nightly.20261122.123+abc123")?.IsNightly == true);
+        Require(SemVersion.Parse("0.13.1-nightly.20261122.7+" + new string('a', 40)) == V("0.13.1-nightly.20261122.7"));
+        Require(new[] { "01.0.0", "0.13", "0.13.0-rc.1", "0.13.0-beta.01", "0.13.0-nightly.2026.1", "0.13.0-beta" }
+            .All(text => SemVersion.Parse(text) is null));
+
+        var listing = JsonSerializer.SerializeToElement(new object[]
         {
-            Release("v0.6.0"), Release("v0.8.0", draft: true), Release("v0.12.0"), Release("v01.0.0"),
-            Release("v0.50.0", host: "https://github.com.example"), Release("v1.0.0", hash: "sha256:invalid")
+            Release("v0.12.1", prerelease: true), Release("v0.12.9", prerelease: false), Release("v0.13.0", prerelease: false),
+            Release("v0.14.0-beta.2", prerelease: true), Release("v0.14.0-beta.10", prerelease: true),
+            Release("v0.14.0-nightly.20261122.124", prerelease: true), Release("v0.15.0", prerelease: true),
+            Release("v0.15.0-beta.1", prerelease: false), Release("v0.16.0", prerelease: false, draft: true),
+            Release("v0.50.0", prerelease: false, host: "https://github.com.example"),
+            Release("v1.0.0", prerelease: false, hash: "sha256:invalid"), Release("v01.0.0", prerelease: false), new { tag_name = 5 }
         });
-        var newest = ReleaseUpdate.FindNewest(listing, new Version(0, 5, 0));
-        Require(newest?.Version == new Version(0, 12, 0) && newest.Sha256 == digest && newest.Size == 1024);
-        Require(ReleaseUpdate.FindNewest(listing, new Version(0, 12, 0)) is null);
+        var installed = V("0.13.0");
+        Require(ReleaseUpdate.FindNewest(listing, installed, UpdateChannel.Stable) is null);
+        var beta = ReleaseUpdate.FindNewest(listing, installed, UpdateChannel.Beta);
+        Require(beta?.Version == V("0.14.0-beta.10") && beta.Sha256 == digest && beta.Size == 1024);
+        Require(ReleaseUpdate.FindNewest(listing, installed, UpdateChannel.Nightly)?.Version == V("0.14.0-nightly.20261122.124"));
+        // A build ahead of the chosen channel is never moved down to it.
+        Require(ReleaseUpdate.FindNewest(listing, V("0.14.0-nightly.20261122.124"), UpdateChannel.Stable) is null);
+        Require(ReleaseUpdate.FindBest(listing, UpdateChannel.Stable)?.Version == V("0.13.0"));
+        Require(ReleaseUpdate.FindNewest(listing, V("0.12.1"), UpdateChannel.Stable)?.Version == V("0.13.0"));
         Require(ReleaseUpdate.IsDownloadUri(new Uri("https://release-assets.githubusercontent.com/download")));
         Require(!ReleaseUpdate.IsDownloadUri(new Uri("http://release-assets.githubusercontent.com/download")));
         Require(!ReleaseUpdate.IsDownloadUri(new Uri("https://github.com@elsewhere.example/download")));
