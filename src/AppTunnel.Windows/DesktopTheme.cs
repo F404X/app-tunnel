@@ -386,6 +386,14 @@ internal static class DesktopTheme
                     graphics.DrawBezier(pen, 9, 18, 9, 14.5f, 10.4f, 12, 12, 12);
                     graphics.DrawBezier(pen, 12, 12, 13.6f, 12, 15, 14.5f, 15, 18);
                     break;
+                case Glyph.Intersect:
+                    // Keep these coordinates in sync with tools/Generate-BrandAssets.ps1.
+                    using (var brandPen = new Pen(color, 3.8f) { StartCap = LineCap.Round, EndCap = LineCap.Round })
+                    {
+                        graphics.DrawLine(brandPen, 3, 12, 21, 12);
+                        graphics.DrawLine(brandPen, 8, 20, 16, 4);
+                    }
+                    break;
                 case Glyph.Window:
                     DrawRounded(graphics, pen, 3, 4.5f, 18, 15, 2.5f);
                     graphics.DrawLine(pen, 3, 9, 21, 9);
@@ -583,7 +591,7 @@ internal static class DesktopTheme
 
 internal enum Glyph
 {
-    None, Power, Apps, Globe, Sliders, Pulse, Plus, Check, Close, Alert, Shield, More, Chevron, Tunnel,
+    None, Power, Apps, Globe, Sliders, Pulse, Plus, Check, Close, Alert, Shield, More, Chevron, Tunnel, Intersect,
     Window, File, Folder, Compass, External, User, Import, Pencil, Trash, Scissors, Copy, Clipboard, SelectAll,
     Monitor, Sun, Moon, Flask, Question, Refresh, Ban, EyeOff, Exit, Bolt, Sparkle, Layers, CheckCircle
 }

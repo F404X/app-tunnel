@@ -513,12 +513,12 @@ internal sealed class BrandMark : Control
         using var canvas = new SolidBrush(Parent?.BackColor ?? Surface);
         e.Graphics.FillRectangle(canvas, ClientRectangle);
         var s = DpiScale(this);
-        var side = (int)(30 * s);
-        var mark = new Rectangle((int)(8 * s), (Height - side) / 2 - (int)(4 * s), side, side);
-        PaintRounded(e.Graphics, mark, 8 * s, Accent);
-        PaintIcon(e.Graphics, Glyph.Tunnel, Rectangle.Inflate(mark, -(int)(7 * s), -(int)(7 * s)), AccentInk, 2.4f);
+        var side = (int)(40 * s);
+        var mark = new Rectangle((int)(8 * s), (Height - side) / 2, side, side);
+        PaintRounded(e.Graphics, mark, 14 * s, Accent);
+        PaintIcon(e.Graphics, Glyph.Intersect, Rectangle.Inflate(mark, -(int)(3 * s), -(int)(3 * s)), AccentInk);
         PaintText(e.Graphics, Text, Heading(13.5f), new Rectangle(mark.Right + (int)(10 * s), mark.Y - (int)(4 * s),
-            Width - mark.Right, side + (int)(8 * s)), DesktopTheme.Text);
+            Width - mark.Right - (int)(10 * s), side + (int)(8 * s)), DesktopTheme.Text);
     }
 }
 
