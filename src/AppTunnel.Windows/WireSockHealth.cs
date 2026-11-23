@@ -8,16 +8,24 @@ internal sealed class WireSockHealth
 {
     private const int TailLimit = 64 * 1024;
     private static readonly string ProgramData = Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData);
-    private readonly Dictionary<string, Cursor> logs = new(StringComparer.OrdinalIgnoreCase)
-    {
-        [Path.Combine(ProgramData, @"WireSock Foundation\WireSock Secure Connect\Logs\wiresock-vpn-client.log")] = new(),
-        [Path.Combine(ProgramData, @"NT KERNEL\WireSock VPN Client\wiresock-vpn-client.log")] = new()
-    };
+    // WireSock writes its service log in one of these folders. The file name can differ between WireSock releases and
+    // installs, so every .log file directly inside them is followed instead of a single fixed name.
+    private static readonly string[] LogFolders =
+    [
+        Path.Combine(ProgramData, @"WireSock Foundation\WireSock Secure Connect\Logs"),
+        Path.Combine(ProgramData, @"WireSock Foundation\WireSock Secure Connect"),
+        Path.Combine(ProgramData, @"NT KERNEL\WireSock VPN Client")
+    ];
+    private readonly Dictionary<string, Cursor> logs = new(StringComparer.OrdinalIgnoreCase);
 
     public WireSockHealth()
     {
-        foreach (var (path, cursor) in logs)
+        // Logs that already exist are read only from their current end, so an older session's lines are ignored.
+        // A log that cannot be opened yet starts from its end the first time it opens.
+        foreach (var path in FindLogs())
         {
+            var cursor = new Cursor(fromEnd: true);
+            logs[path] = cursor;
             using var file = OpenLog(path);
             if (file is null) continue;
             try { cursor.Checkpoint(file); }
@@ -27,12 +35,22 @@ internal sealed class WireSockHealth
 
     private long handshakeStarted;
     private TunnelHealth Status { get; set; }
+
+    /// <summary>True once at least one WireSock log could be opened, so a missing handshake is real evidence.</summary>
+    public bool LogFound { get; private set; }
+
     public TunnelHealth Poll()
     {
+        // A log created after this session started (a new WireSock install or a rotated file) is read from its start.
+        foreach (var path in FindLogs())
+        {
+            if (!logs.ContainsKey(path)) logs[path] = new Cursor(fromEnd: false);
+        }
         foreach (var (path, cursor) in logs)
         {
             using var file = OpenLog(path);
             if (file is null) continue;
+            LogFound = true;
             try
             {
                 foreach (var line in cursor.Read(file))
@@ -48,6 +66,17 @@ internal sealed class WireSockHealth
         if (Status == TunnelHealth.HandshakeSent && Stopwatch.GetElapsedTime(handshakeStarted) >= TimeSpan.FromSeconds(12))
             Status = TunnelHealth.HandshakeTimedOut;
         return Status;
+    }
+
+    private static IEnumerable<string> FindLogs()
+    {
+        foreach (var folder in LogFolders)
+        {
+            string[] files;
+            try { files = Directory.GetFiles(folder, "*.log", SearchOption.TopDirectoryOnly); }
+            catch (Exception error) when (error is IOException or UnauthorizedAccessException) { continue; }
+            foreach (var file in files) yield return file;
+        }
     }
 
     private static FileStream? OpenLog(string path)
@@ -67,20 +96,27 @@ internal sealed class WireSockHealth
         }
     }
 
-    private sealed class Cursor
+    private sealed class Cursor(bool fromEnd)
     {
+        private bool pending = fromEnd;
         private long offset;
         private byte[] checkpoint = [];
         private string partial = "";
 
         public void Checkpoint(FileStream file)
         {
+            pending = false;
             offset = file.Length;
             checkpoint = ReadAnchor(file, offset);
         }
 
         public string[] Read(FileStream file)
         {
+            if (pending)
+            {
+                Checkpoint(file);
+                return [];
+            }
             if (file.Length < offset || !ReadAnchor(file, offset).AsSpan().SequenceEqual(checkpoint))
             {
                 offset = 0;

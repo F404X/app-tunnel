@@ -102,7 +102,7 @@ internal sealed partial class WireSockEngine : ITunnelEngine
                 health = new WireSockHealth();
                 observedSession = session.ConfigPath;
                 InstallAndStart(session);
-                if (verifyHandshake) VerifyHealth(session);
+                if (verifyHandshake) VerifyHealth(session, replacing: previous is not null);
             }
             catch
             {
@@ -162,7 +162,8 @@ internal sealed partial class WireSockEngine : ITunnelEngine
         service.WaitForStatus(ServiceControllerStatus.Running, ServiceTimeout);
     }
 
-    private void VerifyHealth(TunnelSession session)
+    // replacing: another AppTunnel route was active before this one and is restored if this route fails.
+    private void VerifyHealth(TunnelSession session, bool replacing)
     {
         var watch = Stopwatch.StartNew();
         var state = TunnelHealth.Unknown;
@@ -170,18 +171,38 @@ internal sealed partial class WireSockEngine : ITunnelEngine
         {
             state = ReadHealth(session);
             if (state == TunnelHealth.HandshakeReceived) break;
-            if (state is TunnelHealth.EndpointResolutionFailed or TunnelHealth.RoutingFailed)
-                throw new InvalidOperationException(TunnelDiagnostics.Describe(state));
+            if (state is TunnelHealth.EndpointResolutionFailed or TunnelHealth.RoutingFailed or TunnelHealth.HandshakeTimedOut)
+                break;
             Thread.Sleep(300);
-        } while (watch.Elapsed < TimeSpan.FromSeconds(12));
+            // A handshake sent late in the window gets its own full wait before it counts as unanswered.
+        } while (watch.Elapsed < TimeSpan.FromSeconds(12) ||
+            (state == TunnelHealth.HandshakeSent && watch.Elapsed < TimeSpan.FromSeconds(25)));
         if (GetActive()?.ConfigPath != session.ConfigPath)
             throw new InvalidOperationException(T("WireSock stopped while verifying the route.",
                 "O WireSock parou durante a verificação da rota.", "WireSock остановился при проверке маршрута."));
-        // Only a recorded handshake response proves the route works; missing evidence rolls back to the previous route.
-        if (state != TunnelHealth.HandshakeReceived)
-            throw new System.TimeoutException(TunnelDiagnostics.Describe(
-                state == TunnelHealth.Unknown ? TunnelHealth.Unknown : TunnelHealth.HandshakeTimedOut));
-        Output?.Invoke(TunnelDiagnostics.Describe(state));
+        if (state is TunnelHealth.EndpointResolutionFailed or TunnelHealth.RoutingFailed)
+            throw new InvalidOperationException(TunnelDiagnostics.Describe(state));
+        // A handshake that was sent and never answered is proof the route does not work.
+        if (state is TunnelHealth.HandshakeSent or TunnelHealth.HandshakeTimedOut)
+            throw new System.TimeoutException(TunnelDiagnostics.Describe(TunnelHealth.HandshakeTimedOut));
+        if (state == TunnelHealth.HandshakeReceived)
+        {
+            Output?.Invoke(TunnelDiagnostics.Describe(state));
+            return;
+        }
+        // No handshake line at all is missing evidence, not a failure: WireSock may log elsewhere or not have sent
+        // the handshake yet. Replacing a working route still needs proof, so that case rolls back to the previous
+        // route. With nothing to fall back to, tearing the tunnel down would only leave the user offline, so the
+        // route is kept and the live health check on Home keeps watching it.
+        if (replacing)
+            throw new System.TimeoutException(TunnelDiagnostics.Describe(TunnelHealth.Unknown));
+        Output?.Invoke(health?.LogFound == true
+            ? T("The handshake could not be confirmed in the WireSock logs yet. The connection was kept; if the selected apps have no internet, check Diagnostics.",
+                "O handshake ainda não pôde ser confirmado nos registros do WireSock. A conexão foi mantida; se os apps selecionados ficarem sem internet, consulte o Diagnóstico.",
+                "Рукопожатие пока не подтверждено в журналах WireSock. Подключение сохранено; если у выбранных приложений нет интернета, откройте «Диагностику».")
+            : T("No WireSock log was found, so the handshake could not be confirmed. The connection was kept; if the selected apps have no internet, check Diagnostics.",
+                "Nenhum registro do WireSock foi encontrado, então o handshake não pôde ser confirmado. A conexão foi mantida; se os apps selecionados ficarem sem internet, consulte o Diagnóstico.",
+                "Журнал WireSock не найден, поэтому рукопожатие не подтверждено. Подключение сохранено; если у выбранных приложений нет интернета, откройте «Диагностику»."));
     }
 
     private void RemoveService(TunnelSession session)
