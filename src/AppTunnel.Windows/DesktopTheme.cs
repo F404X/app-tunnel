@@ -308,6 +308,16 @@ internal static class DesktopTheme
         PaintIcon(graphics, Glyph.Check, Rectangle.Inflate(box, -box.Width / 7, -box.Height / 7), enabled ? AccentInk : Disabled, 3f);
     }
 
+    // Fit the whole image inside its slot without changing its proportions or cropping it.
+    public static Rectangle FitImage(Image image, Rectangle bounds)
+    {
+        if (bounds.Width <= 0 || bounds.Height <= 0) return Rectangle.Empty;
+        var scale = Math.Min((double)bounds.Width / image.Width, (double)bounds.Height / image.Height);
+        var width = Math.Clamp((int)Math.Round(image.Width * scale), 1, bounds.Width);
+        var height = Math.Clamp((int)Math.Round(image.Height * scale), 1, bounds.Height);
+        return new Rectangle(bounds.X + (bounds.Width - width) / 2, bounds.Y + (bounds.Height - height) / 2, width, height);
+    }
+
     public static void PaintIcon(Graphics graphics, Glyph glyph, RectangleF bounds, Color color, float stroke = 2f)
     {
         var state = graphics.Save();
@@ -689,7 +699,7 @@ internal sealed class ThemeButton : Button
         {
             var size = IconSize;
             e.Graphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
-            e.Graphics.DrawImage(icon, new Rectangle(Padding.Left, (Height - size) / 2, size * 4 / 3, size));
+            e.Graphics.DrawImage(icon, DesktopTheme.FitImage(icon, new Rectangle(Padding.Left, (Height - size) / 2, size * 4 / 3, size)));
             text = new Rectangle(Padding.Left + size * 4 / 3 + IconGap, 0, Math.Max(0, Width - Padding.Horizontal - size * 4 / 3 - IconGap), Height);
             alignLeft = true;
         }

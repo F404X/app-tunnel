@@ -250,7 +250,7 @@ internal sealed class ThemeMenuRenderer : ToolStripRenderer
             if (!e.Item.Enabled) attributes.SetColorMatrix(new ColorMatrix { Matrix33 = .45f });
             var size = strip.ImageScalingSize;
             var area = new Rectangle(IconLeft(strip), (e.Item.Height - size.Height) / 2, size.Width, size.Height);
-            g.DrawImage(image, area, 0, 0, image.Width, image.Height, GraphicsUnit.Pixel, attributes);
+            g.DrawImage(image, FitImage(image, area), 0, 0, image.Width, image.Height, GraphicsUnit.Pixel, attributes);
         }
         finally { g.Restore(state); }
     }

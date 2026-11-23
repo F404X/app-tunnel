@@ -647,15 +647,16 @@ internal sealed class ServerRow : PaintedButton
         var code = new Rectangle(x, (Height - Px(30)) / 2, Px(40), Px(30));
         if (Flag is { } flag)
         {
-            // The flag is clipped to the same rounded badge the country code used.
+            // Country flags have different proportions, including square and tall flags.
+            var flagBounds = FitImage(flag, code);
             var saved = g.Save();
             g.SmoothingMode = SmoothingMode.AntiAlias;
             g.InterpolationMode = InterpolationMode.HighQualityBicubic;
             g.PixelOffsetMode = PixelOffsetMode.HighQuality;
-            using (var clip = Rounded(code, 6 * S)) g.SetClip(clip);
-            g.DrawImage(flag, code);
+            using (var clip = Rounded(flagBounds, 6 * S)) g.SetClip(clip, CombineMode.Intersect);
+            g.DrawImage(flag, flagBounds);
             g.Restore(saved);
-            PaintRounded(g, code, 6 * S, Color.Transparent, Border);
+            PaintRounded(g, flagBounds, 6 * S, Color.Transparent, Border);
         }
         else
         {
