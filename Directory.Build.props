@@ -4,7 +4,9 @@
     <Nullable>enable</Nullable>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <!-- Version is the release being built: X.Y.Z (stable) or X.Y.Z-beta.N. Every other push to main is published
-         as a nightly, NightlyBaseVersion-nightly.YYYYMMDD.RUN, passed in by CI. -->
+         as a nightly, NightlyBaseVersion-nightly.YYYYMMDD.RUN, passed in by CI. Every release title is tagged with
+         its channel: "AppTunnel vX.Y.Z [stable]", "AppTunnel vX.Y.Z-beta.N [beta]" or
+         "AppTunnel vX.Y.Z-nightly.YYYYMMDD.RUN [nightly]". -->
     <Version>1.0.0-beta.1</Version>
     <NightlyBaseVersion>1.0.0</NightlyBaseVersion>
     <!-- File and assembly versions stay numeric; the full version, with its suffix, is the informational version. -->
