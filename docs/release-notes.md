@@ -1,6 +1,12 @@
 <!-- Notes for the next stable or beta release. Edit this file in the release commit; nightly builds list their
      commits automatically. -->
-AppTunnel 1.0.0 beta 1 is the first preview of AppTunnel 1.0: Proton VPN only for the apps you choose. New since 0.13.2 first, then everything AppTunnel does.
+AppTunnel 1.0.0 beta 2 fixes connections that failed on every route in beta 1. Below it, what is new since 0.13.2 and everything AppTunnel does.
+
+### Fixed in 1.0.0 beta 2
+
+- **Connecting no longer fails on every route when the handshake cannot be read:** in beta 1, Automatic protocol and server switching removed each route whose handshake did not show up in the WireSock log within 12 seconds, so a working tunnel could end in "Could not connect using the available routes" with "Handshake status is unavailable" for every route. A route is now rejected only when WireSock reports an error or sends a handshake that is never answered. When there is no handshake record at all, the first connection is kept with a note in the log, and switching to another route still requires a confirmed handshake before leaving the current one.
+- **WireSock logs are found in more installs:** the handshake status now follows every log file in the WireSock Secure Connect and WireSock VPN Client log folders instead of one fixed file name, and a log created after connecting is read from its start.
+- **A late handshake gets its full wait:** a handshake sent near the end of the check now has its own 12 seconds to be answered before the route counts as failed.
 
 ### New in 1.0.0
 
