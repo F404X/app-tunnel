@@ -7,7 +7,7 @@
          as a nightly, NightlyBaseVersion-nightly.YYYYMMDD.RUN, passed in by CI. Every release title is tagged with
          its channel: "AppTunnel vX.Y.Z [stable]", "AppTunnel vX.Y.Z-beta.N [beta]" or
          "AppTunnel vX.Y.Z-nightly.YYYYMMDD.RUN [nightly]". -->
-    <Version>1.0.0-beta.1</Version>
+    <Version>1.0.0-beta.2</Version>
     <NightlyBaseVersion>1.0.0</NightlyBaseVersion>
     <!-- File and assembly versions stay numeric; the full version, with its suffix, is the informational version. -->
     <AppTunnelNumericVersion>$(Version.Split('+')[0].Split('-')[0])</AppTunnelNumericVersion>
