@@ -1,6 +1,11 @@
 <!-- Notes for the next stable or beta release. Edit this file in the release commit; nightly builds list their
      commits automatically. -->
-AppTunnel 1.0.0 beta 2 fixes connections that failed on every route in beta 1. Below it, what is new since 0.13.2 and everything AppTunnel does.
+AppTunnel 1.0.0 beta 3 fixes a leftover WireSock service that blocked every new connection. Below it, the fixes from beta 2, what is new since 0.13.2 and everything AppTunnel does.
+
+### Fixed in 1.0.0 beta 3
+
+- **"A different WireSock service is installed" no longer blocks connecting forever:** when a failed connection attempt was rolled back, AppTunnel could remove its session files and record while the WireSock service it had installed stayed registered. AppTunnel then treated its own service as another app's and refused every connection. AppTunnel now removes such a leftover by itself when you connect, disconnect or update WireSock: only a stopped service that runs WireSock from Program Files, points to an AppTunnel session file that no longer exists and that no AppTunnel session of any Windows user still uses.
+- **Rollback no longer leaves the service behind:** a failed route is matched to its service by its session file, so the service is removed together with its files even when WireSock registered the executable path in a different form.
 
 ### Fixed in 1.0.0 beta 2
 
