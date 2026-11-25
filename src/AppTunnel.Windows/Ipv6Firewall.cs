@@ -51,6 +51,27 @@ internal static class Ipv6Firewall
         });
     }
 
+    // Removes every rule of a session folder whose application list is no longer known.
+    public static void RemoveAll(string sessionFolder)
+    {
+        var prefix = sessionFolder + " IPv6 ";
+        Apply(policy =>
+        {
+            var names = new List<string>();
+            foreach (var rule in policy.Rules)
+            {
+                if (rule.Name is string name && name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)) names.Add(name);
+            }
+            // Removal by name deletes every rule with that name, so each name is removed once.
+            names = names.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+            foreach (var name in names)
+            {
+                try { policy.Rules.Remove(name); }
+                catch (Exception error) when (error.HResult == unchecked((int)0x80070002)) { }
+            }
+        });
+    }
+
     private static string Name(TunnelSession session, int index) =>
         $"{Path.GetFileName(Path.GetDirectoryName(session.ConfigPath))} IPv6 {index}";
 
