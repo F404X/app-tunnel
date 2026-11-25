@@ -1,6 +1,7 @@
 name: Build and publish Windows release
 
-# Every push to main builds and tests AppTunnel. What gets published depends on the head commit:
+# Every push to main builds and tests AppTunnel. What gets published depends on the head commit, or, when the head is
+# a pull request merge commit, on the tip of the merged branch:
 # - "Release AppTunnel vX.Y.Z" publishes a stable release (the Latest one on GitHub).
 # - "Release AppTunnel vX.Y.Z-beta.N" publishes a beta (a prerelease).
 # - Any other push that changes the app publishes a nightly, NightlyBaseVersion-nightly.YYYYMMDD.RUN (a prerelease).
@@ -64,6 +65,13 @@ jobs:
           $base = $props.Project.PropertyGroup.NightlyBaseVersion
           if ($base -notmatch '^\d+\.\d+\.\d+$') { throw "NightlyBaseVersion must be x.y.z." }
           $subject = (git log -1 --format=%s HEAD).Trim()
+          # A pull request merged with a merge commit publishes what its branch asked for: the subject of the
+          # branch tip, so a release commit at the end of a merged branch still releases on its channel.
+          $parents = @((git log -1 --format=%P HEAD).Trim() -split ' ')
+          if ($parents.Count -gt 1 -and $subject -cmatch '^Merge pull request #\d+ ') {
+            $subject = (git log -1 --format=%s HEAD^2).Trim()
+            Write-Host "Merge commit; planning from the merged branch tip: $subject"
+          }
           if ($subject -cmatch '^Release AppTunnel v(.+)$') {
             if ($Matches[1] -cne $version) { throw "The release subject asks for v$($Matches[1]) but Directory.Build.props has $version." }
             if ($version -cmatch '^\d+\.\d+\.\d+$') { $channel = 'stable' }
