@@ -1,6 +1,14 @@
 <!-- Notes for the next stable or beta release. Edit this file in the release commit; nightly builds list their
      commits automatically. -->
-AppTunnel 1.0.0 beta 3 fixes a leftover WireSock service that blocked every new connection. Below it, the fixes from beta 2, what is new since 0.13.2 and everything AppTunnel does.
+AppTunnel 1.0.0 beta 4 keeps each update channel to its own releases, so choosing Beta after a nightly installs the newest beta. Below it, the fixes from beta 3 and beta 2, what is new since 0.13.2 and everything AppTunnel does.
+
+### Fixed in 1.0.0 beta 4
+
+- **Each update channel follows only its own releases:** Stable offers stable releases, Beta offers betas and Nightly offers nightly builds. Before, a 1.0.0 nightly counted as newer than every 1.0.0 beta, so choosing Beta after a nightly showed "Installed … is ahead of Beta" and never updated. Within a channel, versions compare by number first, then by release number.
+- **Changing channel moves to that channel:** after choosing another channel, Check for updates installs its newest release when its version number is the same or higher, such as 1.0.0-beta.4 after a 1.0.0 nightly. Automatic updates change channel only for a higher version number, and AppTunnel never moves to a lower one.
+- **Release notes follow the channel:** the update prompt and What's new show the new channel's notes from the installed version number on.
+
+**Moving from a 1.0.0 nightly to Beta:** nightly builds from before this fix still use the old comparison, so install beta 4 once with the installer from Assets. Betas update to beta 4 as usual.
 
 ### Fixed in 1.0.0 beta 3
 
