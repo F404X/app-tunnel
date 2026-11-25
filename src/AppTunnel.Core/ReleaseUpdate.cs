@@ -14,13 +14,9 @@ public sealed record ReleaseUpdate(SemVersion Version, Uri Download, string Sha2
 
     public static string ReleasesPage(int page) => $"{ReleasesApi}&page={page}";
 
-    // Stable follows only stable releases; Beta adds betas; Nightly adds nightly builds.
-    public static bool Includes(UpdateChannel channel, SemVersion version) => version.Channel switch
-    {
-        UpdateChannel.Stable => true,
-        UpdateChannel.Beta => channel is UpdateChannel.Beta or UpdateChannel.Nightly,
-        _ => channel == UpdateChannel.Nightly
-    };
+    // Each channel is independent: Stable follows only stable releases, Beta only betas and Nightly only nightly
+    // builds, so a beta and a nightly are never ranked against each other.
+    public static bool Includes(UpdateChannel channel, SemVersion version) => version.Channel == channel;
 
     // The highest release on the channel, whether or not it is newer than the installed version.
     public static ReleaseUpdate? FindBest(JsonElement releases, UpdateChannel channel, ReleaseUpdate? best = null)
@@ -69,10 +65,24 @@ public sealed record ReleaseUpdate(SemVersion Version, Uri Download, string Sha2
         return (version.IsStable ? prerelease || version < FirstStable : !prerelease) ? null : version;
     }
 
-    // The update to offer: the best release on the channel when it is newer than the installed version. The app
-    // never moves to a lower version, so a build ahead of the channel waits until the channel catches up.
-    public static ReleaseUpdate? FindNewest(JsonElement releases, SemVersion installed, UpdateChannel channel) =>
-        FindBest(releases, channel) is { } best && best.Version > installed ? best : null;
+    // The update to offer: the best release on the channel when it replaces the installed version.
+    public static ReleaseUpdate? FindNewest(JsonElement releases, SemVersion installed, UpdateChannel channel, bool switching = true) =>
+        FindBest(releases, channel) is { } best && IsUpdate(best.Version, installed, channel, switching) ? best : null;
+
+    // Within a channel, versions compare by their number first (1.0.0), then by their release number (beta.3).
+    // A build from another channel, such as a nightly after choosing Beta, moves to the selected channel's newest
+    // release of the same or a higher number. A build with a higher number than the channel offers waits until the
+    // channel catches up, so AppTunnel never goes down a version number.
+    // switching: the user asked for it (a channel change or Check for updates), so a release of the same number on
+    // the new channel replaces the build. Automatic checks move across channels only to a higher number, so two
+    // builds of one number, such as an older build that still follows other rules or the choices of two Windows
+    // accounts sharing the installation, can never replace each other in turn.
+    public static bool IsUpdate(SemVersion candidate, SemVersion installed, UpdateChannel channel, bool switching = true)
+    {
+        if (candidate == installed) return false;
+        if (Includes(channel, installed)) return candidate > installed;
+        return switching ? candidate.Numeric >= installed.Numeric : candidate.Numeric > installed.Numeric;
+    }
 
     public static bool IsDownloadUri(Uri uri) => uri.IsAbsoluteUri && uri.Scheme == Uri.UriSchemeHttps &&
         uri.IsDefaultPort && uri.UserInfo.Length == 0 &&

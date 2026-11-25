@@ -19,7 +19,7 @@ Para usar um perfil antigo cuja chave já não aparece na Proton, importe o **.c
 - **Sair da interface** encerra o aplicativo da bandeja e mantém o serviço ativo. Ao reabrir, o AppTunnel mostra o servidor em uso.
 - Na versão instalada, **Iniciar com o Windows** abre o aplicativo na bandeja ao entrar no Windows. A opção fica em **Configurações** e no menu da bandeja.
 - Use **Configurações → Verificar atualizações** para baixar e verificar a versão mais recente e confirmar quando quiser instalar.
-- Em **Configurações → Atualizações → Canal de atualização**, escolha **Estável** (padrão), **Beta** (prévias da próxima versão) ou **Nightly** (uma versão experimental a cada mudança). O AppTunnel nunca instala uma versão anterior: ao voltar para um canal mais lento, ele espera esse canal alcançar a versão instalada.
+- Em **Configurações → Atualizações → Canal de atualização**, escolha **Estável** (padrão), **Beta** (prévias da próxima versão) ou **Nightly** (uma versão experimental a cada mudança). Cada canal oferece só as próprias versões. Ao trocar de canal e usar **Verificar atualizações**, o AppTunnel instala a versão mais recente do novo canal com número igual ou maior (por exemplo, da 1.0.0-nightly para a 1.0.0-beta.3); a atualização automática só troca de canal para um número maior. Se o número instalado for maior, ele espera o canal alcançar.
 - **Desconectar VPN** encerra e remove o serviço criado para a sessão. Depois de reiniciar o Windows, conecte novamente.
 
 Os perfis são protegidos pela conta do Windows. Durante a conexão, o serviço lê a configuração da sessão de uma pasta com acesso restrito em ProgramData. O AppTunnel remove essa cópia ao desconectar. Mantenha seus arquivos `.conf` privados.

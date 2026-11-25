@@ -47,6 +47,15 @@ public static partial class ReleaseNotes
     }
 
     // The releases after one version up to and including another, on the given channel, newest first.
+    // Where the notes of an update start: after the installed version, or, for a build from another channel (a
+    // nightly moving to a beta), after the channel's last release with a lower version number, so every release of
+    // the installed number and above is shown.
+    public static SemVersion Since(IEnumerable<ReleaseNote> notes, SemVersion installed, SemVersion update, UpdateChannel channel) =>
+        ReleaseUpdate.Includes(channel, installed) && installed < update ? installed
+            : notes.Select(note => note.Version)
+                .Where(version => ReleaseUpdate.Includes(channel, version) && version.Numeric < installed.Numeric)
+                .DefaultIfEmpty(new SemVersion(0, 0, 0, [])).Max()!;
+
     public static IReadOnlyList<ReleaseNote> Between(IEnumerable<ReleaseNote> notes, SemVersion after, SemVersion upTo, UpdateChannel channel) =>
         notes.Where(note => note.Version > after && note.Version <= upTo && ReleaseUpdate.Includes(channel, note.Version))
             .DistinctBy(note => note.Version.ToString()).OrderByDescending(note => note.Version).ToArray();

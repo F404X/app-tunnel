@@ -297,7 +297,7 @@ internal sealed partial class MainForm
     // Without notes it falls back to the plain question.
     private bool ConfirmInstall(ReleaseUpdate update, SemVersion installed, UpdateChannel channel, List<ReleaseNote> notes, string prompt)
     {
-        var coming = ReleaseNotes.Between(notes, installed, update.Version, channel);
+        var coming = ReleaseNotes.Between(notes, ReleaseNotes.Since(notes, installed, update.Version, channel), update.Version, channel);
         if (coming.Count == 0) return ThemedMessage.Ask(this, prompt);
         var title = T($"AppTunnel {update.Version} is available", $"AppTunnel {update.Version} está disponível",
             $"Доступна версия AppTunnel {update.Version}");
@@ -321,7 +321,11 @@ internal sealed partial class MainForm
     private async Task ShowWhatsNewOnce(SemVersion current)
     {
         var last = SemVersion.Parse(settings.LastVersion);
-        if (NeedsSetup || last is not null && last >= current)
+        // The notes of the installed build's own channel.
+        var channel = current.Channel;
+        // Moving from a nightly to the beta of the same version number is an update too, so it gets its notes. The
+        // build's own channel decides, so choosing another channel before the notes load never hides them.
+        if (NeedsSetup || last is not null && !ReleaseUpdate.IsUpdate(current, last, current.Channel))
         {
             RememberVersion(current);
             return;
@@ -337,13 +341,13 @@ internal sealed partial class MainForm
             }
         }
         if (IsDisposed || !Visible) return;
-        var channel = Channel;
         // Versions before this feature did not record themselves; their users see the notes of this version only.
-        var since = last ?? notes.Select(note => note.Version).Where(version => version < current).DefaultIfEmpty(ReleaseUpdate.FirstStable).Max()!;
-        var news = ReleaseNotes.Between(notes, since, current, ReleaseUpdate.Includes(channel, current) ? channel : current.Channel);
+        var since = last is not null ? ReleaseNotes.Since(notes, last, current, channel)
+            : notes.Select(note => note.Version).Where(version => version < current).DefaultIfEmpty(ReleaseUpdate.FirstStable).Max()!;
+        var news = ReleaseNotes.Between(notes, since, current, channel);
         RememberVersion(current);
         if (news.Count == 0) return;
-        var history = ReleaseNotes.Between(notes, new SemVersion(0, 0, 0, []), current, ReleaseUpdate.Includes(channel, current) ? channel : current.Channel);
+        var history = ReleaseNotes.Between(notes, new SemVersion(0, 0, 0, []), current, channel);
         try
         {
             ChangelogWindow.ShowWhatsNew(this, T($"What's new in AppTunnel {current}", $"Novidades do AppTunnel {current}",
@@ -393,15 +397,16 @@ internal sealed partial class MainForm
                 updateStatus.Text = T($"No {name} release is available yet.", $"Ainda não há versão no canal {name}.", $"В канале «{name}» пока нет выпусков.");
                 return;
             }
-            // AppTunnel never installs a lower version: after leaving a faster channel it waits for this one to catch up.
-            if (update.Version < installed)
+            // A build with a higher version number than the channel offers waits for the channel to catch up; a build
+            // from another channel with the same number moves to this channel's newest release.
+            if (update.Version != installed && !ReleaseUpdate.IsUpdate(update.Version, installed, channel, switching: !automatic))
             {
                 updateStatus.Text = T($"Installed {installed} is ahead of {name} ({update.Version}); updates resume when {name} catches up.",
                     $"A versão instalada {installed} está à frente do canal {name} ({update.Version}); as atualizações voltam quando ele alcançar.",
                     $"Установленная {installed} новее канала «{name}» ({update.Version}); обновления возобновятся, когда канал догонит.");
                 return;
             }
-            if (update.Version <= installed)
+            if (update.Version == installed)
             {
                 updateStatus.Text = T($"You're using the latest {name} version.", $"Você está usando a versão mais recente do canal {name}.",
                     $"Установлена последняя версия канала «{name}».");

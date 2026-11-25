@@ -106,12 +106,15 @@ var scenarios = new (string Name, Action Check)[]
         Require(notes.Count == 4);
         var stableRange = ReleaseNotes.Between(notes, V("0.13.2"), V("0.14.0"), UpdateChannel.Stable);
         Require(stableRange.Select(note => note.Version.ToString()).SequenceEqual(["0.14.0"]));
+        // Each channel lists only its own releases.
         var nightlyRange = ReleaseNotes.Between(notes, V("0.13.2"), V("0.14.0"), UpdateChannel.Nightly);
-        Require(nightlyRange.Select(note => note.Version.ToString()).SequenceEqual(["0.14.0", "0.13.3-nightly.20261122.39", "0.13.3-beta.1"]));
+        Require(nightlyRange.Select(note => note.Version.ToString()).SequenceEqual(["0.13.3-nightly.20261122.39"]));
+        var betaRange = ReleaseNotes.Between(notes, V("0.13.2"), V("0.14.0"), UpdateChannel.Beta);
+        Require(betaRange.Select(note => note.Version.ToString()).SequenceEqual(["0.13.3-beta.1"]));
         var summary = ReleaseNotes.Summary(stableRange).Split('\n');
         Require(summary.Length == 6 && summary[0] == "• Updates install again" && summary[1] == "• Servers page" &&
             summary[2].EndsWith('…') && summary[2].Length < 115 && summary[5].Contains('1'));
-        var full = ReleaseNotes.Full(nightlyRange);
+        var full = ReleaseNotes.Full([.. stableRange, .. betaRange]);
         Require(full.StartsWith("AppTunnel 0.14.0\nUpdating from") && full.Contains("\n\nAppTunnel 0.13.3-beta.1\n• Beta change"));
         Require(ReleaseNotes.Summary([]) == "" && ReleaseNotes.Full([]) == "");
         // Only a release's first list is its changes; an overview of the whole app after it stays for Read more.
@@ -288,6 +291,35 @@ var scenarios = new (string Name, Action Check)[]
         Require(ReleaseUpdate.FindNewest(listing, V("0.14.0-nightly.20261122.124"), UpdateChannel.Stable) is null);
         Require(ReleaseUpdate.FindBest(listing, UpdateChannel.Stable)?.Version == V("0.13.0"));
         Require(ReleaseUpdate.FindNewest(listing, V("0.12.1"), UpdateChannel.Stable)?.Version == V("0.13.0"));
+        // Channels are independent: Beta never offers a stable release or a nightly, Nightly never a beta.
+        Require(ReleaseUpdate.FindBest(listing, UpdateChannel.Beta)?.Version.IsBeta == true);
+        Require(ReleaseUpdate.FindBest(listing, UpdateChannel.Nightly)?.Version.IsNightly == true);
+        Require(ReleaseUpdate.IsUpdate(V("1.0.0-nightly.20261123.49"), V("1.0.0-beta.3"), UpdateChannel.Nightly));
+        Require(!ReleaseUpdate.IsUpdate(V("1.0.0-nightly.20261123.49"), V("1.0.0-nightly.20261123.49"), UpdateChannel.Nightly));
+        // A nightly of the same version number moves to the newest beta once Beta is chosen; a higher number waits.
+        Require(ReleaseUpdate.FindNewest(listing, V("0.14.0-nightly.20261121.5"), UpdateChannel.Beta)?.Version == V("0.14.0-beta.10"));
+        Require(ReleaseUpdate.FindNewest(listing, V("0.15.0-nightly.20261121.5"), UpdateChannel.Beta) is null);
+        Require(ReleaseUpdate.IsUpdate(V("1.0.0-beta.3"), V("1.0.0-nightly.20261123.49"), UpdateChannel.Beta));
+        // Automatic checks cross channels only to a higher number, so two builds of one number never swap in turn.
+        Require(!ReleaseUpdate.IsUpdate(V("1.0.0-beta.3"), V("1.0.0"), UpdateChannel.Beta, switching: false));
+        Require(ReleaseUpdate.IsUpdate(V("1.1.0-beta.1"), V("1.0.0"), UpdateChannel.Beta, switching: false));
+        Require(ReleaseUpdate.IsUpdate(V("1.0.0-beta.4"), V("1.0.0-beta.3"), UpdateChannel.Beta, switching: false));
+        Require(!ReleaseUpdate.IsUpdate(V("1.0.0-beta.3"), V("1.0.0-beta.3"), UpdateChannel.Beta));
+        Require(!ReleaseUpdate.IsUpdate(V("1.0.0-beta.2"), V("1.0.0-beta.3"), UpdateChannel.Beta));
+        Require(ReleaseUpdate.IsUpdate(V("1.0.0"), V("1.0.0-beta.3"), UpdateChannel.Stable));
+        Require(!ReleaseUpdate.IsUpdate(V("0.13.0"), V("1.0.0-beta.3"), UpdateChannel.Stable));
+        // The install prompt and What's new show the beta's own notes after moving from a nightly.
+        var notesList = new[] { new ReleaseNote(V("0.14.0-beta.10"), "old"), new ReleaseNote(V("1.0.0-beta.2"), "b2"),
+            new ReleaseNote(V("1.0.0-beta.3"), "b3"), new ReleaseNote(V("1.0.0-nightly.20261123.49"), "n"),
+            new ReleaseNote(V("1.1.0"), "s11"), new ReleaseNote(V("1.2.0"), "s12") };
+        var since = ReleaseNotes.Since(notesList, V("1.0.0-nightly.20261123.49"), V("1.0.0-beta.3"), UpdateChannel.Beta);
+        Require(ReleaseNotes.Between(notesList, since, V("1.0.0-beta.3"), UpdateChannel.Beta).Select(note => note.Text)
+            .SequenceEqual(["b3", "b2"]));
+        Require(ReleaseNotes.Since(notesList, V("1.0.0-beta.2"), V("1.0.0-beta.3"), UpdateChannel.Beta) == V("1.0.0-beta.2"));
+        // Releases in between are never dropped when the channel changes.
+        since = ReleaseNotes.Since(notesList, V("1.0.0-nightly.20261123.49"), V("1.2.0"), UpdateChannel.Stable);
+        Require(ReleaseNotes.Between(notesList, since, V("1.2.0"), UpdateChannel.Stable).Select(note => note.Text)
+            .SequenceEqual(["s12", "s11"]));
         Require(ReleaseUpdate.IsDownloadUri(new Uri("https://release-assets.githubusercontent.com/download")));
         Require(!ReleaseUpdate.IsDownloadUri(new Uri("http://release-assets.githubusercontent.com/download")));
         Require(!ReleaseUpdate.IsDownloadUri(new Uri("https://github.com@elsewhere.example/download")));
