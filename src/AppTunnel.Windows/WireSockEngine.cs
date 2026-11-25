@@ -77,6 +77,8 @@ internal sealed partial class WireSockEngine : ITunnelEngine
         try
         {
             var previous = ReadRecord();
+            if ((previous is null || !ReferencesConfig(previous)) && OrphanedService() is { } orphan)
+                RemoveOrphanedService(orphan);
             var installed = ServiceImage() is not null;
             if (installed && (previous is null || !OwnsService(previous)))
                 throw new InvalidOperationException(T("A different WireSock service is installed. Disconnect it in its original app first.",
@@ -125,18 +127,20 @@ internal sealed partial class WireSockEngine : ITunnelEngine
         try
         {
             var session = ReadRecord();
-            if (session is null) return;
             if (stoppedSession is not null)
             {
                 // Recheck under the operation mutex: leave a session that was replaced or restarted meanwhile.
-                if (!string.Equals(session.ConfigPath, stoppedSession, StringComparison.OrdinalIgnoreCase)) return;
-                if (OwnsService(session))
+                if (session is null || !string.Equals(session.ConfigPath, stoppedSession, StringComparison.OrdinalIgnoreCase)) return;
+                if (ReferencesConfig(session))
                 {
                     using var service = new ServiceController(ServiceName);
                     if (service.Status != ServiceControllerStatus.Stopped) return;
                 }
             }
-            if (OwnsService(session)) RemoveService(session);
+            // Disconnecting, or uninstalling, must not fail because of a leftover it could not remove.
+            if (session is null || !ReferencesConfig(session)) TryRemoveOrphanedService();
+            if (session is null) return;
+            if (ReferencesConfig(session)) RemoveService(session);
             if (ServiceImage() is not null)
                 throw new InvalidOperationException(T("The installed WireSock service no longer belongs to this AppTunnel session.",
                     "O serviço WireSock instalado não pertence mais a esta sessão do AppTunnel.", "Установленная служба WireSock больше не принадлежит этому сеансу AppTunnel."));
@@ -205,9 +209,13 @@ internal sealed partial class WireSockEngine : ITunnelEngine
                 "Журнал WireSock не найден, поэтому рукопожатие не подтверждено. Подключение сохранено; если у выбранных приложений нет интернета, откройте «Диагностику»."));
     }
 
+    // Rechecked before and after stopping, so a service that was replaced meanwhile is never uninstalled.
     private void RemoveService(TunnelSession session)
     {
-        if (!OwnsService(session))
+        // The service must still run a validated WireSock executable: one repointed to another binary is never stopped.
+        bool owned() => ReferencesConfig(session) && ServiceCommand() is { } current && IsValidInstallation(current.Executable);
+        var executable = session.EnginePath;
+        if (!owned())
             throw new InvalidOperationException(T("The WireSock service configuration changed during the operation.",
                 "A configuração do serviço WireSock mudou durante a operação.", "Конфигурация службы WireSock изменилась во время операции."));
         using (var service = new ServiceController(ServiceName))
@@ -218,10 +226,10 @@ internal sealed partial class WireSockEngine : ITunnelEngine
                 service.Stop();
             service.WaitForStatus(ServiceControllerStatus.Stopped, ServiceTimeout);
         }
-        if (!OwnsService(session))
+        if (!owned())
             throw new InvalidOperationException(T("The WireSock service configuration changed during the operation.",
                 "A configuração do serviço WireSock mudou durante a operação.", "Конфигурация службы WireSock изменилась во время операции."));
-        RunTool(session.EnginePath, "uninstall");
+        RunTool(executable, "uninstall");
         var watch = Stopwatch.StartNew();
         while (ServiceImage() is not null && watch.Elapsed < ServiceTimeout) Thread.Sleep(120);
         if (ServiceImage() is not null)
@@ -233,14 +241,17 @@ internal sealed partial class WireSockEngine : ITunnelEngine
     {
         try
         {
-            if (OwnsService(session)) RemoveService(session);
+            // The service is matched by its session file alone here: when WireSock registered the executable under
+            // another spelling, the service is still this session's and must go with it. Clearing the record and the
+            // folder while it stayed registered left a service no AppTunnel session could stop or replace.
+            if (ReferencesConfig(session)) RemoveService(session);
             if (ServiceImage() is null)
             {
                 RemoveConfig(session);
                 WriteRecord(previous);
                 if (previous is not null) InstallAndStart(previous);
             }
-            else if (previous is not null && OwnsService(previous))
+            else if (previous is not null && ReferencesConfig(previous))
             {
                 RemoveConfig(session);
                 WriteRecord(previous);
@@ -248,7 +259,7 @@ internal sealed partial class WireSockEngine : ITunnelEngine
                 if (service.Status == ServiceControllerStatus.Stopped) service.Start();
                 service.WaitForStatus(ServiceControllerStatus.Running, ServiceTimeout);
             }
-            else if (!OwnsService(session))
+            else if (!ReferencesConfig(session))
             {
                 RemoveConfig(session);
                 WriteRecord(null);
@@ -348,26 +359,192 @@ internal sealed partial class WireSockEngine : ITunnelEngine
         return service?.GetValue("ImagePath") as string;
     }
 
-    private static bool OwnsService(TunnelSession session)
+    private static bool OwnsService(TunnelSession session) =>
+        ServiceCommand() is { } service && SamePath(service.Executable, session.EnginePath) &&
+        string.Equals(service.Config, session.ConfigPath, StringComparison.OrdinalIgnoreCase);
+
+    // The session file sits in a folder named after a fresh GUID with an ACL for its owner, SYSTEM and administrators,
+    // so a service whose -config is that file was registered for that session, however the executable is spelled.
+    private static bool ReferencesConfig(TunnelSession session) =>
+        ServiceCommand() is { } service && SamePath(service.Config, session.ConfigPath);
+
+    private static bool SamePath(string left, string right)
     {
-        if (ServiceImage() is not { } command) return false;
+        try { return string.Equals(Path.GetFullPath(left), Path.GetFullPath(right), StringComparison.OrdinalIgnoreCase); }
+        catch (Exception error) when (error is ArgumentException or NotSupportedException or PathTooLongException) { return false; }
+    }
+
+    private static (string Executable, string Config)? ServiceCommand() =>
+        ServiceImage() is { } command ? ParseCommand(command) : null;
+
+    // Executable and -config file of a WireSock service command line.
+    private static (string Executable, string Config)? ParseCommand(string command)
+    {
         var argv = CommandLineToArgvW(command, out var count);
-        if (argv == 0) return false;
+        if (argv == 0) return null;
         try
         {
             var executable = Marshal.PtrToStringUni(Marshal.ReadIntPtr(argv));
-            if (!string.Equals(executable, session.EnginePath, StringComparison.OrdinalIgnoreCase)) return false;
+            if (string.IsNullOrEmpty(executable)) return null;
             for (var i = 1; i < count - 1; i++)
             {
                 var argument = Marshal.PtrToStringUni(Marshal.ReadIntPtr(argv, i * nint.Size));
                 if (argument != "-config") continue;
                 var config = Marshal.PtrToStringUni(Marshal.ReadIntPtr(argv, (i + 1) * nint.Size));
-                return string.Equals(config, session.ConfigPath, StringComparison.OrdinalIgnoreCase);
+                return string.IsNullOrEmpty(config) ? null : (executable, config);
             }
-            return false;
+            return null;
         }
         finally { LocalFree(argv); }
     }
+
+    // A stopped WireSock service AppTunnel left behind: it runs wiresock-client.exe from Program Files with a session
+    // file of an AppTunnel session folder in ProgramData, that session file no longer exists and no AppTunnel record of
+    // any Windows user claims it. Nothing can start it again, no AppTunnel session can stop or replace it, and it would
+    // block every connection. A running service, or one whose session file still exists, is never treated as left over.
+    private static string? OrphanedService()
+    {
+        if (ServiceImage() is not { } command || ParseCommand(command) is not { } service) return null;
+        string executable;
+        try { executable = Path.GetFullPath(service.Executable); }
+        catch (Exception error) when (error is ArgumentException or NotSupportedException or PathTooLongException) { return null; }
+        if (!Path.GetFileName(executable).Equals(Executable, StringComparison.OrdinalIgnoreCase) ||
+            !ProgramDirectories().Any(root => IsUnder(executable, root)))
+            return null;
+        if (SafeConfigDirectory(service.Config) is null || !IsMissing(service.Config)) return null;
+        using var machine = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Registry64);
+        foreach (var path in new[] { AppRegistryPath, LegacyRegistryPath })
+        {
+            TunnelSession? recorded;
+            try { recorded = ReadSession(machine, path); }
+            catch (JsonException) { return null; }
+            if (recorded is not null && SamePath(recorded.ConfigPath, service.Config))
+                return null;
+        }
+        using var controller = new ServiceController(ServiceName);
+        try { return controller.Status == ServiceControllerStatus.Stopped ? command : null; }
+        catch (InvalidOperationException) { return null; }
+    }
+
+    // Only a file Windows reports as absent counts as missing; one this account cannot inspect may still be in use.
+    private static bool IsMissing(string path)
+    {
+        try
+        {
+            File.GetAttributes(path);
+            return false;
+        }
+        catch (Exception error) when (error is FileNotFoundException or DirectoryNotFoundException) { return true; }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
+        {
+            return false;
+        }
+    }
+
+    private void TryRemoveOrphanedService()
+    {
+        try
+        {
+            if (OrphanedService() is { } orphan) RemoveOrphanedService(orphan);
+        }
+        catch (Exception error) when (error is InvalidOperationException or Win32Exception or IOException or
+            UnauthorizedAccessException or System.ServiceProcess.TimeoutException or System.Security.SecurityException)
+        {
+            Output?.Invoke(error.Message);
+        }
+    }
+
+    private void RemoveOrphanedService(string command)
+    {
+        Output?.Invoke(T("Removing a stopped WireSock service left behind by an earlier AppTunnel session.",
+            "Removendo um serviço WireSock parado, deixado por uma sessão anterior do AppTunnel.",
+            "Удаление остановленной службы WireSock, оставшейся от предыдущего сеанса AppTunnel."));
+        // Deleted through the Service Control Manager on the handle whose command and state were just checked, so a
+        // service registered meanwhile by anything else is never removed, and no WireSock CLI is needed.
+        DeleteStoppedService(command);
+        var watch = Stopwatch.StartNew();
+        while (ServiceImage() is not null && watch.Elapsed < ServiceTimeout) Thread.Sleep(120);
+        if (ServiceImage() is not null)
+            throw new InvalidOperationException(T("Windows is still removing the WireSock service.",
+                "O Windows ainda está removendo o serviço WireSock.", "Windows ещё удаляет службу WireSock."));
+        // The service is gone; leftover IPv6 rules and an empty folder must not stop the new connection.
+        try
+        {
+            var directory = SafeConfigDirectory(ParseCommand(command)!.Value.Config)!;
+            Ipv6Firewall.RemoveAll(Path.GetFileName(directory));
+            if (Directory.Exists(directory) && (File.GetAttributes(directory) & FileAttributes.ReparsePoint) == 0 &&
+                !Directory.EnumerateFileSystemEntries(directory).Any())
+                Directory.Delete(directory);
+        }
+        catch (Exception error) when (error is InvalidOperationException or IOException or UnauthorizedAccessException)
+        {
+            Output?.Invoke(error.Message);
+        }
+    }
+
+    private static void DeleteStoppedService(string command)
+    {
+        const uint connect = 0x0001, queryConfig = 0x0001, queryStatus = 0x0004, delete = 0x10000;
+        var manager = OpenSCManager(null, null, connect);
+        if (manager == 0) throw new Win32Exception();
+        try
+        {
+            var service = OpenService(manager, ServiceName, queryConfig | queryStatus | delete);
+            if (service == 0) throw new Win32Exception();
+            try
+            {
+                if (!QueryServiceStatus(service, out var status)) throw new Win32Exception();
+                if (status.CurrentState != 1 || ConfiguredCommand(service) != command)
+                    throw new InvalidOperationException(T("The WireSock service configuration changed during the operation.",
+                        "A configuração do serviço WireSock mudou durante a operação.", "Конфигурация службы WireSock изменилась во время операции."));
+                if (!DeleteService(service)) throw new Win32Exception();
+            }
+            finally { CloseServiceHandle(service); }
+        }
+        finally { CloseServiceHandle(manager); }
+    }
+
+    private static string? ConfiguredCommand(nint service)
+    {
+        QueryServiceConfig(service, 0, 0, out var needed);
+        if (needed <= 0) throw new Win32Exception();
+        var buffer = Marshal.AllocHGlobal(needed);
+        try
+        {
+            if (!QueryServiceConfig(service, buffer, needed, out _)) throw new Win32Exception();
+            var config = Marshal.PtrToStructure<ServiceConfig>(buffer);
+            return Marshal.PtrToStringUni(config.BinaryPathName);
+        }
+        finally { Marshal.FreeHGlobal(buffer); }
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct ServiceConfig
+    {
+        public uint ServiceType, StartType, ErrorControl;
+        public nint BinaryPathName, LoadOrderGroup;
+        public uint TagId;
+        public nint Dependencies, ServiceStartName, DisplayName;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct ServiceStatusData
+    {
+        public uint ServiceType, CurrentState, ControlsAccepted, Win32ExitCode, ServiceSpecificExitCode, CheckPoint, WaitHint;
+    }
+
+    [DllImport("advapi32.dll", EntryPoint = "OpenSCManagerW", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern nint OpenSCManager(string? machine, string? database, uint access);
+    [DllImport("advapi32.dll", EntryPoint = "OpenServiceW", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern nint OpenService(nint manager, string name, uint access);
+    [DllImport("advapi32.dll", EntryPoint = "QueryServiceConfigW", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern bool QueryServiceConfig(nint service, nint buffer, int size, out int needed);
+    [DllImport("advapi32.dll", SetLastError = true)]
+    private static extern bool QueryServiceStatus(nint service, out ServiceStatusData status);
+    [DllImport("advapi32.dll", SetLastError = true)]
+    private static extern bool DeleteService(nint service);
+    [DllImport("advapi32.dll", SetLastError = true)]
+    private static extern bool CloseServiceHandle(nint handle);
 
     private void RunTool(string executable, params string[] arguments)
     {
@@ -416,6 +593,8 @@ internal sealed partial class WireSockEngine : ITunnelEngine
         using var gate = LockOperations();
         try
         {
+            // Best effort: when a leftover cannot be removed, the check below still explains what blocks the update.
+            new WireSockEngine().TryRemoveOrphanedService();
             if (ServiceImage() is not null || Process.GetProcessesByName("wiresock-client").Count(IsLiveProcess) > 0)
                 throw new InvalidOperationException(Localized.T(
                     "Disconnect the WireSock VPN and close any other WireSock client before updating.",
