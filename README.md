@@ -1,6 +1,6 @@
 # AppTunnel
 
-**English** · [Português](README.pt-BR.md)
+**English** · [Português](README.pt-BR.md) · [Русский](README.ru.md)
 
 <img src="https://raw.githubusercontent.com/F404X/app-tunnel/main/src/AppTunnel.Windows/Assets/logo.png" alt="AppTunnel logo" width="72" height="72">
 

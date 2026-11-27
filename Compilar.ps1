@@ -28,7 +28,7 @@ foreach ($project in $projects) {
 }
 
 # Assemble the complete package here so the ZIP, local installer builds and CI all ship the same files.
-Copy-Item (Join-Path $PSScriptRoot "README.md"), (Join-Path $PSScriptRoot "README.pt-BR.md"), (Join-Path $PSScriptRoot "LEIA-ME.md"), (Join-Path $PSScriptRoot "LICENSE") $staging
+Copy-Item (Join-Path $PSScriptRoot "README.md"), (Join-Path $PSScriptRoot "README.pt-BR.md"), (Join-Path $PSScriptRoot "README.ru.md"),(Join-Path $PSScriptRoot "LEIA-ME.md"), (Join-Path $PSScriptRoot "LICENSE") $staging
 Copy-Item (Join-Path $PSScriptRoot "docs") $staging -Recurse
 Copy-Item (Join-Path $PSScriptRoot "Licenses") $staging -Recurse
 Copy-Item (Join-Path $PSScriptRoot "src/AppTunnel.Windows/Fonts/*-OFL.txt") (Join-Path $staging "Licenses")
